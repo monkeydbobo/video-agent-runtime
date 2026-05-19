@@ -124,16 +124,15 @@ class TestEnsureAuthPassword:
             result = auth_module.ensure_auth_password()
             assert result == "existing-pwd"
 
-    def test_auto_generate_when_empty(self, tmp_path):
-        """AUTH_PASSWORD 为空时自动生成密码并写入 os.environ"""
+    def test_default_password_when_empty(self, tmp_path):
+        """AUTH_PASSWORD 为空时使用默认密码并写入 os.environ"""
         env = os.environ.copy()
         env.pop("AUTH_PASSWORD", None)
         env_file = tmp_path / ".env"
         env_file.write_text("SOME_VAR=value\n")
         with patch.dict(os.environ, env, clear=True):
             result = auth_module.ensure_auth_password(env_path=str(env_file))
-            assert len(result) == 16
-            assert result.isalnum()
+            assert result == auth_module.DEFAULT_AUTH_PASSWORD
             # 应该同步写入 os.environ
             assert os.environ["AUTH_PASSWORD"] == result
 
@@ -172,8 +171,7 @@ class TestEnsureAuthPassword:
         with patch.dict(os.environ, env, clear=True):
             # 父目录不存在会触发 OSError，函数不应抛异常
             password = auth_module.ensure_auth_password(env_path=str(env_file))
-            assert len(password) == 16
-            assert password.isalnum()
+            assert password == auth_module.DEFAULT_AUTH_PASSWORD
 
     def test_env_file_non_utf8_does_not_block_startup(self, tmp_path):
         """历史 .env 用 cp936 / ANSI 等本地编码时，``read_text(encoding="utf-8")``
@@ -187,8 +185,7 @@ class TestEnsureAuthPassword:
         env.pop("AUTH_PASSWORD", None)
         with patch.dict(os.environ, env, clear=True):
             password = auth_module.ensure_auth_password(env_path=str(env_file))
-            assert len(password) == 16
-            assert password.isalnum()
+            assert password == auth_module.DEFAULT_AUTH_PASSWORD
             # .env 内容未被破坏（不强制覆写避免丢用户内容）
             assert env_file.read_bytes() == "# 注释\nAUTH_PASSWORD=old\n".encode("cp936")
 

@@ -66,15 +66,14 @@ class TestEnsureAuthPasswordKillSwitch:
             assert not env_file.exists()
             assert "AUTH_PASSWORD" not in os.environ
 
-    def test_enabled_still_generates(self, tmp_path):
+    def test_enabled_still_uses_default_password(self, tmp_path):
         env_file = tmp_path / ".env"
         env = os.environ.copy()
         env.pop("AUTH_ENABLED", None)
         env.pop("AUTH_PASSWORD", None)
         with patch.dict(os.environ, env, clear=True):
             result = auth_module.ensure_auth_password(env_path=str(env_file))
-        assert result != ""
-        assert len(result) == 16
+        assert result == auth_module.DEFAULT_AUTH_PASSWORD
 
 
 class TestCheckCredentialsKillSwitch:
