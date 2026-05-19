@@ -39,7 +39,6 @@ import { CreateProjectModal } from "./CreateProjectModal";
 import { OpenClawModal } from "./OpenClawModal";
 import { rememberAssetLibraryReturnTo } from "./AssetLibraryPage";
 import { ICON_BTN_FILLED_CLS, posterGridStyle } from "@/components/ui/darkroom-tokens";
-import { BRAND } from "@/branding";
 import {
   PHASE_ORDER,
   type Phase,
@@ -808,19 +807,9 @@ function TopBar({
       }}
     >
       <div className="mx-auto flex max-w-[1320px] items-center gap-4 px-6 py-3">
-        <div className="flex items-center gap-2.5">
-          <img
-            src="/android-chrome-192x192.png"
-            alt={BRAND.name}
-            className="h-8 w-8 rounded-lg"
-          />
-          <span
-            className="font-sans text-[17px] font-medium tracking-[-0.012em] text-text"
-            aria-hidden
-          >
-            {BRAND.name}
-          </span>
-        </div>
+        <span className="font-sans text-[17px] font-medium tracking-[-0.012em] text-text">
+          {t("dashboard:lobby_brand_subtitle")}
+        </span>
 
         <label className="ml-2 flex w-[min(420px,100%)] items-center gap-2 rounded-lg border border-hairline-soft bg-bg/55 px-3 py-1.5 transition-colors focus-within:border-accent/60">
             <Search className="h-3.5 w-3.5 text-text-3" />

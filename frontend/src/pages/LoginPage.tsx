@@ -1,11 +1,10 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { useAutoFocus } from "@/hooks/useAutoFocus";
 import { errMsg, voidPromise } from "@/utils/async";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/stores/auth-store";
-import { BRAND } from "@/branding";
 import type { LoginResponse, ErrorResponse } from "@/api";
 import { FieldLabel } from "@/components/ui/FieldLabel";
 import {
@@ -29,6 +28,15 @@ export function LoginPage() {
   const [, setLocation] = useLocation();
   const login = useAuthStore((s) => s.login);
   const usernameRef = useAutoFocus<HTMLInputElement>();
+
+  // 登录页不展示产品品牌名；标签页标题也只用「登录」
+  useEffect(() => {
+    const prev = document.title;
+    document.title = t("auth:login");
+    return () => {
+      document.title = prev;
+    };
+  }, [t]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -78,9 +86,8 @@ export function LoginPage() {
           <div className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-text-4">
             system · login
           </div>
-          <h1 className="font-editorial mt-1 flex items-center justify-center gap-2 text-[28px] tracking-tight text-text">
-            <img src="/android-chrome-192x192.png" alt="" aria-hidden className="h-7 w-7" />
-            <span>{BRAND.name}</span>
+          <h1 className="font-editorial mt-1 text-[28px] tracking-tight text-text">
+            {t("auth:login")}
           </h1>
         </div>
 

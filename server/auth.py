@@ -74,6 +74,9 @@ oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token", aut
 _password_hash = PasswordHash.recommended()
 _cached_password_hash: str | None = None
 
+# AUTH_PASSWORD 未配置时使用的默认登录密码（开发/单机部署）
+DEFAULT_AUTH_PASSWORD = "cybercut2026"
+
 
 def generate_password(length: int = 16) -> str:
     """生成随机字母数字密码"""
@@ -204,7 +207,7 @@ def check_credentials(username: str, password: str) -> bool:
 def ensure_auth_password(env_path: str | None = None) -> str:
     """确保 AUTH_PASSWORD 已设置
 
-    如果 AUTH_PASSWORD 环境变量为空，自动生成密码，写入环境变量，
+    如果 AUTH_PASSWORD 环境变量为空，使用 DEFAULT_AUTH_PASSWORD，写入环境变量，
     回写到 .env 文件，并用 logger.warning 输出到控制台。
 
     ``AUTH_ENABLED=false`` 时整个步骤跳过（不生成、不回写）。
@@ -221,8 +224,7 @@ def ensure_auth_password(env_path: str | None = None) -> str:
     if password:
         return password
 
-    # 自动生成密码
-    password = generate_password()
+    password = DEFAULT_AUTH_PASSWORD
     os.environ["AUTH_PASSWORD"] = password
 
     # 回写到 .env 文件
@@ -265,7 +267,10 @@ def ensure_auth_password(env_path: str | None = None) -> str:
     except OSError:
         logger.warning("无法写入 .env 文件: %s", env_path)
 
-    logger.warning("已自动生成认证密码，请查看 .env 文件中的 AUTH_PASSWORD 字段")
+    logger.warning(
+        "AUTH_PASSWORD 未配置，已使用默认密码并回写到 .env（AUTH_PASSWORD=%s）",
+        DEFAULT_AUTH_PASSWORD,
+    )
     return password
 
 

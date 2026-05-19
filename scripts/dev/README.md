@@ -21,7 +21,7 @@ bash scripts/dev/stop.sh
 
 - **前端入口**：<http://localhost:5173>
 - **后端 API**：<http://127.0.0.1:1241>（Vite 已把 `/api` 代理过去）
-- **登录账号**：`admin` / 密码自动生成并写回 `.env` 的 `AUTH_PASSWORD`
+- **登录账号**：`admin` / `cybercut2026`（`.env` 中 `AUTH_PASSWORD` 留空时自动写入该默认值）
 - **配置 API Key**：登录后进 `/settings`
 
 ## 环境前置要求
@@ -109,10 +109,10 @@ BACKEND_PORT=2241 bash scripts/dev/start.sh
 
 ### 3. 忘了密码
 
-`.env` 里的 `AUTH_PASSWORD` 就是。想重置：清空它，重启后端会重新生成。
+`.env` 里的 `AUTH_PASSWORD` 就是（默认 `cybercut2026`）。想重置：清空它，重启后端会写回默认密码。
 
 ```bash
-# 编辑 .env，把 AUTH_PASSWORD= 后面留空
+# 编辑 .env，把 AUTH_PASSWORD= 后面留空，或设为 cybercut2026
 bash scripts/dev/stop.sh && bash scripts/dev/start.sh
 ```
 
