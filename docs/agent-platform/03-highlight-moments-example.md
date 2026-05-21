@@ -2,7 +2,7 @@
 
 Author: wanghaobo
 
-> 本章把 02 章的 **B 类接入（远端 API + 异步回调）** 套到一个真实场景上：基于公司内部已有的 [`CYBERCUT_REEL_CLIP_ENHANCE` HTTP 接口](../../../cybercut_x_wps/docs/cybercut-reel-clip-enhance-api.md) 实现一个**高光时刻 agent**。
+> 本章把 02 章的 **B 类接入（远端 API + 异步回调）** 套到一个真实场景上：基于公司内部已有的 `[CYBERCUT_REEL_CLIP_ENHANCE` HTTP 接口](../../../cybercut_x_wps/docs/cybercut-reel-clip-enhance-api.md) 实现一个**高光时刻 agent**。
 
 > 我们**不关心 cybercut 内部怎么生成高光片段**——它已经把"长视频→短视频"的工作流封装好了。本章只演示 ArcReel 这边怎么把它**当作一个 agent 能力**接进来，让用户可以用对话的方式触发：「帮我把这条 30 分钟会议剪成几条高光短视频」。
 
@@ -12,8 +12,8 @@ Author: wanghaobo
 
 ```
 ┌──────────────┐       ① 上传/绑定输入视频
-│ 用户对话框   │       ② 触发 generate_highlights tool
-│ （前端）     │
+│ 用户对话框     │       ② 触发 generate_highlights tool
+│ （前端）      │
 └──────┬───────┘
        │ 自然语言
        ▼
@@ -32,7 +32,7 @@ Author: wanghaobo
        │     ┊  时间流逝 ...
        ▼     ▼
 ┌────────────────────────────────────────────┐
-│ Kafka 回调监听器 (ArcReel 服务)             │
+│ Kafka 回调监听器 (ArcReel 服务)              │
 │  CyberCutMessage → mark_task_succeeded     │
 └──────┬─────────────────────────────────────┘
        │
@@ -521,7 +521,7 @@ user-invocable: true
 2. **配置 cybercut 基址 + topic**：在 `/settings` 页面或者直接 `INSERT INTO config` 加 `highlight.cybercut_base_url` / `highlight.callback_topic`
 3. **创建一个项目**：`POST /api/v1/projects`，名字随便（高光场景甚至不需要小说源文件，可以新建一种 content_mode=`highlight` 跳过校验）
 4. **直接调用接口（无 agent）**：
-   ```bash
+  ```bash
    curl -X POST http://localhost:1241/api/v1/highlights/callback \
         -H 'Content-Type: application/json' \
         -d '{
@@ -531,14 +531,14 @@ user-invocable: true
           "additional_params": "{\"arcreel_task_id\":\"<existing-arcreel-task-id>\"}",
           "clip_results": [...]
         }'
-   ```
+  ```
    预期 ArcReel 对应 task 立刻变 succeeded。
 5. **跑通 agent 路径**：在前端聊"把 sl/cybercut-test/input/demo.mp4 剪成高光"，观察 SSE 日志：
-   - `mcp__arcreel__generate_highlights` 被 LLM 调用
-   - cybercut 提交日志输出
-   - 任务列表里出现一条 `task_type=highlight_clip` 的任务
-   - 收到 Kafka/Webhook 回调后任务 succeeded
-   - Agent 在对话中输出 markdown 列表
+  - `mcp__arcreel__generate_highlights` 被 LLM 调用
+  - cybercut 提交日志输出
+  - 任务列表里出现一条 `task_type=highlight_clip` 的任务
+  - 收到 Kafka/Webhook 回调后任务 succeeded
+  - Agent 在对话中输出 markdown 列表
 
 ---
 
