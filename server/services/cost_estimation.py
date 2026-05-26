@@ -103,7 +103,8 @@ class CostEstimationService:
         elif isinstance(raw_ar, dict):
             aspect_ratio = raw_ar.get("storyboards", "9:16")
         else:
-            aspect_ratio = "9:16" if project_data.get("content_mode", "narration") == "narration" else "16:9"
+            mode = project_data.get("content_mode", "narration")
+            aspect_ratio = "9:16" if mode in ("narration", "marketing") else "16:9"
 
         # 预计算图片单价
         image_unit_cost: tuple[float, str] | None = None

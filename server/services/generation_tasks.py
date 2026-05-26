@@ -24,7 +24,7 @@ from lib.image_backends.base import ImageCapabilityError
 from lib.media_generator import MediaGenerator
 from lib.project_change_hints import emit_project_change_batch, project_change_source
 from lib.project_manager import ProjectManager
-from lib.prompt_builders import build_character_prompt, build_prop_prompt, build_scene_prompt
+from lib.prompt_builders import build_character_prompt, build_product_prompt, build_prop_prompt, build_scene_prompt
 from lib.prompt_utils import (
     image_prompt_to_yaml,
     is_structured_image_prompt,
@@ -354,7 +354,8 @@ def get_aspect_ratio(project: dict, resource_type: str) -> str:
         return val
     if isinstance(val, dict) and resource_type in val:
         return val[resource_type]
-    return "9:16" if project.get("content_mode", "narration") == "narration" else "16:9"
+    mode = project.get("content_mode", "narration")
+    return "9:16" if mode in ("narration", "marketing") else "16:9"
 
 
 def _normalize_storyboard_prompt(prompt: str | dict, style: str) -> str:
@@ -427,6 +428,30 @@ def _normalize_video_prompt(prompt: str | dict) -> str:
         "dialogue": normalized_dialogue,
     }
     return append_video_negative_tail(video_prompt_to_yaml(normalized_prompt))
+
+
+def _marketing_spoken_line(item: dict[str, Any]) -> str:
+    """把营销镜头的 voiceover/cta 合并为视频模型 dialogue 台词。"""
+    voiceover = str(item.get("voiceover") or "").strip()
+    cta = str(item.get("cta") or "").strip()
+    if cta and cta not in voiceover:
+        return f"{voiceover}{cta}" if voiceover.endswith(("。", "！", "？", ".", "!", "?")) else f"{voiceover}。{cta}"
+    return voiceover
+
+
+def _with_marketing_voiceover_dialogue(prompt: str | dict, item: dict[str, Any], content_mode: str) -> str | dict:
+    """旧 marketing 剧本若只填 voiceover，视频任务执行时兜底补 dialogue。"""
+    if content_mode != "marketing" or not isinstance(prompt, dict):
+        return prompt
+    dialogue = prompt.get("dialogue")
+    if isinstance(dialogue, list) and dialogue:
+        return prompt
+    line = _marketing_spoken_line(item)
+    if not line:
+        return prompt
+    patched = dict(prompt)
+    patched["dialogue"] = [{"speaker": "旁白", "line": line}]
+    return patched
 
 
 def _get_model_default_duration(provider_name: str, model_name: str | None) -> int:
@@ -808,6 +833,7 @@ async def execute_video_task(
     if not storyboard_file.exists():
         raise ValueError(f"storyboard not found: {storyboard_file.name}")
 
+    prompt = _with_marketing_voiceover_dialogue(prompt, item, str(project.get("content_mode") or "narration"))
     prompt_text = _normalize_video_prompt(prompt)
     aspect_ratio = get_aspect_ratio(project, "videos")
     seed = payload.get("seed")
@@ -937,7 +963,10 @@ async def execute_character_task(
         _char_data = _project["characters"][resource_id]
         _style = _project.get("style", "")
         _style_desc = _project.get("style_description", "")
-        _full_prompt = build_character_prompt(resource_id, prompt, _style, _style_desc)
+        if _project.get("content_mode") == "marketing":
+            _full_prompt = build_product_prompt(resource_id, prompt, _style, _style_desc)
+        else:
+            _full_prompt = build_character_prompt(resource_id, prompt, _style, _style_desc)
         _ref_images = None
         _ref_path = _char_data.get("reference_image")
         if _ref_path:

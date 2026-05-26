@@ -185,9 +185,11 @@ export function OverviewCanvas({ projectName, projectData }: OverviewCanvasProps
                 letterSpacing: "1.4px",
               }}
             >
-              {projectData.content_mode === "narration"
-                ? t("narration_visuals_mode")
-                : t("drama_animation_mode")}
+              {projectData.content_mode === "marketing"
+                ? t("marketing_visuals_mode")
+                : projectData.content_mode === "narration"
+                  ? t("narration_visuals_mode")
+                  : t("drama_animation_mode")}
             </p>
           </div>
         </header>
@@ -196,6 +198,7 @@ export function OverviewCanvas({ projectName, projectData }: OverviewCanvasProps
           <WelcomeCanvas
             projectName={projectName}
             projectTitle={projectData.title}
+            contentMode={projectData.content_mode}
             onUpload={handleUpload}
             onAnalyze={handleAnalyze}
           />

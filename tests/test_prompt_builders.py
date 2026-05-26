@@ -1,6 +1,7 @@
 from lib.prompt_builders import (
     append_video_negative_tail,
     build_character_prompt,
+    build_product_prompt,
     build_prop_prompt,
     build_scene_prompt,
     build_storyboard_suffix,
@@ -36,6 +37,15 @@ class TestCharacterPrompt:
         assert "水印" in prompt
 
 
+class TestProductPrompt:
+    def test_product_three_views(self):
+        prompt = build_product_prompt("智能手表", "圆形表盘，金属表带")
+        assert "智能手表" in prompt
+        assert "圆形表盘" in prompt
+        assert "三视图" in prompt or "多视角" in prompt
+        assert "画面避免" in prompt
+
+
 class TestScenePromptAndPropPrompt:
     def test_prop_three_views(self):
         prompt = build_prop_prompt("玉佩", "古朴温润")
@@ -58,6 +68,7 @@ class TestStoryboardSuffix:
         assert build_storyboard_suffix(aspect_ratio="16:9") == "横屏构图。"
         # 向后兼容：不传 aspect_ratio 时默认按 narration → 竖屏
         assert build_storyboard_suffix() == "竖屏构图。"
+        assert build_storyboard_suffix(content_mode="marketing") == "竖屏构图。"
 
 
 class TestVideoNegativeTail:

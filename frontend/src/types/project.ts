@@ -103,7 +103,7 @@ export interface ModelSettingEntry {
 
 export interface ProjectData {
   title: string;
-  content_mode: "narration" | "drama";
+  content_mode: "narration" | "drama" | "marketing";
   style: string;
   style_template_id?: string | null;
   style_image?: string;

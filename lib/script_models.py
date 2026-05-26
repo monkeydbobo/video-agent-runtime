@@ -72,7 +72,10 @@ class VideoPrompt(BaseModel):
     action: str = Field(description="动作描述：仅描述物理可观察动作，避免内心动词（如 陷入/回忆/意识到）")
     camera_motion: CameraMotion = Field(description="镜头运动")
     ambiance_audio: str = Field(description="环境音效：仅描述场景内的声音，禁止 BGM")
-    dialogue: list[Dialogue] = Field(default_factory=list, description="对话列表，仅当原文有引号对话时填写")
+    dialogue: list[Dialogue] = Field(
+        default_factory=list,
+        description="对话/口播列表；营销模式需把 voiceover 同步为旁白台词，供支持直出人声的视频模型朗读",
+    )
 
 
 class GeneratedAssets(BaseModel):
@@ -235,6 +238,47 @@ class ReferenceVideoUnit(BaseModel):
         return self
 
 
+# ============ 营销视频模式（Marketing） ============
+
+
+class CampaignInfo(BaseModel):
+    """营销活动来源信息（由 _add_metadata 从 project overview 注入，对 LLM 隐藏）。"""
+
+    title: str = Field(default="", description="活动/品牌标题")
+    chapter: str = Field(default="", description="广告集标签，如 第1版")
+
+
+class MarketingAdUnit(BaseModel):
+    """营销广告镜头单元。"""
+
+    unit_id: str = Field(description="广告镜头 ID，格式 E{集}A{序号} 或 E{集}A{序号}_{子序号}")
+    duration_seconds: int = Field(ge=1, le=60, description="镜头时长（秒）")
+    segment_break: bool = Field(default=False, description="是否为场景切换点")
+    hook: str = Field(description="开场钩子文案或画面意图")
+    voiceover: str = Field(description="旁白/口播文案（用于后期配音与字幕）")
+    cta: str | None = Field(default=None, description="行动号召文案（可选）")
+    products_in_unit: list[str] = Field(description="出场产品名称列表（对应 project.json characters 桶）")
+    scenes: list[str] = Field(default_factory=list, description="出场场景名称列表")
+    props: list[str] = Field(default_factory=list, description="出场配件/包装名称列表")
+    image_prompt: ImagePrompt = Field(description="分镜图生成提示词")
+    video_prompt: VideoPrompt = Field(description="视频生成提示词")
+    transition_to_next: SkipJsonSchema[TransitionType] = Field(default="cut", description="转场类型")
+    note: SkipJsonSchema[str | None] = Field(default=None, description="用户备注（不参与生成）")
+    generated_assets: SkipJsonSchema[GeneratedAssets] = Field(
+        default_factory=GeneratedAssets, description="生成资源状态"
+    )
+
+
+class MarketingAdScript(BaseModel):
+    """营销视频模式剧集脚本。"""
+
+    title: str = Field(description="广告集标题")
+    content_mode: SkipJsonSchema[Literal["marketing"]] = Field(default="marketing", description="内容模式")
+    duration_seconds: SkipJsonSchema[int] = Field(default=0, description="总时长（秒）")
+    campaign: SkipJsonSchema[CampaignInfo] = Field(default_factory=CampaignInfo, description="营销活动来源信息")
+    ad_units: list[MarketingAdUnit] = Field(description="广告镜头列表")
+
+
 class ReferenceVideoScript(BaseModel):
     """参考生视频模式剧集脚本。
 
@@ -276,18 +320,20 @@ class ScriptShape:
 SCRIPT_SHAPES: dict[str, ScriptShape] = {
     "narration": ScriptShape("segments", "segment_id", "characters_in_segment"),
     "drama": ScriptShape("scenes", "scene_id", "characters_in_scene"),
+    "marketing": ScriptShape("ad_units", "unit_id", "products_in_unit"),
 }
 
 
 def script_shape(content_mode: str) -> ScriptShape:
     """返回该 content_mode 的剧本形状。
 
-    忠实于既有二分语义（``"segments" if content_mode == "narration" else "scenes"``）：
-    只有 ``"narration"`` 返回 narration 形状，其余一切（含未知值）落 drama。
+    ``marketing`` 返回 ad_units 形状；``narration`` 返回 segments；其余（含 drama 与未知值）落 scenes。
 
     reference_video 模式用 video_units/unit_id/references 组织，结构不同，不经此分派
     （由 project_archive 的专用分支处理）。
     """
+    if content_mode == "marketing":
+        return SCRIPT_SHAPES["marketing"]
     if content_mode == "narration":
         return SCRIPT_SHAPES["narration"]
     return SCRIPT_SHAPES["drama"]

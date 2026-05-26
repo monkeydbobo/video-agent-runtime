@@ -607,6 +607,8 @@ def _get_step_files(content_mode: str, generation_mode: str | None = None) -> di
     """
     if generation_mode == "reference_video":
         return {1: "step1_reference_units.md"}
+    if content_mode == "marketing":
+        return {1: "step1_ad_units.md"}
     if content_mode == "narration":
         return {1: "step1_segments.md"}
     return {1: "step1_normalized_script.md"}
@@ -615,6 +617,7 @@ def _get_step_files(content_mode: str, generation_mode: str | None = None) -> di
 # step1 实际文件候选 —— 读取失败时用于 fallback 探测，兼容 episode 级 generation_mode 覆盖
 _STEP1_CANDIDATES = [
     "step1_reference_units.md",
+    "step1_ad_units.md",
     "step1_segments.md",
     "step1_normalized_script.md",
 ]
@@ -625,6 +628,7 @@ def _get_step_title(filename: str, _t: Callable[..., str]) -> str:
     titles = {
         "step1_normalized_script.md": _t("normalized_script"),
         "step1_segments.md": _t("segment_splitting"),
+        "step1_ad_units.md": _t("segment_splitting"),
         "step1_reference_units.md": _t("segment_splitting"),
     }
     return titles.get(filename, filename)

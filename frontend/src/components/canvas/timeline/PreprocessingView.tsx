@@ -18,7 +18,7 @@ export interface PreprocessingToolbarContext {
 interface PreprocessingViewProps {
   projectName: string;
   episode: number;
-  contentMode: "narration" | "drama" | "reference_video";
+  contentMode: "narration" | "drama" | "marketing" | "reference_video";
   /**
    * 紧凑模式：隐藏"● {statusLabel}"辅助行（当上层已显示同等语义的 page header 时避免重复），
    * 并用更克制的 markdown typography（h1/h2 字号下调、去除 h1 下划线）。
@@ -98,9 +98,11 @@ export function PreprocessingView({
   const statusLabel =
     contentMode === "narration"
       ? t("dashboard:segment_split_complete")
-      : contentMode === "drama"
-        ? t("dashboard:script_normalized_complete")
-        : t("dashboard:reference_units_split_complete_label");
+      : contentMode === "marketing"
+        ? t("dashboard:ad_units_split_complete_label")
+        : contentMode === "drama"
+          ? t("dashboard:script_normalized_complete")
+          : t("dashboard:reference_units_split_complete_label");
 
   if (loading) {
     return (

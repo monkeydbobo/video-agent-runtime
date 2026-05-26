@@ -90,6 +90,19 @@ def build_prop_prompt(name: str, description: str, style: str = "", style_descri
     )
 
 
+def build_product_prompt(name: str, description: str, style: str = "", style_description: str = "") -> str:
+    """产品设计图 prompt（三视图，营销项目写入 characters 桶）。"""
+    style_block = _style_prefix(style, style_description)
+    return (
+        f"{style_block}"
+        f"产品「{name}」的多视角展示参考图。\n\n"
+        f"{description}\n\n"
+        f"{_PROP_LAYOUT}\n\n"
+        f"三视图中产品外观、配色、材质、标识与包装细节保持一致；结构完整，焦点清晰。\n\n"
+        f"{_NEGATIVE_TAIL_ASSET}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # 分镜 / 视频 prompt 末尾增强
 # ---------------------------------------------------------------------------
@@ -111,7 +124,7 @@ def append_video_negative_tail(prompt: str) -> str:
 def build_storyboard_suffix(content_mode: str = "narration", *, aspect_ratio: str | None = None) -> str:
     """分镜图构图后缀。优先 aspect_ratio，缺省按 content_mode 推导。"""
     if aspect_ratio is None:
-        ratio = "9:16" if content_mode == "narration" else "16:9"
+        ratio = "9:16" if content_mode in ("narration", "marketing") else "16:9"
     else:
         ratio = aspect_ratio
     if ratio == "9:16":

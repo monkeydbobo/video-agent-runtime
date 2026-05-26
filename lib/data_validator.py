@@ -43,9 +43,10 @@ class DataValidator:
 
     # content_mode 严格只表达"内容类型"；"视频来源"维度由 generation_mode 字段
     # 表达，通过 project_manager.effective_mode 解析。
-    VALID_CONTENT_MODES = {"narration", "drama"}
+    VALID_CONTENT_MODES = {"narration", "drama", "marketing"}
     VALID_SHOT_DURATION_RANGE = (1, 15)
     ID_PATTERN = re.compile(r"^E\d+S\d+(?:_\d+)?$")
+    MARKETING_ID_PATTERN = re.compile(r"^E\d+A\d+(?:_\d+)?$")
     EXTERNAL_URI_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*://")
     ALLOWED_ROOT_ENTRIES = {
         "project.json",
@@ -474,6 +475,86 @@ class DataValidator:
                     errors,
                 )
 
+    def _validate_ad_units(
+        self,
+        ad_units: list[dict[str, Any]],
+        project_characters: set[str],
+        project_scenes: set[str],
+        project_props: set[str],
+        errors: list[str],
+        warnings: list[str],
+        *,
+        project_dir: Path | None = None,
+    ) -> None:
+        """验证 ad_units（marketing 模式）"""
+        if not ad_units:
+            errors.append("ad_units 数组为空")
+            return
+
+        for index, unit in enumerate(ad_units):
+            prefix = f"ad_units[{index}]"
+
+            unit_id = unit.get("unit_id")
+            if not unit_id:
+                errors.append(f"{prefix}: 缺少必填字段 unit_id")
+            elif not self.MARKETING_ID_PATTERN.match(unit_id):
+                errors.append(f"{prefix}: unit_id 格式错误 '{unit_id}'，应为 E{{n}}A{{nn}}")
+
+            duration = unit.get("duration_seconds")
+            if duration is None:
+                warnings.append(f"{prefix}: 缺少 duration_seconds，将使用默认值 4")
+            elif not isinstance(duration, int) or isinstance(duration, bool) or duration <= 0:
+                errors.append(f"{prefix}: duration_seconds 值无效 '{duration}'，必须为正整数")
+
+            if not unit.get("hook"):
+                errors.append(f"{prefix}: 缺少必填字段 hook")
+            if not unit.get("voiceover"):
+                errors.append(f"{prefix}: 缺少必填字段 voiceover")
+
+            products = unit.get("products_in_unit")
+            if products is None:
+                errors.append(f"{prefix}: 缺少必填字段 products_in_unit")
+            elif not isinstance(products, list):
+                errors.append(f"{prefix}: products_in_unit 必须是数组")
+            else:
+                invalid = set(products) - project_characters
+                if invalid:
+                    errors.append(
+                        f"{prefix}: products_in_unit 引用了不存在于 project.json 的产品: {invalid}"
+                    )
+
+            self._validate_segment_refs(
+                prefix,
+                unit.get("scenes"),
+                project_scenes,
+                errors,
+                warnings,
+                field_label="scenes",
+                kind_label="场景",
+            )
+            self._validate_segment_refs(
+                prefix,
+                unit.get("props"),
+                project_props,
+                errors,
+                warnings,
+                field_label="props",
+                kind_label="配件",
+            )
+
+            if not unit.get("image_prompt"):
+                errors.append(f"{prefix}: 缺少必填字段 image_prompt")
+            if not unit.get("video_prompt"):
+                errors.append(f"{prefix}: 缺少必填字段 video_prompt")
+
+            if project_dir is not None:
+                self._validate_generated_assets(
+                    project_dir,
+                    prefix,
+                    unit.get("generated_assets"),
+                    errors,
+                )
+
     def _validate_reference_video_script(
         self,
         video_units: list[dict[str, Any]] | Any,
@@ -594,6 +675,16 @@ class DataValidator:
         if is_reference:
             self._validate_reference_video_script(
                 episode.get("video_units", []),
+                project_characters,
+                project_scenes,
+                project_props,
+                errors,
+                warnings,
+                project_dir=project_dir,
+            )
+        elif content_mode == "marketing":
+            self._validate_ad_units(
+                episode.get("ad_units", []),
                 project_characters,
                 project_scenes,
                 project_props,

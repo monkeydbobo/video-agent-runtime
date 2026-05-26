@@ -8,7 +8,7 @@ import type { GenerationMode } from "@/utils/generation-mode";
 
 export interface WizardStep1Value {
   title: string;
-  contentMode: "narration" | "drama";
+  contentMode: "narration" | "drama" | "marketing";
   aspectRatio: "9:16" | "16:9";
   generationMode: GenerationMode;
 }
@@ -105,11 +105,31 @@ export function WizardStep1Basics({
             />
             {t("dashboard:drama_animation")}
           </label>
+          <label className={radioCardClass(value.contentMode === "marketing")}>
+            <input
+              type="radio"
+              name="contentMode"
+              value="marketing"
+              checked={value.contentMode === "marketing"}
+              onChange={() =>
+                onChange({
+                  ...value,
+                  contentMode: "marketing",
+                  aspectRatio: "9:16",
+                  generationMode: "storyboard",
+                })
+              }
+              className="sr-only"
+            />
+            {t("dashboard:marketing_video")}
+          </label>
         </div>
         <p className="mt-2 text-[11.5px] leading-[1.55] text-text-3">
           {value.contentMode === "narration"
             ? t("dashboard:content_mode_narration_desc")
-            : t("dashboard:content_mode_drama_desc")}
+            : value.contentMode === "drama"
+              ? t("dashboard:content_mode_drama_desc")
+              : t("dashboard:content_mode_marketing_desc")}
         </p>
       </div>
 

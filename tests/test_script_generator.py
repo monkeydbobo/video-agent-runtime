@@ -454,6 +454,27 @@ class TestAddMetadataInjectsHiddenFields:
         out = sg._add_metadata(dumped, episode=2)
         assert out["novel"] == {"title": "项目标题", "chapter": "第2集"}
 
+    def test_marketing_syncs_voiceover_to_video_dialogue(self, tmp_path: Path) -> None:
+        sg = self._make_generator(tmp_path, content_mode="marketing")
+        data = {
+            "title": "广告",
+            "ad_units": [
+                {
+                    "unit_id": "E1A01",
+                    "duration_seconds": 4,
+                    "voiceover": "还在找充电线？",
+                    "cta": "扫码领券。",
+                    "video_prompt": {"action": "展示产品", "camera_motion": "Static", "ambiance_audio": "轻快音效"},
+                }
+            ],
+        }
+
+        out = sg._add_metadata(data, episode=1)
+
+        assert out["ad_units"][0]["video_prompt"]["dialogue"] == [
+            {"speaker": "旁白", "line": "还在找充电线？扫码领券。"}
+        ]
+
     def test_partial_novel_only_title_is_also_reinjected(self, tmp_path: Path) -> None:
         """半填 novel(只有 title 或只有 chapter)也应触发重注入,避免 compose-video 文件名残缺。"""
         sg = self._make_generator(tmp_path, content_mode="drama")

@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import type { NarrationSegment, DramaScene } from "@/types";
+import type { NarrationSegment, DramaScene, MarketingAdUnit, TimelineContentMode } from "@/types";
 import { useAppStore } from "@/stores/app-store";
 import { ShotList } from "./ShotList";
 import { ShotDetail } from "./ShotDetail";
 
-type Segment = NarrationSegment | DramaScene;
+type Segment = NarrationSegment | DramaScene | MarketingAdUnit;
 
 interface ShotSplitViewProps {
   segments: Segment[];
-  contentMode: "narration" | "drama";
+  contentMode: TimelineContentMode;
   aspectRatio: "9:16" | "16:9";
   projectName: string;
   isGridMode?: boolean;
@@ -26,7 +26,8 @@ interface ShotSplitViewProps {
   durationOptions?: number[];
 }
 
-function getSegmentId(seg: Segment, mode: "narration" | "drama"): string {
+function getSegmentId(seg: Segment, mode: TimelineContentMode): string {
+  if (mode === "marketing") return (seg as MarketingAdUnit).unit_id;
   return mode === "narration"
     ? (seg as NarrationSegment).segment_id
     : (seg as DramaScene).scene_id;

@@ -417,7 +417,7 @@ def test_profile_misconfigured_error_is_runtime_error() -> None:
 def test_valid_content_modes_constant() -> None:
     from lib.profile_manifest import VALID_CONTENT_MODES
 
-    assert VALID_CONTENT_MODES == frozenset({"narration", "drama"})
+    assert VALID_CONTENT_MODES == frozenset({"narration", "drama", "marketing"})
 
 
 # ---------- resolve_profile_files_for_mode ----------
@@ -433,9 +433,11 @@ def _make_profile(tmp_path: Path) -> Path:
     # CLAUDE.md 变体配对
     (profile / "CLAUDE.narration.md").write_text("narration top")
     (profile / "CLAUDE.drama.md").write_text("drama top")
+    (profile / "CLAUDE.marketing.md").write_text("marketing top")
     # SKILL.md 变体配对
     (profile / ".claude" / "skills" / "manga-workflow" / "SKILL.narration.md").write_text("nar skill")
     (profile / ".claude" / "skills" / "manga-workflow" / "SKILL.drama.md").write_text("dra skill")
+    (profile / ".claude" / "skills" / "manga-workflow" / "SKILL.marketing.md").write_text("mkt skill")
     return profile
 
 
@@ -450,6 +452,15 @@ def test_resolve_for_narration_picks_narration_variants(tmp_path: Path) -> None:
         ".claude/agents/generate-assets.md": ".claude/agents/generate-assets.md",
         ".claude/skills/manga-workflow/SKILL.md": ".claude/skills/manga-workflow/SKILL.narration.md",
     }
+
+
+def test_resolve_for_marketing_picks_marketing_variants(tmp_path: Path) -> None:
+    from lib.profile_manifest import resolve_profile_files_for_mode
+
+    profile = _make_profile(tmp_path)
+    mapping = resolve_profile_files_for_mode(profile, "marketing")
+    assert mapping["CLAUDE.md"] == "CLAUDE.marketing.md"
+    assert mapping[".claude/skills/manga-workflow/SKILL.md"] == ".claude/skills/manga-workflow/SKILL.marketing.md"
 
 
 def test_resolve_for_drama_picks_drama_variants(tmp_path: Path) -> None:
@@ -597,6 +608,17 @@ def test_sync_narration_project_writes_narration_variant(tmp_path: Path) -> None
     assert not (project / "CLAUDE.drama.md").exists()
 
 
+def test_sync_marketing_project_writes_marketing_variant(tmp_path: Path) -> None:
+    from lib.profile_manifest import sync_profile_to_project
+
+    profile = _make_profile(tmp_path)
+    project = tmp_path / "marketing_proj"
+    project.mkdir()
+    sync_profile_to_project(profile, project, content_mode="marketing")
+    assert (project / "CLAUDE.md").read_text() == "marketing top"
+    assert (project / ".claude" / "skills" / "manga-workflow" / "SKILL.md").read_text() == "mkt skill"
+
+
 def test_sync_drama_project_writes_drama_variant(tmp_path: Path) -> None:
     from lib.profile_manifest import sync_profile_to_project
 
@@ -711,6 +733,15 @@ def _setup_pm_with_profile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> t
     monkeypatch.setattr(pm_module, "agent_profile_dir", lambda: profile)
     pm = pm_module.ProjectManager(projects_root=str(tmp_path / "projects"))
     return pm, profile
+
+
+def test_create_project_with_marketing_mode_materializes_marketing_variant(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pm, _ = _setup_pm_with_profile(tmp_path, monkeypatch)
+    project_dir = pm.create_project("mkt", content_mode="marketing")
+    assert (project_dir / "CLAUDE.md").read_text() == "marketing top"
+    assert (project_dir / ".claude" / "skills" / "manga-workflow" / "SKILL.md").read_text() == "mkt skill"
 
 
 def test_create_project_with_drama_mode_materializes_drama_variant(

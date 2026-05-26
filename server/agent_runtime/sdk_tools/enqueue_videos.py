@@ -94,7 +94,9 @@ def _build_video_specs(
     skip_ids: list[str] | None,
     log: list[str],
 ) -> tuple[list[TaskSpec], dict[str, int]]:
-    item_type = "片段" if content_mode == "narration" else "场景"
+    item_type = {"narration": "片段", "drama": "场景", "marketing": "广告镜头"}.get(
+        content_mode, "场景"
+    )
     skip_set = set(skip_ids or [])
 
     specs: list[TaskSpec] = []

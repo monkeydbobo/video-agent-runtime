@@ -1,0 +1,23 @@
+# 开发期 Markdown 归档（2026-05-26）
+
+改造前从仓库主路径移出，避免干扰新设计。需要时可整目录还原或按需复制单文件。
+
+## 目录
+
+openspec/                          OpenSpec 功能 spec + 已归档 change 包
+agents-skills-dot-agents/          已还原为仓库根 .agents/（2026-05-26）
+docs/agents/                       Issue tracker / triage / domain 说明
+docs/agent-platform/               Agent 平台扩展架构草稿
+docs/claude-agent-sdk-docs/        Claude Agent SDK 文档镜像
+docs/verification-reports/         参考生视频 SDK 实测报告
+docs/ark-docs/ docs/grok-docs/ docs/google-genai-docs/ docs/vidu-docs/  供应商 API/定价镜像
+docs/jianying-export-guide.md      剪映导出操作指南
+docs/README_copy.md docs/README.en.md  旧版 README 副本
+CHANGELOG.md                       历史变更日志
+
+## 仍留在主仓库的 Markdown（未归档）
+
+- CONTEXT.md、docs/adr/、docs/getting-started.md、docs/deployment.md、docs/known-issues.md
+- agent_runtime_profile/**（运行时 Agent prompt / skills，会同步进项目）
+- README.md、CONTRIBUTING.md、AGENTS.md、CLAUDE.md
+- .github/ISSUE_TEMPLATE/

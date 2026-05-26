@@ -1,6 +1,6 @@
 # 生成模式参考
 
-ArcReel 把"做什么内容"和"怎么生成视频"拆成两条独立维度。`content_mode` 严格表达**内容类型**（narration / drama），`generation_mode` 表达**视频来源 / 生成路径**（storyboard / grid / reference_video）。组合上可枚举如下；参考生视频路径下内容类型仅作画面比例 / 默认时长等次级决策。
+ArcReel 把"做什么内容"和"怎么生成视频"拆成两条独立维度。`content_mode` 表达**内容类型**（narration / drama / marketing），`generation_mode` 表达**视频来源 / 生成路径**（storyboard / grid / reference_video）。
 
 ## 模式矩阵
 
@@ -8,6 +8,7 @@ ArcReel 把"做什么内容"和"怎么生成视频"拆成两条独立维度。`c
 |---|---|---|---|---|---|
 | `storyboard` | `narration` | `segments[]` | split-narration-segments | NarrationEpisodeScript | 每片段一张分镜图作起始帧 |
 | `storyboard` | `drama` | `scenes[]` | normalize-drama-script | DramaEpisodeScript | 每场景一张分镜图作起始帧 |
+| `storyboard` | `marketing` | `ad_units[]` | split-marketing-ad-units | MarketingAdScript | 每广告镜头一张分镜图作起始帧 |
 | `grid` | `narration` | `segments[]` + 宫格分组 | split-narration-segments | NarrationEpisodeScript | 宫格图切块 |
 | `grid` | `drama` | `scenes[]` + 宫格分组 | normalize-drama-script | DramaEpisodeScript | 宫格图切块 |
 | `reference_video` | `narration` / `drama` | `video_units[]` | split-reference-video-units | ReferenceVideoScript | 角色 / 场景 / 道具 sheet 图直接作为 `reference_images` |
@@ -22,6 +23,7 @@ Step 3 预处理（按 effective_mode(project, episode) 分派）
   generation_mode ∈ {storyboard, grid}：
     content_mode = narration               → dispatch split-narration-segments
     content_mode = drama                   → dispatch normalize-drama-script
+    content_mode = marketing               → dispatch split-marketing-ad-units
 
 Step 4 JSON 剧本
   → dispatch create-episode-script（内部按 generation_mode 选 schema）
@@ -66,4 +68,4 @@ projects/{name}/          # ← session cwd 已在此
 └── videos/               # storyboard / grid 模式视频输出
 ```
 
-> 参考 `docs/google-genai-docs/nano-banana.md` 第 365 行起的 Prompting guide and strategies。
+> 文生图 prompt 策略可参考 Google GenAI 官方 Prompting guide（历史镜像：`_archive/dev-md-backup/docs/google-genai-docs/nano-banana.md`）。

@@ -37,18 +37,22 @@ class StatusCalculator:
         generation_mode = script.get("generation_mode")
         if generation_mode == "reference_video":
             return "reference_video", script.get("video_units") or []
+        if content_mode == "marketing" and isinstance(script.get("ad_units"), list):
+            return "marketing", script.get("ad_units", [])
         if content_mode in {"narration", "drama"}:
             if content_mode == "narration" and isinstance(script.get("segments"), list):
                 return "narration", script.get("segments", [])
             if content_mode == "drama" and isinstance(script.get("scenes"), list):
                 return "drama", script.get("scenes", [])
 
+        if isinstance(script.get("ad_units"), list):
+            return "marketing", script.get("ad_units", [])
         if isinstance(script.get("segments"), list):
             return "narration", script.get("segments", [])
         if isinstance(script.get("scenes"), list):
             return "drama", script.get("scenes", [])
 
-        return ("narration" if content_mode not in {"narration", "drama"} else content_mode), []
+        return ("narration" if content_mode not in {"narration", "drama", "marketing"} else content_mode), []
 
     def calculate_episode_stats(self, project_name: str, script: dict) -> dict:
         """计算单集的统计信息 — 按 content_mode 分派。"""
@@ -57,7 +61,7 @@ class StatusCalculator:
         if content_mode == "reference_video":
             return self._calculate_reference_video_stats(items)
 
-        default_duration = 4 if content_mode == "narration" else 8
+        default_duration = 4 if content_mode in ("narration", "marketing") else 8
         storyboard_done = sum(1 for i in items if i.get("generated_assets", {}).get("storyboard_image"))
         video_done = sum(1 for i in items if i.get("generated_assets", {}).get("video_clip"))
         total = len(items)
@@ -138,7 +142,12 @@ class StatusCalculator:
                 safe_num = int(episode_num)
             except (ValueError, TypeError):
                 return "none", None
-            draft_filename = "step1_segments.md" if content_mode == "narration" else "step1_normalized_script.md"
+            if content_mode == "marketing":
+                draft_filename = "step1_ad_units.md"
+            elif content_mode == "narration":
+                draft_filename = "step1_segments.md"
+            else:
+                draft_filename = "step1_normalized_script.md"
             draft_file = project_dir / f"drafts/episode_{safe_num}/{draft_filename}"
             return ("segmented" if draft_file.exists() else "none"), None
         except ValueError as e:

@@ -33,6 +33,7 @@ from lib.config.resolver import ConfigResolver
 from lib.db import async_session_factory
 from lib.i18n import Translator
 from lib.profile_manifest import ContentMode
+from lib.script_models import script_shape
 from lib.project_change_hints import project_change_source
 from lib.project_manager import ProjectManager
 from lib.status_calculator import StatusCalculator
@@ -841,6 +842,7 @@ class UpdateSegmentRequest(BaseModel):
     transition_to_next: str | None = None
     note: str | None = None
     characters_in_segment: list[str] | None = None
+    products_in_unit: list[str] | None = None
     scenes: list[str] | None = None
     props: list[str] | None = None
 
@@ -864,30 +866,38 @@ async def update_segment(name: str, segment_id: str, req: UpdateSegmentRequest, 
             matched_segment: dict[str, Any] | None = None
             with project_change_source("webui"):
                 with manager.locked_script(name, req.script_file) as script:
-                    # 检查是否为说书模式：仅 narration 且含 segments 键才放行；
-                    # drama 脚本即使残留 segments 键也拒绝，避免被当 narration 改写
-                    if script.get("content_mode") != "narration" or "segments" not in script:
+                    mode = str(script.get("content_mode") or "narration")
+                    shape = script_shape(mode)
+                    if shape.items_key not in script:
                         raise HTTPException(status_code=400, detail=_t("narration_mode_required"))
 
-                    for segment in script.get("segments", []):
-                        if segment.get("segment_id") == segment_id:
-                            matched_segment = segment
-                            if req.duration_seconds is not None:
-                                segment["duration_seconds"] = req.duration_seconds
-                            if req.segment_break is not None:
-                                segment["segment_break"] = req.segment_break
-                            if req.image_prompt is not None:
-                                segment["image_prompt"] = req.image_prompt
-                            if req.video_prompt is not None:
-                                segment["video_prompt"] = req.video_prompt
-                            if req.transition_to_next is not None:
-                                segment["transition_to_next"] = req.transition_to_next
-                            if "note" in req.model_fields_set:
-                                segment["note"] = req.note
-                            for field in ("characters_in_segment", "scenes", "props"):
-                                if field in req.model_fields_set:
-                                    segment[field] = getattr(req, field) or []
-                            break
+                    for item in script.get(shape.items_key, []):
+                        if item.get(shape.id_field) != segment_id:
+                            continue
+                        matched_segment = item
+                        if req.duration_seconds is not None:
+                            item["duration_seconds"] = req.duration_seconds
+                        if req.segment_break is not None:
+                            item["segment_break"] = req.segment_break
+                        if req.image_prompt is not None:
+                            item["image_prompt"] = req.image_prompt
+                        if req.video_prompt is not None:
+                            item["video_prompt"] = req.video_prompt
+                        if req.transition_to_next is not None:
+                            item["transition_to_next"] = req.transition_to_next
+                        if "note" in req.model_fields_set:
+                            item["note"] = req.note
+                        if "scenes" in req.model_fields_set:
+                            item["scenes"] = req.scenes or []
+                        if "props" in req.model_fields_set:
+                            item["props"] = req.props or []
+                        if shape.chars_field == "products_in_unit" and "products_in_unit" in req.model_fields_set:
+                            item["products_in_unit"] = req.products_in_unit or []
+                        elif shape.chars_field == "characters_in_segment" and "characters_in_segment" in req.model_fields_set:
+                            item["characters_in_segment"] = req.characters_in_segment or []
+                        elif shape.chars_field == "characters_in_scene" and "characters_in_segment" in req.model_fields_set:
+                            item["characters_in_scene"] = req.characters_in_segment or []
+                        break
 
                     if matched_segment is None:
                         raise HTTPException(status_code=404, detail=_t("segment_not_found", id=segment_id))

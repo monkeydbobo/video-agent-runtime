@@ -112,7 +112,7 @@ class CostCalculator:
     DEFAULT_ARK_VIDEO_MODEL = "doubao-seedance-1-5-pro-251215"
 
     # Grok 视频费用（美元/秒），不区分分辨率
-    # 来源：docs/grok-docs/models.md — $0.050/sec
+    # 来源：Grok 官方定价（历史镜像见 _archive/dev-md-backup/docs/grok-docs/models.md）— $0.050/sec
     GROK_VIDEO_COST = {
         "grok-imagine-video": 0.050,
     }
@@ -136,7 +136,7 @@ class CostCalculator:
     DEFAULT_GROK_IMAGE_MODEL = "grok-imagine-image"
 
     # Gemini 文本 token 费率（美元/百万 token），Standard paid tier、prompt ≤200K 区间
-    # 来源：docs/google-genai-docs/pricing.md
+    # 来源：Google GenAI 定价页（历史镜像见 _archive/dev-md-backup/docs/google-genai-docs/pricing.md）
     GEMINI_TEXT_COST = {
         "gemini-3.1-pro-preview": {"input": 2.00, "output": 12.00},
         "gemini-3-flash-preview": {"input": 0.50, "output": 3.00},
@@ -144,7 +144,7 @@ class CostCalculator:
     }
 
     # Ark 文本 token 费率（元/百万 token），在线推理、输入 [0, 32k] 区间
-    # 来源：docs/ark-docs/火山方舟费用参考.md
+    # 来源：火山方舟定价（历史镜像见 _archive/dev-md-backup/docs/ark-docs/火山方舟费用参考.md）
     # 注：doubao-seed-1-8 输出价格分段（[0,0.2]k: 2.00；超出: 8.00），此处按基础价 2.00 计
     ARK_TEXT_COST = {
         "doubao-seed-2-0-pro-260215": {"input": 3.20, "output": 16.00},
@@ -154,7 +154,7 @@ class CostCalculator:
     }
 
     # Grok 文本 token 费率（美元/百万 token）
-    # 来源：docs/grok-docs/models.md
+    # 来源：Grok 官方定价（历史镜像见 _archive/dev-md-backup/docs/grok-docs/models.md）
     GROK_TEXT_COST = {
         "grok-4-1-fast-reasoning": {"input": 0.20, "output": 0.50},
         "grok-4-1-fast-non-reasoning": {"input": 0.20, "output": 0.50},

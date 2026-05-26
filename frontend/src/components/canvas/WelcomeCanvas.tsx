@@ -23,6 +23,7 @@ export type UploadPhase = "loading" | "idle" | "has_sources" | "uploading" | "an
 interface WelcomeCanvasProps {
   projectName: string;
   projectTitle?: string;
+  contentMode?: "narration" | "drama" | "marketing";
   onUpload?: (file: File) => Promise<void>;
   onAnalyze?: () => Promise<void>;
 }
@@ -41,6 +42,7 @@ const CARD_SHADOW =
 export function WelcomeCanvas({
   projectName,
   projectTitle,
+  contentMode = "narration",
   onUpload,
   onAnalyze,
 }: WelcomeCanvasProps) {
@@ -53,6 +55,12 @@ export function WelcomeCanvas({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sourceFilesVersion = useAppStore((s) => s.sourceFilesVersion);
   const displayProjectTitle = getProjectDisplayName(projectTitle, t("untitled_project"));
+  const isMarketing = contentMode === "marketing";
+  const welcomeIdleDesc = isMarketing ? t("welcome_idle_desc_marketing") : t("welcome_idle_desc");
+  const welcomeHasSourcesDesc = isMarketing
+    ? t("welcome_has_sources_desc_marketing")
+    : t("welcome_has_sources_desc");
+  const analyzingDesc = isMarketing ? t("analyzing_content_desc_marketing") : t("analyzing_content_desc");
 
   // 拉取已有源文件，决定初始 phase
   useEffect(() => {
@@ -194,10 +202,10 @@ export function WelcomeCanvas({
           className="mt-2 text-[13px] leading-relaxed"
           style={{ color: "var(--color-text-3)" }}
         >
-          {phase === "idle" && t("welcome_idle_desc")}
-          {phase === "has_sources" && t("welcome_has_sources_desc")}
+          {phase === "idle" && welcomeIdleDesc}
+          {phase === "has_sources" && welcomeHasSourcesDesc}
           {phase === "uploading" && t("uploading_file", { name: fileName })}
-          {phase === "analyzing" && t("analyzing_content_desc")}
+          {phase === "analyzing" && analyzingDesc}
           {phase === "done" && t("analysis_complete_loading")}
         </p>
       </header>

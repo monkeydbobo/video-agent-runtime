@@ -343,6 +343,7 @@ class TestFilesRouter:
         assert files._extract_step_number("not-match.md") == 0
         assert files._get_step_files("narration") == {1: "step1_segments.md"}
         assert files._get_step_files("drama") == {1: "step1_normalized_script.md"}
+        assert files._get_step_files("marketing") == {1: "step1_ad_units.md"}
         # reference_video 走独立的 step1 文件
         assert files._get_step_files("drama", "reference_video") == {1: "step1_reference_units.md"}
         assert files._get_step_files("narration", "reference_video") == {1: "step1_reference_units.md"}

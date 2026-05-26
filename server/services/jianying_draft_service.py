@@ -63,9 +63,11 @@ class JianyingDraftService:
 
     def _collect_video_clips(self, script: dict, project_dir: Path) -> list[dict[str, Any]]:
         """从剧本中提取已完成视频的片段列表"""
+        from lib.storyboard_sequence import get_storyboard_items
+
         content_mode = script.get("content_mode", "narration")
-        items = script.get("segments" if content_mode == "narration" else "scenes", [])
-        id_field = "segment_id" if content_mode == "narration" else "scene_id"
+        items, id_field, _, _, _ = get_storyboard_items(script)
+        subtitle_field = "voiceover" if content_mode == "marketing" else "novel_text"
 
         clips = []
         for item in items:
@@ -87,7 +89,7 @@ class JianyingDraftService:
                     "duration_seconds": item.get("duration_seconds", 8),
                     "video_clip": video_clip,
                     "abs_path": abs_path,
-                    "novel_text": item.get("novel_text", ""),
+                    "novel_text": item.get(subtitle_field, ""),
                     "transition_to_next": item.get("transition_to_next", "cut"),
                 }
             )
@@ -128,7 +130,7 @@ class JianyingDraftService:
         script_file.add_track(TrackType.video)
 
         # 字幕轨（仅 narration 模式）
-        has_subtitle = content_mode == "narration"
+        has_subtitle = content_mode in ("narration", "marketing")
         text_style: TextStyle | None = None
         text_border: TextBorder | None = None
         text_shadow: TextShadow | None = None

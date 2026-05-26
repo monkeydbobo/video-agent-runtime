@@ -10,11 +10,11 @@ import {
 import { useProjectsStore } from "@/stores/projects-store";
 import { WARM_TONE } from "@/utils/severity-tone";
 
-type CharField = "characters_in_segment" | "characters_in_scene";
+type CharField = "characters_in_segment" | "characters_in_scene" | "products_in_unit";
 
 interface ReferencesSectionProps {
   projectName: string;
-  contentMode: "narration" | "drama";
+  contentMode: "narration" | "drama" | "marketing";
   characterNames: string[];
   sceneNames: string[];
   propNames: string[];
@@ -50,7 +50,11 @@ export function ReferencesSection({
   const [open, setOpen] = useState(false);
 
   const charField: CharField =
-    contentMode === "drama" ? "characters_in_scene" : "characters_in_segment";
+    contentMode === "marketing"
+      ? "products_in_unit"
+      : contentMode === "drama"
+        ? "characters_in_scene"
+        : "characters_in_segment";
 
   const totalCount = characterNames.length + sceneNames.length + propNames.length;
   const isEmpty = totalCount === 0;

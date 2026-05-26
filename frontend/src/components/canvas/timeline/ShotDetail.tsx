@@ -12,6 +12,8 @@ import {
 import type {
   NarrationSegment,
   DramaScene,
+  MarketingAdUnit,
+  TimelineContentMode,
   ImagePrompt,
   VideoPrompt,
   Dialogue,
@@ -32,14 +34,14 @@ import {
 } from "@/utils/prompt-shape";
 import { isContinuousIntegerRange } from "@/utils/duration_format";
 
-type Segment = NarrationSegment | DramaScene;
+type Segment = NarrationSegment | DramaScene | MarketingAdUnit;
 type ImagePromptValue = ImagePrompt | string;
 type VideoPromptValue = VideoPrompt | string;
 
 interface ShotDetailProps {
   segment: Segment;
   segmentId: string;
-  contentMode: "narration" | "drama";
+  contentMode: TimelineContentMode;
   aspectRatio: "9:16" | "16:9";
   projectName: string;
   isGridMode?: boolean;
@@ -62,9 +64,26 @@ interface ShotDetailProps {
   durationOptions?: number[];
 }
 
-function getNovelText(seg: Segment, mode: "narration" | "drama"): string {
+function getNovelText(seg: Segment, mode: TimelineContentMode): string {
+  if (mode === "marketing") {
+    const u = seg as MarketingAdUnit;
+    return u.voiceover || u.hook || "";
+  }
   if (mode === "narration") return (seg as NarrationSegment).novel_text || "";
   return "";
+}
+
+function marketingVoiceoverDialogue(seg: Segment, mode: TimelineContentMode): Dialogue[] {
+  if (mode !== "marketing") return [];
+  const unit = seg as MarketingAdUnit;
+  const voiceover = unit.voiceover?.trim() ?? "";
+  const cta = unit.cta?.trim() ?? "";
+  if (!voiceover && !cta) return [];
+  const line =
+    voiceover && cta && !voiceover.includes(cta)
+      ? `${voiceover}${/[。！？.!?]$/.test(voiceover) ? "" : "。"}${cta}`
+      : voiceover || cta;
+  return [{ speaker: "旁白", line }];
 }
 
 interface DraftState {
@@ -351,6 +370,8 @@ export function ShotDetail({
   const vidDraft: VideoPrompt | null = isStructVp
     ? (draft.video_prompt as VideoPrompt)
     : null;
+  const displayDialogue =
+    vidDraft && (vidDraft.dialogue?.length ? vidDraft.dialogue : marketingVoiceoverDialogue(segment, contentMode));
 
   const handleImgUpdate = (patch: Partial<ImagePrompt>) => {
     setDraft((d) => {
@@ -417,9 +438,11 @@ export function ShotDetail({
   const dirtyHint = t("shot_detail_save_first");
 
   const characterNames =
-    contentMode === "drama"
-      ? (segment as DramaScene).characters_in_scene ?? []
-      : (segment as NarrationSegment).characters_in_segment ?? [];
+    contentMode === "marketing"
+      ? (segment as MarketingAdUnit).products_in_unit ?? []
+      : contentMode === "drama"
+        ? (segment as DramaScene).characters_in_scene ?? []
+        : (segment as NarrationSegment).characters_in_segment ?? [];
   const sceneNames = segment.scenes ?? [];
   const propNames = segment.props ?? [];
   const refsReadOnly = !onUpdatePrompt;
@@ -454,7 +477,7 @@ export function ShotDetail({
         </div>
         {vidDraft ? (
           <DialogueListEditor
-            dialogue={vidDraft.dialogue ?? []}
+            dialogue={displayDialogue ?? []}
             onChange={handleDialogueChange}
           />
         ) : (
@@ -470,7 +493,7 @@ export function ShotDetail({
         )}
       </div>
 
-      {(novelText || contentMode === "narration") && (
+      {(novelText || contentMode === "narration" || contentMode === "marketing") && (
         <div>
           <div
             className="mb-2 text-[10.5px] font-bold uppercase"

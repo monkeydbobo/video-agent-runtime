@@ -226,6 +226,15 @@ class TestGenerationTasks:
         with pytest.raises(ValueError):
             generation_tasks._normalize_video_prompt("   ")
 
+    def test_marketing_voiceover_backfills_video_dialogue(self):
+        prompt = {"action": "展示产品", "camera_motion": "Static", "ambiance_audio": "轻快音效"}
+        item = {"voiceover": "还在找充电线？", "cta": "扫码领券。"}
+
+        patched = generation_tasks._with_marketing_voiceover_dialogue(prompt, item, "marketing")
+
+        assert patched["dialogue"] == [{"speaker": "旁白", "line": "还在找充电线？扫码领券。"}]
+        assert "dialogue" not in prompt
+
     async def test_execute_task_dispatch(self, tmp_path, monkeypatch):
         project_path = _prepare_files(tmp_path)
         fake_pm = _FakePM(project_path)

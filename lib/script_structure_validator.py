@@ -20,6 +20,7 @@ from pydantic_core import ErrorDetails
 from lib.data_validator import ValidationResult
 from lib.script_models import (
     DramaEpisodeScript,
+    MarketingAdScript,
     NarrationEpisodeScript,
     ReferenceVideoScript,
 )
@@ -45,6 +46,8 @@ def _select_model(script: dict[str, Any]) -> type[BaseModel]:
     if script.get("generation_mode") == "reference_video" or "video_units" in script:
         return ReferenceVideoScript
     content_mode = script.get("content_mode")
+    if content_mode == "marketing" or "ad_units" in script:
+        return MarketingAdScript
     if content_mode == "drama":
         return DramaEpisodeScript
     if content_mode == "narration":

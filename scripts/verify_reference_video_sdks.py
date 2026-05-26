@@ -73,7 +73,7 @@ def parse_args(argv: list[str] | None = None) -> Args:
     p.add_argument(
         "--report-dir",
         type=Path,
-        default=Path("docs/verification-reports"),
+        default=Path("_archive/dev-md-backup/docs/verification-reports"),
         help="Directory to write Markdown report",
     )
     ns = p.parse_args(argv)

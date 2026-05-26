@@ -10,12 +10,14 @@ import type {
   EpisodeScript,
   NarrationEpisodeScript,
   DramaEpisodeScript,
+  MarketingAdScript,
   NarrationSegment,
   DramaScene,
+  MarketingAdUnit,
   ProjectData,
 } from "@/types";
 
-type Segment = NarrationSegment | DramaScene;
+type Segment = NarrationSegment | DramaScene | MarketingAdUnit;
 
 interface TimelineCanvasProps {
   projectName: string;
@@ -82,7 +84,7 @@ export function TimelineCanvas({
     typeof projectData?.aspect_ratio === "string"
       ? projectData.aspect_ratio
       : projectData?.aspect_ratio?.storyboard ??
-        (contentMode === "narration" ? "9:16" : "16:9");
+        (contentMode === "narration" || contentMode === "marketing" ? "9:16" : "16:9");
   const aspectRatio: "9:16" | "16:9" =
     rawAspect === "9:16" || rawAspect === "16:9" ? rawAspect : "16:9";
 
@@ -90,9 +92,11 @@ export function TimelineCanvas({
     () =>
       !episodeScript || !projectData
         ? []
-        : contentMode === "narration"
-          ? ((episodeScript as NarrationEpisodeScript).segments ?? [])
-          : ((episodeScript as DramaEpisodeScript).scenes ?? []),
+        : contentMode === "marketing"
+          ? ((episodeScript as MarketingAdScript).ad_units ?? [])
+          : contentMode === "narration"
+            ? ((episodeScript as NarrationEpisodeScript).segments ?? [])
+            : ((episodeScript as DramaEpisodeScript).scenes ?? []),
     [contentMode, episodeScript, projectData],
   );
 

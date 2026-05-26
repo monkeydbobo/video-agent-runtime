@@ -21,6 +21,7 @@ from lib.project_manager import effective_mode
 from lib.prompt_builders_reference import build_reference_video_prompt
 from lib.prompt_builders_script import (
     build_drama_prompt,
+    build_marketing_prompt,
     build_narration_prompt,
 )
 from lib.reference_video.limits import (
@@ -30,6 +31,7 @@ from lib.reference_video.limits import (
 )
 from lib.script_models import (
     DramaEpisodeScript,
+    MarketingAdScript,
     NarrationEpisodeScript,
     ReferenceVideoScript,
 )
@@ -42,9 +44,9 @@ logger = logging.getLogger(__name__)
 # 注意：受各模型硬上限约束（如 doubao-seed-1-8 ~8192），需选择支持 ≥16K 输出的模型。
 SCRIPT_MAX_OUTPUT_TOKENS = 32000
 
-# 集号前缀正则：仅匹配 `E{数字}` + 紧随 S/U（segment/scene 用 S，video_unit 用 U），
+# 集号前缀正则：仅匹配 `E{数字}` + 紧随 S/U/A（segment/scene/ad_unit/video_unit），
 # 保留后缀（如 `E1S03_2` → `E2S03_2`）。设计契约见 lib/script_models.py。
-_EID_PREFIX_RE = re.compile(r"^E\d+(?=[SU])")
+_EID_PREFIX_RE = re.compile(r"^E\d+(?=[SUA])")
 
 # 质量探针阈值：仅捕极端短样本，正常完整描述应远超这些值。
 _QUALITY_PROBE_SCENE_MIN_LEN = 40
@@ -63,6 +65,36 @@ def _rewrite_episode_prefix(rid: object, ep: int) -> object:
     if n and new_rid != rid:
         logger.warning("episode prefix rewritten: %s → %s", rid, new_rid)
     return new_rid
+
+
+def _marketing_spoken_line(unit: dict) -> str:
+    """把营销镜头的口播与 CTA 合并成视频模型可朗读的一句台词。"""
+    voiceover = str(unit.get("voiceover") or "").strip()
+    cta = str(unit.get("cta") or "").strip()
+    if cta and cta not in voiceover:
+        return f"{voiceover}{cta}" if voiceover.endswith(("。", "！", "？", ".", "!", "?")) else f"{voiceover}。{cta}"
+    return voiceover
+
+
+def _sync_marketing_voiceover_dialogue(script_data: dict) -> None:
+    """确保 marketing 的 voiceover 同步进入 video_prompt.dialogue。
+
+    Doubao Seedance 等视频模型会根据 video_prompt.dialogue 直出人声；顶层
+    voiceover 仍保留给字幕/剪映，但不能只写在顶层。
+    """
+    for unit in script_data.get("ad_units") or []:
+        if not isinstance(unit, dict):
+            continue
+        line = _marketing_spoken_line(unit)
+        if not line:
+            continue
+        prompt = unit.setdefault("video_prompt", {})
+        if not isinstance(prompt, dict):
+            continue
+        dialogue = prompt.get("dialogue")
+        if isinstance(dialogue, list) and dialogue:
+            continue
+        prompt["dialogue"] = [{"speaker": "旁白", "line": line}]
 
 
 class ScriptGenerator:
@@ -145,6 +177,21 @@ class ScriptGenerator:
                 episode=episode,
             )
             schema = ReferenceVideoScript
+        elif self.content_mode == "marketing":
+            prompt = build_marketing_prompt(
+                project_overview=self.project_json.get("overview", {}),
+                style=self.project_json.get("style", ""),
+                style_description=self.project_json.get("style_description", ""),
+                characters=characters,
+                scenes=scenes,
+                props=props,
+                ad_units_md=step1_md,
+                supported_durations=self._resolve_supported_durations(caps),
+                default_duration=self.project_json.get("default_duration"),
+                aspect_ratio=self._resolve_aspect_ratio(),
+                episode=episode,
+            )
+            schema = MarketingAdScript
         elif self.content_mode == "narration":
             prompt = build_narration_prompt(
                 project_overview=self.project_json.get("overview", {}),
@@ -238,6 +285,20 @@ class ScriptGenerator:
                 aspect_ratio=self._resolve_aspect_ratio(),
                 episode=episode,
             )
+        if self.content_mode == "marketing":
+            return build_marketing_prompt(
+                project_overview=self.project_json.get("overview", {}),
+                style=self.project_json.get("style", ""),
+                style_description=self.project_json.get("style_description", ""),
+                characters=characters,
+                scenes=scenes,
+                props=props,
+                ad_units_md=step1_md,
+                supported_durations=self._resolve_supported_durations(caps),
+                default_duration=self.project_json.get("default_duration"),
+                aspect_ratio=self._resolve_aspect_ratio(),
+                episode=episode,
+            )
         elif self.content_mode == "narration":
             return build_narration_prompt(
                 project_overview=self.project_json.get("overview", {}),
@@ -317,7 +378,7 @@ class ScriptGenerator:
         """解析项目的 aspect_ratio，向后兼容。"""
         if "aspect_ratio" in self.project_json and isinstance(self.project_json["aspect_ratio"], str):
             return self.project_json["aspect_ratio"]
-        return "9:16" if self.content_mode == "narration" else "16:9"
+        return "9:16" if self.content_mode in ("narration", "marketing") else "16:9"
 
     def _resolve_max_refs(self, caps: dict | None = None) -> int:
         """按 provider 粗粒度解析最大参考图数。数值来源：`lib.reference_video.limits`。"""
@@ -345,6 +406,9 @@ class ScriptGenerator:
         gen_mode = self._effective_generation_mode(episode)
         if gen_mode == "reference_video":
             primary_path = drafts_path / "step1_reference_units.md"
+            fallback_path = None
+        elif self.content_mode == "marketing":
+            primary_path = drafts_path / "step1_ad_units.md"
             fallback_path = None
         elif self.content_mode == "narration":
             primary_path = drafts_path / "step1_segments.md"
@@ -394,6 +458,9 @@ class ScriptGenerator:
         try:
             if self._effective_generation_mode(episode) == "reference_video":
                 validated = ReferenceVideoScript.model_validate(data)
+            elif self.content_mode == "marketing":
+                _sync_marketing_voiceover_dialogue(data)
+                validated = MarketingAdScript.model_validate(data)
             elif self.content_mode == "narration":
                 validated = NarrationEpisodeScript.model_validate(data)
             else:
@@ -427,6 +494,11 @@ class ScriptGenerator:
             for u in script_data.get("video_units") or []:
                 if isinstance(u, dict) and "unit_id" in u:
                     u["unit_id"] = _rewrite_episode_prefix(u.get("unit_id"), ep)
+        elif self.content_mode == "marketing":
+            for u in script_data.get("ad_units") or []:
+                if isinstance(u, dict) and "unit_id" in u:
+                    u["unit_id"] = _rewrite_episode_prefix(u.get("unit_id"), ep)
+            _sync_marketing_voiceover_dialogue(script_data)
         elif self.content_mode == "narration":
             for s in script_data.get("segments") or []:
                 if isinstance(s, dict) and "segment_id" in s:
@@ -446,20 +518,24 @@ class ScriptGenerator:
         else:
             script_data.setdefault("content_mode", self.content_mode)
 
-        # 添加小说信息
-        # 注意守卫语义：novel 字段已 SkipJsonSchema 隐藏，但 default_factory=NovelInfo
-        # 让 model_dump 输出必带 {"title":"","chapter":""} 占位。所以判 "key 是否存在"
-        # 无法捕获真实"未注入"状态，必须按内容判：title/chapter 任一为空就重注入。
-        novel = script_data.get("novel")
-        if not isinstance(novel, dict) or not novel.get("title") or not novel.get("chapter"):
-            script_data["novel"] = {
-                "title": self.project_json.get("title", ""),
-                "chapter": f"第{episode}集",
-            }
-        # 剥离已废弃的 source_file（AI 可能虚构）
-        novel = script_data.get("novel")
-        if isinstance(novel, dict):
-            novel.pop("source_file", None)
+        # 添加来源信息（小说 novel / 营销 campaign）
+        if self.content_mode == "marketing":
+            campaign = script_data.get("campaign")
+            if not isinstance(campaign, dict) or not campaign.get("title") or not campaign.get("chapter"):
+                script_data["campaign"] = {
+                    "title": self.project_json.get("title", ""),
+                    "chapter": f"第{episode}版",
+                }
+        else:
+            novel = script_data.get("novel")
+            if not isinstance(novel, dict) or not novel.get("title") or not novel.get("chapter"):
+                script_data["novel"] = {
+                    "title": self.project_json.get("title", ""),
+                    "chapter": f"第{episode}集",
+                }
+            novel = script_data.get("novel")
+            if isinstance(novel, dict):
+                novel.pop("source_file", None)
 
         # 添加时间戳
         now = datetime.now(UTC).isoformat()
@@ -473,6 +549,10 @@ class ScriptGenerator:
             units = script_data.get("video_units", [])
             script_data["metadata"]["total_units"] = len(units)
             script_data["duration_seconds"] = sum(int(u.get("duration_seconds", 0)) for u in units)
+        elif self.content_mode == "marketing":
+            units = script_data.get("ad_units", [])
+            script_data["metadata"]["total_ad_units"] = len(units)
+            script_data["duration_seconds"] = sum(int(u.get("duration_seconds", 4)) for u in units)
         elif self.content_mode == "narration":
             segments = script_data.get("segments", [])
             script_data["metadata"]["total_segments"] = len(segments)
@@ -513,7 +593,10 @@ class ScriptGenerator:
                         if len(text) < _QUALITY_PROBE_SHOT_TEXT_MIN_LEN:
                             short_ids.append(uid)
             else:
-                if self.content_mode == "narration":
+                if self.content_mode == "marketing":
+                    items = script_data.get("ad_units") or []
+                    id_key = "unit_id"
+                elif self.content_mode == "narration":
                     items = script_data.get("segments") or []
                     id_key = "segment_id"
                 else:

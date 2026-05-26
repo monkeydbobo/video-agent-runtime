@@ -123,8 +123,30 @@ export interface DramaScene {
   generated_assets?: GeneratedAssets;
 }
 
+export interface MarketingAdUnit {
+  unit_id: string;
+  duration_seconds: DurationSeconds;
+  segment_break: boolean;
+  hook: string;
+  voiceover: string;
+  cta?: string | null;
+  products_in_unit: string[];
+  scenes?: string[];
+  props?: string[];
+  image_prompt: ImagePrompt | string;
+  video_prompt: VideoPrompt | string;
+  transition_to_next: TransitionType;
+  note?: string;
+  generated_assets?: GeneratedAssets;
+}
+
 /** Novel source information (present in both episode script types). */
 export interface NovelInfo {
+  title: string;
+  chapter: string;
+}
+
+export interface CampaignInfo {
   title: string;
   chapter: string;
 }
@@ -149,4 +171,16 @@ export interface DramaEpisodeScript {
   scenes: DramaScene[];
 }
 
-export type EpisodeScript = NarrationEpisodeScript | DramaEpisodeScript;
+export interface MarketingAdScript {
+  episode: number;
+  title: string;
+  content_mode: "marketing";
+  duration_seconds: number;
+  schema_version?: number;
+  campaign: CampaignInfo;
+  ad_units: MarketingAdUnit[];
+}
+
+export type EpisodeScript = NarrationEpisodeScript | DramaEpisodeScript | MarketingAdScript;
+
+export type TimelineContentMode = "narration" | "drama" | "marketing";

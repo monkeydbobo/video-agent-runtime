@@ -72,10 +72,10 @@ def effective_mode(*, project: dict, episode: dict) -> str:
 def _script_items_shape(script: dict, content_mode: str) -> ScriptShape:
     """选剧本列表所在的形状（字段名取自 lib.script_models.SCRIPT_SHAPES）。
 
-    仅当 content_mode=narration **且**脚本确有 narration 列表键时走 narration 形状；
-    否则落 drama 形状——这覆盖了 narration 但数据畸形落在 `scenes` 键下的回退，保持
-    与历史 `if content_mode == "narration" and "segments" in script` 守卫一致。
+    marketing → ad_units；narration 且脚本含 segments → narration；否则 drama。
     """
+    if content_mode == "marketing" and "ad_units" in script:
+        return SCRIPT_SHAPES["marketing"]
     narration = SCRIPT_SHAPES["narration"]
     if content_mode == "narration" and narration.items_key in script:
         return narration
@@ -1875,6 +1875,9 @@ class ProjectManager:
         from .text_backends.base import TextGenerationRequest, TextTaskType
         from .text_generator import TextGenerator
 
+        project = self.load_project(project_name)
+        content_mode = project.get("content_mode", "narration")
+
         # 读取源文件内容
         source_content = self._read_source_files(project_name)
         if not source_content:
@@ -1884,7 +1887,14 @@ class ProjectManager:
         generator = await TextGenerator.create(TextTaskType.OVERVIEW, project_name)
 
         # 调用 TextGenerator（Structured Outputs）
-        prompt = f"请分析以下小说内容，提取关键信息：\n\n{source_content}"
+        if content_mode == "marketing":
+            prompt = (
+                "请分析以下产品简报/营销素材，提取 campaign 关键信息。"
+                "字段映射：synopsis=活动/产品摘要，genre=品类，theme=核心卖点，"
+                f"world_setting=目标受众与品牌调性。\n\n{source_content}"
+            )
+        else:
+            prompt = f"请分析以下小说内容，提取关键信息：\n\n{source_content}"
 
         result = await generator.generate(
             TextGenerationRequest(

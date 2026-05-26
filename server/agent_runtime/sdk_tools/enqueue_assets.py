@@ -21,6 +21,17 @@ _EMOJI: dict[str, str] = {"character": "🧑", "scene": "🏠", "prop": "📦"}
 
 ALL_TYPES: tuple[str, ...] = tuple(ASSET_SPECS.keys())
 
+
+def _asset_label_zh(pm: ProjectManager, project_name: str, asset_type: str) -> str:
+    """营销模式下 characters 桶在 UI/工具输出中称「产品」。"""
+    spec = ASSET_SPECS[asset_type]
+    if asset_type == "character":
+        project = pm.load_project(project_name)
+        if project.get("content_mode") == "marketing":
+            return "产品"
+    return spec.label_zh
+
+
 _PENDING_DISPATCH = {
     "character": lambda pm, name: pm.get_pending_characters(name),
     "scene": lambda pm, name: pm.get_pending_project_scenes(name),
@@ -40,6 +51,7 @@ def _build_specs(
     warnings: list[str],
 ) -> list[TaskSpec]:
     spec: AssetSpec = ASSET_SPECS[asset_type]
+    label_zh = _asset_label_zh(pm, project_name, asset_type)
     project = pm.load_project(project_name)
     assets_dict = project.get(spec.bucket_key, {})
 
@@ -47,13 +59,13 @@ def _build_specs(
         resolved: list[str] = []
         for name in names:
             if name not in assets_dict:
-                warnings.append(f"⚠️  {spec.label_zh} '{name}' 不存在于 project.json 中，跳过")
+                warnings.append(f"⚠️  {label_zh} '{name}' 不存在于 project.json 中，跳过")
                 continue
             # 仅当 description 是非空字符串才入队；空白 / 非字符串（dict、数字等）
             # 都告警跳过，避免漏到 from_request 抛错或 .strip() 抛 AttributeError 而中断整批。
             desc = assets_dict[name].get("description")
             if not (isinstance(desc, str) and desc.strip()):
-                warnings.append(f"⚠️  {spec.label_zh} '{name}' 缺少描述，跳过")
+                warnings.append(f"⚠️  {label_zh} '{name}' 缺少描述，跳过")
                 continue
             resolved.append(name)
     else:
@@ -63,7 +75,7 @@ def _build_specs(
             name = item["name"]
             desc = assets_dict.get(name, {}).get("description")
             if not (isinstance(desc, str) and desc.strip()):
-                warnings.append(f"⚠️  {spec.label_zh} '{name}' 缺少描述，跳过")
+                warnings.append(f"⚠️  {label_zh} '{name}' 缺少描述，跳过")
                 continue
             resolved.append(name)
 
@@ -100,13 +112,13 @@ def list_pending_assets_tool(ctx: ToolContext):
             lines: list[str] = []
             total = 0
             for t in types:
-                spec = ASSET_SPECS[t]
+                label_zh = _asset_label_zh(ctx.pm, ctx.project_name, t)
                 pending = _get_pending(ctx.pm, ctx.project_name, t)
                 if not pending:
-                    lines.append(f"✅ 项目 '{ctx.project_name}' 所有{spec.label_zh}都已有设计图")
+                    lines.append(f"✅ 项目 '{ctx.project_name}' 所有{label_zh}都已有设计图")
                     continue
                 total += len(pending)
-                lines.append(f"\n📋 待生成的{spec.label_zh} ({len(pending)} 个):")
+                lines.append(f"\n📋 待生成的{label_zh} ({len(pending)} 个):")
                 for item in pending:
                     desc = item.get("description", "") or ""
                     desc_preview = desc[:60] + "..." if len(desc) > 60 else desc

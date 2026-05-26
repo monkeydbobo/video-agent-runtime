@@ -2,18 +2,18 @@ import { useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
-import type { NarrationSegment, DramaScene } from "@/types";
+import type { NarrationSegment, DramaScene, MarketingAdUnit, TimelineContentMode } from "@/types";
 import { API } from "@/api";
 import { useProjectsStore } from "@/stores/projects-store";
 import { StatusBadge, statusFromAssets } from "@/components/canvas/timeline/StatusBadge";
 
-type Segment = NarrationSegment | DramaScene;
+type Segment = NarrationSegment | DramaScene | MarketingAdUnit;
 
 interface ShotListProps {
   segments: Segment[];
   selectedIndex: number;
   onSelect: (index: number) => void;
-  contentMode: "narration" | "drama";
+  contentMode: TimelineContentMode;
   projectName: string;
   collapsed: boolean;
   onToggleCollapse: () => void;
@@ -21,13 +21,18 @@ interface ShotListProps {
   scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
-function getSegmentId(seg: Segment, mode: "narration" | "drama"): string {
+function getSegmentId(seg: Segment, mode: TimelineContentMode): string {
+  if (mode === "marketing") return (seg as MarketingAdUnit).unit_id;
   return mode === "narration"
     ? (seg as NarrationSegment).segment_id
     : (seg as DramaScene).scene_id;
 }
 
-function getSegmentText(seg: Segment, mode: "narration" | "drama"): string {
+function getSegmentText(seg: Segment, mode: TimelineContentMode): string {
+  if (mode === "marketing") {
+    const u = seg as MarketingAdUnit;
+    return [u.hook, u.voiceover, u.cta].filter(Boolean).join("\n");
+  }
   if (mode === "narration") return (seg as NarrationSegment).novel_text || "";
   // drama 模式：用 image_prompt.scene 作为画面预览，与 narration 的 novel_text 对称
   // 校验 scene 是 string 而非仅 key 存在 —— 类型允许 ImagePrompt | string，且实际数据中

@@ -22,6 +22,10 @@ description: "统一资产生成 skill：接受 `--type=character|scene|prop`，
 
 ## 角色（character）
 
+> **`content_mode=marketing` 时**：`project.json` 的 `characters` 桶存的是**产品**（UI 称「产品」），
+> 仍用 `--type=character` 入队；server 端 `build_product_prompt()` 会注入产品三视图布局（正面 / 45° / 细节），
+> 与下方「角色四视图」布局不同。description 应写产品外观、材质、配色与卖点，勿写人物外貌。
+
 ### description 编写指南
 
 用连贯段落描述外貌、服装、气质，包含年龄、体态、面部特征、服饰细节。

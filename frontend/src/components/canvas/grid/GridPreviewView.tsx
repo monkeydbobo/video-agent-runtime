@@ -6,16 +6,16 @@ import { useAppStore } from "@/stores/app-store";
 import { groupBySegmentBreak, computeGridSize } from "@/utils/grid-layout";
 import { GridPreviewPanel } from "@/components/canvas/timeline/GridPreviewPanel";
 import type { GridGeneration } from "@/types/grid";
-import type { NarrationSegment, DramaScene } from "@/types";
+import type { NarrationSegment, DramaScene, MarketingAdUnit } from "@/types";
 
-type Segment = NarrationSegment | DramaScene;
+type Segment = NarrationSegment | DramaScene | MarketingAdUnit;
 
 interface GridPreviewViewProps {
   projectName: string;
   episode: number;
   scriptFile?: string;
   segments: Segment[];
-  contentMode: "narration" | "drama";
+  contentMode: "narration" | "drama" | "marketing";
   aspectRatio: "9:16" | "16:9";
   onGenerateGrid?: (
     episode: number,
@@ -24,10 +24,10 @@ interface GridPreviewViewProps {
   ) => Promise<void> | void;
 }
 
-function getSegmentId(seg: Segment, mode: "narration" | "drama"): string {
-  return mode === "narration"
-    ? (seg as NarrationSegment).segment_id
-    : (seg as DramaScene).scene_id;
+function getSegmentId(seg: Segment, mode: "narration" | "drama" | "marketing"): string {
+  if (mode === "narration") return (seg as NarrationSegment).segment_id;
+  if (mode === "marketing") return (seg as MarketingAdUnit).unit_id;
+  return (seg as DramaScene).scene_id;
 }
 
 export function GridPreviewView({

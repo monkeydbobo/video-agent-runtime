@@ -28,6 +28,15 @@ class TestStoryboardSequence:
             "props",
         )
 
+    def test_get_storyboard_items_supports_marketing(self):
+        marketing = {
+            "content_mode": "marketing",
+            "ad_units": [{"unit_id": "E1A01", "products_in_unit": ["手表"]}],
+        }
+        items, id_field, chars_field, _, _ = get_storyboard_items(marketing)
+        assert len(items) == 1
+        assert (id_field, chars_field) == ("unit_id", "products_in_unit")
+
     def test_resolve_previous_storyboard_path_respects_first_item_and_segment_break(self, tmp_path: Path):
         project_path = tmp_path / "demo"
         (project_path / "storyboards").mkdir(parents=True)

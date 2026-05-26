@@ -20,6 +20,12 @@ DRAMA_PACING_RULES = """分集节奏（短剧体裁建议）：
   给观众留下回看的钩子。""".strip()
 
 
+MARKETING_PACING_RULES = """营销短视频节奏建议：
+- 首镜（前 ~3 秒）承担钩子：痛点 / 反差 / 悬念画面，与 hook 文案一致。
+- 中段展示产品卖点与使用场景，每 ~5–8 秒一个信息转折（功能演示 / 对比 / 用户反应）。
+- 末镜强化 CTA 或品牌记忆点，shot_type 倾向 Close-up / Medium Close-up，画面留出口播空间。""".strip()
+
+
 NARRATION_PACING_RULES = """说书节奏建议：
 - 首段画面（朗读前 ~4 秒）服务于钩子：用强冲击 / 悬念 / 危机匹配钩子台词，
   避免平铺式开场。
@@ -32,11 +38,14 @@ def render_pacing_section(content_mode: str) -> str:
         return DRAMA_PACING_RULES
     if content_mode == "narration":
         return NARRATION_PACING_RULES
+    if content_mode == "marketing":
+        return MARKETING_PACING_RULES
     raise ValueError(f"unknown content_mode: {content_mode!r}")
 
 
 __all__ = [
     "DRAMA_PACING_RULES",
+    "MARKETING_PACING_RULES",
     "NARRATION_PACING_RULES",
     "render_pacing_section",
 ]

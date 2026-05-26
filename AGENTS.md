@@ -105,7 +105,7 @@ ConfigService（`service.py`）→ Repository（持久化 + 密钥脱敏）→ R
 `server/agent_runtime/` 封装 Claude Agent SDK：
 - `AssistantService` (`service.py`) — 编排 Claude SDK 会话
 - `SessionManager` — 会话生命周期 + SSE 订阅者模式
-- `SessionActor` (`session_actor.py`) — 每会话一个专属 asyncio task，串行化所有 ClaudeSDKClient 调用（spec: `docs/superpowers/specs/2026-04-13-session-actor-design.md`）
+- `SessionActor` (`session_actor.py`) — 每会话一个专属 asyncio task，串行化所有 ClaudeSDKClient 调用
 - `SessionStore` (`session_store.py`) — 会话元数据 + transcript DB 镜像（受 `ARCREEL_SDK_SESSION_STORE` 环境变量控制：`db`/`off`，off 时回退到 SDK 自带的 jsonl 路径）
 - `StreamProjector` — 从流式事件构建实时助手回复
 - `sdk_transcript_adapter` / `turn_schema` — transcript 读取与 Turn 规范化（用于历史回放）
@@ -216,16 +216,8 @@ API Key、后端选择、模型配置等通过 WebUI 配置页（`/settings`）�
 - **pytest**：`asyncio_mode = "auto"`，CI 覆盖率 ≥80%，共用 fixtures 在 `tests/conftest.py`
 - **i18n 一致性**：`tests/test_i18n_consistency.py` 校验 zh/en/vi 三语 key 不漂移；新增 i18n key 时三语都要补全
 
-## Agent skills
+## 领域与架构文档
 
-### Issue tracker
-
-议题（issue/PRD）追踪在 `ArcReel/ArcReel` 的 GitHub Issues，统一用 `gh` CLI 操作。详见 `docs/agents/issue-tracker.md`。
-
-### Triage labels
-
-triage 状态机使用五个默认标签：`needs-triage` / `needs-info` / `ready-for-agent` / `ready-for-human` / `wontfix`。详见 `docs/agents/triage-labels.md`。
-
-### Domain docs
-
-单上下文布局：根目录 `CONTEXT.md` + `docs/adr/`。详见 `docs/agents/domain.md`。
+- 术语表：`CONTEXT.md`
+- 架构决策：`docs/adr/`
+- 历史开发文档（spec / OpenSpec / Agent skills 等）已移至 `_archive/dev-md-backup/`

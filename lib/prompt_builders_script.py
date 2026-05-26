@@ -382,3 +382,94 @@ def build_normalize_prompt(
 
 仅输出 Markdown 表格，不要包含其他解释文字。
 """
+
+
+def build_marketing_prompt(
+    project_overview: dict,
+    style: str,
+    style_description: str,
+    characters: dict,
+    scenes: dict,
+    props: dict,
+    ad_units_md: str,
+    supported_durations: list[int],
+    episode: int,
+    default_duration: int | None = None,
+    aspect_ratio: str = "9:16",
+    target_language: str = "中文",
+) -> str:
+    """构建营销视频模式的广告剧本生成 prompt。characters 桶存产品定义。"""
+    product_names = list(characters.keys())
+    scene_names = list(scenes.keys())
+    prop_names = list(props.keys())
+    pacing_block = (render_pacing_section("marketing") + "\n\n") if is_v2_enabled() else ""
+
+    return f"""# 角色与任务
+
+你是一位资深的营销短视频分镜编剧，专精把产品简报拆分为可直接驱动 AI 图像 / 视频生成的广告镜头 JSON。
+你的任务：基于下方「广告镜头拆分表」，逐条产出符合 schema 的 JSON 剧本。
+
+**输出语言**：所有字符串值必须使用 {target_language}；JSON 键名 / 枚举值保持英文。
+**结构约束**：字段 / 枚举 / 必填项由 response_schema 强制；本提示只解释**如何写好每个字段的内容**。
+
+{pacing_block}# 上下文
+
+<overview>
+{project_overview.get("synopsis", "")}
+
+品类：{project_overview.get("genre", "")}
+核心卖点：{project_overview.get("theme", "")}
+品牌/受众：{project_overview.get("world_setting", "")}
+</overview>
+
+<style>
+风格：{style}
+描述：{style_description}
+画面比例：{aspect_ratio}（{_format_aspect_ratio_desc(aspect_ratio)}）
+</style>
+
+<products>
+{_format_names(characters)}
+</products>
+
+<scenes>
+{_format_names(scenes)}
+</scenes>
+
+<accessories>
+{_format_names(props)}
+</accessories>
+
+<ad_units>
+{ad_units_md}
+</ad_units>
+
+ad_units 表每行是一个广告镜头，包含：镜头 ID（E{episode}A{{序号}}）、hook、voiceover、{_format_duration_constraint(supported_durations, default_duration)}、是否为 segment_break。
+
+<episode_constraints>
+当前正在生成第 {episode} 集广告。本集所有 unit_id 必须严格使用 `E{episode}A{{两位序号}}` 格式（如 E{episode}A01），不得使用 E{{n}}S 前缀。
+</episode_constraints>
+
+# 字段写作指引
+
+## 基础字段
+
+- **hook**：与首镜画面一致的吸引句，宜短、具体、可视觉化。
+- **voiceover**：完整口播文案，将用于配音与字幕；可包含卖点与 CTA，但不要写 BGM/配乐指示。
+- **cta**：可选；若有行动号召，与末镜画面一致（如「限时抢购」「扫码了解」）。
+- **products_in_unit** / **scenes** / **props**：
+  - 候选产品：[{", ".join(product_names) or "（无）"}]
+  - 候选场景：[{", ".join(scene_names) or "（无）"}]
+  - 候选配件：[{", ".join(prop_names) or "（无）"}]
+- **segment_break** / **duration_seconds**：与 ad_units 表保持一致。
+
+## image_prompt / video_prompt
+
+- **image_prompt.scene**：突出产品主体、使用场景、光影；避免抽象 slogan 堆砌。
+- **video_prompt.action**：展示产品功能、手持、开箱、对比等可观察动作；避免不可拍摄的「用户感动落泪」类抽象描述。
+- **video_prompt.dialogue**：必须把本镜 `voiceover` 同步写入 `dialogue`，用于支持直出人声的视频模型；格式固定为 `[{"speaker": "旁白", "line": "<voiceover 与 cta>"}]`。仅当画面内有人物对白时，才额外追加人物对白。
+
+# 创作目标
+
+输出节奏紧凑、卖点清晰、可直接生成的竖屏广告分镜剧本。
+"""

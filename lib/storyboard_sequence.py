@@ -29,6 +29,14 @@ def get_storyboard_items(script: dict) -> tuple[list[dict], str, str, str, str]:
     content_mode = script.get("content_mode", "narration")
     if script.get("generation_mode") == "reference_video":
         return ([], "unit_id", "characters_in_unit", "scenes", "props")
+    if content_mode == "marketing" and "ad_units" in script:
+        return (
+            list(script.get("ad_units", [])),
+            "unit_id",
+            "products_in_unit",
+            "scenes",
+            "props",
+        )
     if content_mode == "narration" and "segments" in script:
         return (
             list(script.get("segments", [])),

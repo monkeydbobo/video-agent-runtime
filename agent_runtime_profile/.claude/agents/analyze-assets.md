@@ -110,3 +110,15 @@ python .claude/skills/manage-project/scripts/add_assets.py --characters '{"角�
 - 如遇到角色名不明确（如小说中只写"他"、"那人"），跳过或在摘要中标注"待确认"
 - 不要生成或猜测角色的视觉描述，只提取小说中明确描写的内容
 - 如果小说中完全没有视觉描述，description 可以为简短的占位描述，标注"需补充"
+
+---
+
+## Marketing 模式附录（`content_mode == marketing`）
+
+当 `project.json` 的 `content_mode` 为 `marketing` 时：
+
+- **产品**写入 `characters` 桶（`add_assets.py --characters`），description 只写外观、材质、配色、包装、尺寸感；不写价格策略。
+- **场景**为产品使用/生活方式场景（展台、居家、户外等）。
+- **配件**为包装、赠品、组合装等，写入 `props`。
+- 跳过 voice_style（除非简报明确要求口播人设）。
+- 分析 `source/` 中的产品简报而非小说；返回摘要时用「产品」而非「角色」。

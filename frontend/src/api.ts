@@ -179,6 +179,7 @@ export interface SegmentUpdatePayload {
   transition_to_next?: string;
   note?: string;
   characters_in_segment?: string[];
+  products_in_unit?: string[];
   scenes?: string[];
   props?: string[];
 }
@@ -187,7 +188,7 @@ export interface SegmentUpdatePayload {
 export interface CreateProjectPayload {
   title: string;
   name?: string;
-  content_mode?: "narration" | "drama";
+  content_mode?: "narration" | "drama" | "marketing";
   aspect_ratio?: "9:16" | "16:9";
   generation_mode?: GenerationMode;
   default_duration?: number | null;

@@ -29,11 +29,17 @@ class TestScriptShape:
             "characters_in_scene",
         )
 
-    def test_non_narration_maps_to_drama(self) -> None:
-        # 忠实于现状二分 `"segments" if content_mode == "narration" else "scenes"`：
-        # 只有 "narration" 走 narration 形状，其余一切（含未知值）落 drama。
+    def test_marketing(self) -> None:
+        shape = script_shape("marketing")
+        assert (shape.items_key, shape.id_field, shape.chars_field) == (
+            "ad_units",
+            "unit_id",
+            "products_in_unit",
+        )
+
+    def test_non_narration_non_marketing_maps_to_drama(self) -> None:
         assert script_shape("???") == SCRIPT_SHAPES["drama"]
         assert script_shape("drama") == SCRIPT_SHAPES["drama"]
 
-    def test_registry_covers_narration_and_drama(self) -> None:
-        assert set(SCRIPT_SHAPES) == {"narration", "drama"}
+    def test_registry_covers_all_content_modes(self) -> None:
+        assert set(SCRIPT_SHAPES) == {"narration", "drama", "marketing"}

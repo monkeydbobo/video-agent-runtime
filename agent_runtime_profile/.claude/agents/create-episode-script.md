@@ -26,10 +26,11 @@ skills:
 ### Step 1: 确认前置条件
 
 使用 Read 工具读取 `project.json`（相对 session cwd），确认：
-- content_mode 字段（narration 或 drama）
-- characters、scenes、props 已有数据
+- content_mode 字段（narration / drama / marketing）
+- characters（营销模式下为产品）、scenes、props 已有数据
 
 使用 Glob 工具确认中间文件存在：
+- marketing 模式：`drafts/episode_{N}/step1_ad_units.md`
 - narration 模式：`drafts/episode_{N}/step1_segments.md`
 - drama 模式：`drafts/episode_{N}/step1_normalized_script.md`
 
@@ -49,6 +50,7 @@ mcp__arcreel__generate_episode_script({"episode": {N}})
 确认：
 - 文件存在且为有效 JSON
 - 包含 episode、content_mode 字段
+- marketing 模式：ad_units 数组不为空
 - narration 模式：segments 数组不为空
 - drama 模式：scenes 数组不为空
 
@@ -61,8 +63,8 @@ mcp__arcreel__generate_episode_script({"episode": {N}})
 
 | 统计项 | 数值 |
 |--------|------|
-| 内容模式 | narration/drama |
-| 总片段/场景数 | XX 个 |
+| 内容模式 | narration/drama/marketing |
+| 总镜头/片段/场景数 | XX 个 |
 | 总时长 | X 分 X 秒 |
 | 生成模型 | {脚本输出中实际使用的模型名} |
 

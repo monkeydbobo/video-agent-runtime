@@ -44,6 +44,7 @@ export function AssetSidebar({ className }: AssetSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [search, setSearch] = useState("");
 
+  const isMarketing = currentProjectData?.content_mode === "marketing";
   const characterCount = Object.keys(currentProjectData?.characters ?? {}).length;
   const sceneCount = Object.keys(currentProjectData?.scenes ?? {}).length;
   const propCount = Object.keys(currentProjectData?.props ?? {}).length;
@@ -89,7 +90,9 @@ export function AssetSidebar({ className }: AssetSidebarProps) {
     {
       key: "characters",
       path: "/characters",
-      label: t("dashboard:workspace_nav_characters"),
+      label: isMarketing
+        ? t("dashboard:workspace_nav_products")
+        : t("dashboard:workspace_nav_characters"),
       icon: Users,
       meta: characterCount,
     },
@@ -103,7 +106,9 @@ export function AssetSidebar({ className }: AssetSidebarProps) {
     {
       key: "props",
       path: "/props",
-      label: t("dashboard:workspace_nav_props"),
+      label: isMarketing
+        ? t("dashboard:workspace_nav_accessories")
+        : t("dashboard:workspace_nav_props"),
       icon: Package,
       meta: propCount,
     },

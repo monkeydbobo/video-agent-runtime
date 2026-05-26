@@ -66,6 +66,31 @@ def _unit(unit_id: str = "E1U1", shots: list[dict] | None = None, duration: int 
     return unit
 
 
+def _ad_unit(unit_id: str = "E1A01", duration: int = 4) -> dict:
+    return {
+        "unit_id": unit_id,
+        "duration_seconds": duration,
+        "hook": "开场钩子",
+        "voiceover": "口播文案",
+        "products_in_unit": ["手表"],
+        "scenes": ["展台"],
+        "props": [],
+        "image_prompt": {
+            "scene": "产品展台",
+            "composition": {"shot_type": "Medium Shot", "lighting": "柔光", "ambiance": "干净背景"},
+        },
+        "video_prompt": {"action": "旋转展示", "camera_motion": "Static", "ambiance_audio": "轻音乐"},
+    }
+
+
+def _marketing(ad_units: list[dict] | None = None) -> dict:
+    return {
+        "title": "春季广告",
+        "content_mode": "marketing",
+        "ad_units": ad_units if ad_units is not None else [_ad_unit()],
+    }
+
+
 def _reference(units: list[dict] | None = None, content_mode: str = "narration") -> dict:
     return {
         "title": "标题",
@@ -85,6 +110,9 @@ class TestValidScripts:
 
     def test_valid_reference_video(self):
         assert validate_script_structure(_reference()).valid
+
+    def test_valid_marketing(self):
+        assert validate_script_structure(_marketing()).valid
 
 
 class TestModeDetection:
@@ -119,6 +147,11 @@ class TestModeDetection:
     def test_narration_is_default_fallback(self):
         # 无 content_mode、无 scenes/video_units：回退 NarrationEpisodeScript
         script = _narration()
+        del script["content_mode"]
+        assert validate_script_structure(script).valid
+
+    def test_marketing_detected_by_ad_units_key(self):
+        script = _marketing()
         del script["content_mode"]
         assert validate_script_structure(script).valid
 
