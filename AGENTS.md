@@ -221,3 +221,31 @@ API Key、后端选择、模型配置等通过 WebUI 配置页（`/settings`）�
 - 术语表：`CONTEXT.md`
 - 架构决策：`docs/adr/`
 - 历史开发文档（spec / OpenSpec / Agent skills 等）已移至 `_archive/dev-md-backup/`
+
+## Cursor Cloud specific instructions
+
+### 系统依赖
+
+Cloud VM 中需要额外安装 `bubblewrap` 和 `socat`（后端启动时 sandbox 检查必需）：
+```bash
+sudo apt-get install -y bubblewrap socat
+```
+
+### 启动服务
+
+1. **后端**（端口 1241）：
+   ```bash
+   uv run uvicorn server.app:app --reload --reload-dir server --reload-dir lib --port 1241
+   ```
+2. **前端**（端口 5173，代理 `/api` → 后端）：
+   ```bash
+   cd frontend && pnpm dev --port 5173
+   ```
+
+### 注意事项
+
+- 后端启动前必须先运行 `uv run alembic upgrade head`（确保 SQLite schema 就绪）
+- `.env` 文件从 `.env.example` 复制即可，默认账号 `admin / cybercut2026`
+- 前端开发服务器通过 Vite proxy 连接后端，无需手动配置 CORS
+- 测试运行：后端 `uv run python -m pytest -m "not e2e"`；前端 `cd frontend && pnpm check`
+- `ruff check` 可能报 1 个 pre-existing import sort 警告（`server/routers/projects.py`），非 blocking
