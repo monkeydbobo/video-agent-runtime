@@ -70,6 +70,7 @@ export default {
   'already_exists_conflict_hint': '已存在。你可以覆盖现有项目，或自动重命名后继续导入。',
   'project_overview': '项目概览',
   'source_files': '源文件',
+  'output_files': '成片输出',
   'upload_source_files': '上传源文件',
   'no_files_yet': '暂无文件',
   'delete_file': '删除文件',
@@ -530,6 +531,7 @@ export default {
   'source_files_drop_hint': '拖拽小说文本到此处，或点击选择文件',
   'source_files_drop_inline_hint': '可继续拖拽文件加入',
   'source_open': '打开',
+  'output_open': '打开视频',
 
   // TaskHud / Notifications / Usage v3
   'task_hud_title': '任务雷达',

@@ -69,6 +69,7 @@ export default {
   'already_exists_conflict_hint': 'already exists. You can overwrite the existing project or auto-rename it to continue importing.',
   'project_overview': 'Project Overview',
   'source_files': 'Source Files',
+  'output_files': 'Final Outputs',
   'upload_source_files': 'Upload source files',
   'no_files_yet': 'No files yet',
   'delete_file': 'Delete file',
@@ -530,6 +531,7 @@ export default {
   'source_files_drop_hint': 'Drag your novel text here, or click to choose a file',
   'source_files_drop_inline_hint': 'Drop more files to add',
   'source_open': 'Open',
+  'output_open': 'Open video',
 
   // TaskHud / Notifications / Usage v3
   'task_hud_title': 'Task Radar',

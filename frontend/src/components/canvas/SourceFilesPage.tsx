@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
-import { BookOpen, FileText, Plus, Trash2, Upload, ArrowRight } from "lucide-react";
+import { BookOpen, FileText, Plus, Trash2, Upload, ArrowRight, Film } from "lucide-react";
 import { API, ConflictError } from "@/api";
 import { useAppStore } from "@/stores/app-store";
 import { errMsg, voidPromise } from "@/utils/async";
@@ -36,6 +36,7 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
   const [, setLocation] = useLocation();
 
   const [files, setFiles] = useState<SourceFile[]>([]);
+  const [outputFiles, setOutputFiles] = useState<SourceFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -55,7 +56,10 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
     setLoading(true);
     API.listFiles(projectName)
       .then((res) => {
-        if (!cancelled) setFiles(res.files?.source ?? []);
+        if (!cancelled) {
+          setFiles(res.files?.source ?? []);
+          setOutputFiles(res.files?.output ?? []);
+        }
       })
       .catch((err) => {
         if (cancelled) return;
@@ -291,7 +295,7 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
           >
             {t("common:loading")}
           </div>
-        ) : files.length === 0 ? (
+        ) : files.length === 0 && outputFiles.length === 0 ? (
           <button
             type="button"
             disabled={uploading}
@@ -528,6 +532,91 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {!loading && outputFiles.length > 0 && (
+          <div
+            className="mt-5 rounded-2xl"
+            style={{
+              border: "1px solid var(--color-hairline-soft)",
+              background:
+                "linear-gradient(180deg, oklch(0.22 0.012 265 / 0.5), oklch(0.19 0.010 265 / 0.35))",
+              boxShadow:
+                "inset 0 1px 0 oklch(1 0 0 / 0.04), 0 8px 24px -10px oklch(0 0 0 / 0.5)",
+            }}
+          >
+            <div
+              className="flex items-center gap-3 px-5 py-3"
+              style={{ borderBottom: "1px solid var(--color-hairline-soft)" }}
+            >
+              <Film className="h-3.5 w-3.5" style={{ color: "var(--color-text-4)" }} />
+              <span
+                className="text-[10.5px] font-bold uppercase"
+                style={{ color: "var(--color-text-4)", letterSpacing: "1.0px" }}
+              >
+                {t("dashboard:output_files")}
+              </span>
+              <span className="num text-[10px]" style={{ color: "var(--color-text-4)" }}>
+                {outputFiles.length}
+              </span>
+            </div>
+            <ul>
+              {outputFiles.map((file, idx) => (
+                <li
+                  key={file.name}
+                  className="group flex items-center gap-3 px-5 py-3 transition-colors"
+                  style={{
+                    borderTop: idx === 0 ? "none" : "1px solid var(--color-hairline-soft)",
+                  }}
+                >
+                  <span
+                    className="num shrink-0 text-[10px]"
+                    style={{ color: "var(--color-text-4)", letterSpacing: "0.5px" }}
+                  >
+                    {String(idx + 1).padStart(2, "0")}
+                  </span>
+                  <span
+                    aria-hidden
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-lg"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, var(--color-accent-dim), oklch(0.76 0.09 295 / 0.05))",
+                      border: "1px solid var(--color-accent-soft)",
+                      color: "var(--color-accent-2)",
+                    }}
+                  >
+                    <Film className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div
+                      className="truncate text-[13px]"
+                      style={{ color: "var(--color-text)", fontWeight: 500 }}
+                      title={file.name}
+                    >
+                      {file.name}
+                    </div>
+                    <div className="num mt-0.5 text-[10.5px]" style={{ color: "var(--color-text-4)" }}>
+                      {formatFileSize(file.size)}
+                    </div>
+                  </div>
+                  <a
+                    href={file.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="focus-ring inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-colors"
+                    style={{
+                      color: "var(--color-text-3)",
+                      border: "1px solid var(--color-hairline)",
+                      background: "oklch(0.22 0.011 265 / 0.5)",
+                    }}
+                  >
+                    {t("dashboard:output_open")}
+                    <ArrowRight className="h-3 w-3" />
+                  </a>
                 </li>
               ))}
             </ul>
