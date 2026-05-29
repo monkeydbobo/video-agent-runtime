@@ -19,6 +19,7 @@ interface SourceFilesPageProps {
 }
 
 const ALLOWED_EXTENSIONS = [".txt", ".md", ".docx", ".epub", ".pdf"];
+const ALLOWED_REFERENCE_VIDEO_EXTENSIONS = [".mp4", ".mov", ".webm"];
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -33,6 +34,7 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
   const [, setLocation] = useLocation();
 
   const [files, setFiles] = useState<SourceFile[]>([]);
+  const [referenceVideoFiles, setReferenceVideoFiles] = useState<SourceFile[]>([]);
   const [outputFiles, setOutputFiles] = useState<SourceFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
@@ -43,6 +45,7 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
     resolve: (d: ConflictResolution) => void;
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const referenceVideoInputRef = useRef<HTMLInputElement>(null);
   const uploadInFlightRef = useRef(false);
   const projectNameRef = useRef(projectName);
   projectNameRef.current = projectName;
@@ -55,6 +58,7 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
       .then((res) => {
         if (!cancelled) {
           setFiles(res.files?.source ?? []);
+          setReferenceVideoFiles(res.files?.reference_videos ?? []);
           setOutputFiles(res.files?.output ?? []);
         }
       })
@@ -177,6 +181,49 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
     [projectName],
   );
 
+  const handleReferenceVideoUpload = useCallback(
+    async (file: File) => {
+      if (!ALLOWED_REFERENCE_VIDEO_EXTENSIONS.some((ext) => file.name.toLowerCase().endsWith(ext))) {
+        useAppStore
+          .getState()
+          .pushToast(
+            tRef.current("dashboard:reference_video_unsupported_extension", { filename: file.name }),
+            "error",
+          );
+        return;
+      }
+      if (uploadInFlightRef.current) return;
+      uploadInFlightRef.current = true;
+      setUploading(true);
+      try {
+        await API.uploadFile(projectName, "reference_videos", file);
+        useAppStore.getState().pushToast(tRef.current("dashboard:reference_video_uploaded"), "success");
+        useAppStore.getState().invalidateSourceFiles();
+      } catch (err) {
+        useAppStore
+          .getState()
+          .pushToast(tRef.current("dashboard:upload_failed", { message: errMsg(err) }), "error");
+      } finally {
+        uploadInFlightRef.current = false;
+        setUploading(false);
+      }
+    },
+    [projectName],
+  );
+
+  const handleReferenceVideoSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (uploadInFlightRef.current) {
+        e.target.value = "";
+        return;
+      }
+      const file = e.target.files?.[0];
+      if (file) void handleReferenceVideoUpload(file);
+      e.target.value = "";
+    },
+    [handleReferenceVideoUpload],
+  );
+
   const handleDelete = useCallback(
     async (filename: string) => {
       if (!confirm(tRef.current("dashboard:confirm_delete_source_file", { filename }))) return;
@@ -266,6 +313,27 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
           onChange={handleFileSelect}
           className="hidden"
         />
+        <input
+          ref={referenceVideoInputRef}
+          type="file"
+          accept={ALLOWED_REFERENCE_VIDEO_EXTENSIONS.join(",")}
+          onChange={handleReferenceVideoSelect}
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => referenceVideoInputRef.current?.click()}
+          disabled={uploading}
+          className="focus-ring inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-[11.5px] font-medium transition-colors disabled:opacity-50"
+          style={{
+            color: "var(--color-text-2)",
+            border: "1px solid var(--color-hairline)",
+            background: "oklch(0.22 0.011 265 / 0.5)",
+          }}
+        >
+          <Film className="h-3.5 w-3.5" />
+          {t("dashboard:upload_reference_video")}
+        </button>
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -292,7 +360,7 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
           >
             {t("common:loading")}
           </div>
-        ) : files.length === 0 && outputFiles.length === 0 ? (
+        ) : files.length === 0 && referenceVideoFiles.length === 0 && outputFiles.length === 0 ? (
           <button
             type="button"
             disabled={uploading}
@@ -373,7 +441,7 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
               </span>
             </div>
           </button>
-        ) : (
+        ) : files.length > 0 ? (
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -529,6 +597,106 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {!loading && referenceVideoFiles.length > 0 && (
+          <div
+            className="mt-5 rounded-2xl"
+            style={{
+              border: "1px solid var(--color-hairline-soft)",
+              background:
+                "linear-gradient(180deg, oklch(0.22 0.012 265 / 0.5), oklch(0.19 0.010 265 / 0.35))",
+              boxShadow:
+                "inset 0 1px 0 oklch(1 0 0 / 0.04), 0 8px 24px -10px oklch(0 0 0 / 0.5)",
+            }}
+          >
+            <div
+              className="flex items-center gap-3 px-5 py-3"
+              style={{ borderBottom: "1px solid var(--color-hairline-soft)" }}
+            >
+              <Film className="h-3.5 w-3.5" style={{ color: "var(--color-text-4)" }} />
+              <span
+                className="text-[10.5px] font-bold uppercase"
+                style={{ color: "var(--color-text-4)", letterSpacing: "1.0px" }}
+              >
+                {t("dashboard:reference_videos")}
+              </span>
+              <span className="num text-[10px]" style={{ color: "var(--color-text-4)" }}>
+                {referenceVideoFiles.length}
+              </span>
+              <div className="flex-1" />
+              <button
+                type="button"
+                onClick={() => referenceVideoInputRef.current?.click()}
+                disabled={uploading}
+                className="focus-ring inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-colors disabled:opacity-50"
+                style={{
+                  color: "var(--color-text-3)",
+                  border: "1px solid var(--color-hairline)",
+                  background: "oklch(0.22 0.011 265 / 0.5)",
+                }}
+              >
+                <Plus className="h-3 w-3" />
+                {t("dashboard:upload_reference_video")}
+              </button>
+            </div>
+            <ul>
+              {referenceVideoFiles.map((file, idx) => (
+                <li
+                  key={file.name}
+                  className="group flex items-center gap-3 px-5 py-3 transition-colors"
+                  style={{
+                    borderTop: idx === 0 ? "none" : "1px solid var(--color-hairline-soft)",
+                  }}
+                >
+                  <span
+                    className="num shrink-0 text-[10px]"
+                    style={{ color: "var(--color-text-4)", letterSpacing: "0.5px" }}
+                  >
+                    {String(idx + 1).padStart(2, "0")}
+                  </span>
+                  <span
+                    aria-hidden
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-lg"
+                    style={{
+                      background:
+                        "linear-gradient(135deg, var(--color-accent-dim), oklch(0.76 0.09 295 / 0.05))",
+                      border: "1px solid var(--color-accent-soft)",
+                      color: "var(--color-accent-2)",
+                    }}
+                  >
+                    <Film className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div
+                      className="truncate text-[13px]"
+                      style={{ color: "var(--color-text)", fontWeight: 500 }}
+                      title={file.name}
+                    >
+                      {file.name}
+                    </div>
+                    <div className="num mt-0.5 text-[10.5px]" style={{ color: "var(--color-text-4)" }}>
+                      {formatFileSize(file.size)}
+                    </div>
+                  </div>
+                  <a
+                    href={file.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="focus-ring inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-colors"
+                    style={{
+                      color: "var(--color-text-3)",
+                      border: "1px solid var(--color-hairline)",
+                      background: "oklch(0.22 0.011 265 / 0.5)",
+                    }}
+                  >
+                    {t("dashboard:source_open")}
+                    <ArrowRight className="h-3 w-3" />
+                  </a>
                 </li>
               ))}
             </ul>

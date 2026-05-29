@@ -33,11 +33,13 @@ Read `project.json`：overview、characters（产品）、scenes、props。
 
 Read 本集源文件。
 
+如果存在 `drafts/episode_{N}/step0_viral_analysis.md`，必须读取，并把它作为爆款结构参考。
+
 ### Step 2: 拆分广告镜头
 
 按 Markdown 表格输出，列：
 
-| 镜头 ID | hook | voiceover | 时长 | segment_break | 产品 | 场景 | 配件 |
+| 镜头 ID | 参考段落 | hook | voiceover | 时长 | segment_break | 产品 | 场景 | 配件 |
 
 规则：
 - 镜头 ID：`E{集}A{两位序号}`（如 E1A01）
@@ -46,6 +48,8 @@ Read 本集源文件。
 - 时长：从 `supported_durations` 选取；默认 `default_duration`
 - segment_break：场景/节奏大切换标「是」
 - 产品/场景/配件：填 project.json 中已有名称，不发明新名
+- 参考段落：如果有 `step0_viral_analysis.md`，填写对应结构拆解段落；没有则填「无」
+- 爆款参考只复刻节奏、镜头结构、卖点展开与 CTA 放置方式；禁止复制原视频人物、品牌、logo、音乐名、原始台词或可识别字幕表达
 
 ### Step 3: 保存
 

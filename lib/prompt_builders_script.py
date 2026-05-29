@@ -397,12 +397,23 @@ def build_marketing_prompt(
     default_duration: int | None = None,
     aspect_ratio: str = "9:16",
     target_language: str = "中文",
+    viral_analysis_md: str | None = None,
 ) -> str:
     """构建营销视频模式的广告剧本生成 prompt。characters 桶存产品定义。"""
     product_names = list(characters.keys())
     scene_names = list(scenes.keys())
     prop_names = list(props.keys())
     pacing_block = (render_pacing_section("marketing") + "\n\n") if is_v2_enabled() else ""
+    viral_block = (
+        f"""
+<viral_analysis>
+{viral_analysis_md}
+</viral_analysis>
+
+"""
+        if viral_analysis_md and viral_analysis_md.strip()
+        else ""
+    )
 
     return f"""# 角色与任务
 
@@ -444,6 +455,7 @@ def build_marketing_prompt(
 {ad_units_md}
 </ad_units>
 
+{viral_block}
 ad_units 表每行是一个广告镜头，包含：镜头 ID（E{episode}A{{序号}}）、hook、voiceover、{_format_duration_constraint(supported_durations, default_duration)}、是否为 segment_break。
 
 <episode_constraints>
@@ -467,7 +479,8 @@ ad_units 表每行是一个广告镜头，包含：镜头 ID（E{episode}A{{序�
 
 - **image_prompt.scene**：突出产品主体、使用场景、光影；避免抽象 slogan 堆砌。
 - **video_prompt.action**：展示产品功能、手持、开箱、对比等可观察动作；避免不可拍摄的「用户感动落泪」类抽象描述。
-- **video_prompt.dialogue**：必须把本镜 `voiceover` 同步写入 `dialogue`，用于支持直出人声的视频模型；格式固定为 `[{"speaker": "旁白", "line": "<voiceover 与 cta>"}]`。仅当画面内有人物对白时，才额外追加人物对白。
+- **video_prompt.dialogue**：必须把本镜 `voiceover` 同步写入 `dialogue`，用于支持直出人声的视频模型；格式固定为 `[{{"speaker": "旁白", "line": "<voiceover 与 cta>"}}]`。仅当画面内有人物对白时，才额外追加人物对白。
+- 如果提供了 `<viral_analysis>`：只借鉴其节奏、镜头结构、卖点展开方式与 CTA 放置方式；禁止复制原视频人物、品牌、logo、音乐名、原始台词或可识别字幕表达。
 
 # 创作目标
 

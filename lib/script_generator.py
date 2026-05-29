@@ -156,6 +156,7 @@ class ScriptGenerator:
         caps = await self._fetch_video_capabilities()
 
         step1_md = self._load_step1(episode)
+        viral_analysis_md = self._load_viral_analysis(episode) if self.content_mode == "marketing" else None
 
         characters = self.project_json.get("characters", {})
         scenes = self.project_json.get("scenes", {})
@@ -190,6 +191,7 @@ class ScriptGenerator:
                 default_duration=self.project_json.get("default_duration"),
                 aspect_ratio=self._resolve_aspect_ratio(),
                 episode=episode,
+                viral_analysis_md=viral_analysis_md,
             )
             schema = MarketingAdScript
         elif self.content_mode == "narration":
@@ -266,6 +268,7 @@ class ScriptGenerator:
         gen_mode = self._effective_generation_mode(episode)
         caps = await self._fetch_video_capabilities()
         step1_md = self._load_step1(episode)
+        viral_analysis_md = self._load_viral_analysis(episode) if self.content_mode == "marketing" else None
         characters = self.project_json.get("characters", {})
         scenes = self.project_json.get("scenes", {})
         props = self.project_json.get("props", {})
@@ -298,6 +301,7 @@ class ScriptGenerator:
                 default_duration=self.project_json.get("default_duration"),
                 aspect_ratio=self._resolve_aspect_ratio(),
                 episode=episode,
+                viral_analysis_md=viral_analysis_md,
             )
         elif self.content_mode == "narration":
             return build_narration_prompt(
@@ -425,6 +429,14 @@ class ScriptGenerator:
                 raise FileNotFoundError(f"未找到 Step 1 文件: {primary_path}")
 
         with open(primary_path, encoding="utf-8") as f:
+            return f.read()
+
+    def _load_viral_analysis(self, episode: int) -> str | None:
+        """加载 marketing 爆款内容理解文件；不存在时保持普通营销流程。"""
+        path = self.project_path / "drafts" / f"episode_{episode}" / "step0_viral_analysis.md"
+        if not path.exists():
+            return None
+        with open(path, encoding="utf-8") as f:
             return f.read()
 
     def _parse_response(self, response_text: str, episode: int) -> dict:

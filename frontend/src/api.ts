@@ -771,6 +771,7 @@ class API {
       props?: { name: string; size: number; url: string }[];
       storyboards?: { name: string; size: number; url: string }[];
       videos?: { name: string; size: number; url: string }[];
+      reference_videos?: { name: string; size: number; url: string }[];
       output?: { name: string; size: number; url: string }[];
     };
   }> {

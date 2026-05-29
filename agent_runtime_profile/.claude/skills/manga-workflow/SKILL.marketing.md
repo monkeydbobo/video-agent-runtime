@@ -28,7 +28,8 @@ description: 将小说转换为短视频的端到端工作流编排器。当用�
 2. 使用 Read 工具读取 `project.json`，确认 `title`、`content_mode`、`generation_mode` 字段（本 session 当前 content_mode 为 `marketing`，创建后不可变更）
 3. 若 `generation_mode` 未在创建时指定，默认 storyboard；可在 Web 端补齐
 4. 请用户将产品简报/广告脚本放入 `source/`
-5. **上传后自动生成项目概述**（synopsis、genre、theme、world_setting）
+5. 如果用户选择“爆款复刻”，请用户将爆款参考视频放入 `reference_videos/`（支持 `.mp4` / `.mov` / `.webm`）
+6. **上传后自动生成项目概述**（synopsis、genre、theme、world_setting）
 
 > 标准项目子目录由 `create_project()` 自动建好：`source/`、`scripts/`、`drafts/`、`characters/`、`scenes/`、`props/`、`storyboards/`、`grids/`、`videos/`、`reference_videos/`、`thumbnails/`、`output/`。
 
@@ -46,15 +47,16 @@ description: 将小说转换为短视频的端到端工作流编排器。当用�
 
 1. characters / scenes / props 中**任一**为空（定义缺失）？ → **阶段 1**
 2. 目标集 source/episode_{N}.txt 不存在？ → **阶段 2**
-3. 目标集 drafts/ 中间文件不存在？ → **阶段 3**
+3. `reference_videos/` 中存在爆款参考视频，且 `drafts/episode_{N}/step0_viral_analysis.md` 不存在？ → **阶段 2.5**
+4. 目标集 drafts/ 中间文件不存在？ → **阶段 3**
    - content_mode == marketing: `drafts/episode_{N}/step1_ad_units.md`
    - generation_mode == reference_video: `drafts/episode_{N}/step1_reference_units.md`
    - 其它 narration: `drafts/episode_{N}/step1_segments.md`
-4. scripts/episode_{N}.json 不存在？ → **阶段 4**
-5. 任一类资产仍有缺 sheet 项（character 缺 character_sheet / scene 缺 scene_sheet / prop 缺 prop_sheet）？ → **阶段 5**（三类并行）
-6. **storyboard / grid 模式**：有场景缺少分镜图？ → **阶段 6**（reference_video 模式跳过）
-7. 有场景/unit 缺少视频？ → **阶段 7**
-8. 全部完成 → 工作流结束，引导用户在 Web 端导出剪映草稿
+5. scripts/episode_{N}.json 不存在？ → **阶段 4**
+6. 任一类资产仍有缺 sheet 项（character 缺 character_sheet / scene 缺 scene_sheet / prop 缺 prop_sheet）？ → **阶段 5**（三类并行）
+7. **storyboard / grid 模式**：有场景缺少分镜图？ → **阶段 6**（reference_video 模式跳过）
+8. 有场景/unit 缺少视频？ → **阶段 7**
+9. 全部完成 → 工作流结束，引导用户在 Web 端导出剪映草稿
 
 **确定目标集数**：如果用户未指定，找到最新的未完成集，或询问用户。
 
@@ -109,6 +111,28 @@ description: 将小说转换为短视频的端到端工作流编排器。当用�
    python .claude/skills/manage-project/scripts/split_episode.py --source {源文件} --episode {N} --target {目标字数} --anchor "{锚点文本}" --dry-run
    ```
 6. 确认无误后实际执行（去掉 `--dry-run`）
+
+---
+
+## 阶段 2.5：爆款视频内容理解（可选）
+
+**触发**：`reference_videos/` 下存在 `.mp4` / `.mov` / `.webm`，但目标集缺少 `drafts/episode_{N}/step0_viral_analysis.md`
+
+**dispatch `analyze-viral-reference` subagent**：
+
+```
+项目名称：{project_name}
+项目路径：{project_path}
+集数：{N}
+参考视频：{reference_videos/ 下的爆款视频路径；未指定时选择最近上传的视频}
+
+请分析爆款参考视频，提取可复刻的镜头结构、节奏、口播/字幕结构与 CTA 模板，
+写入 drafts/episode_{N}/step0_viral_analysis.md，返回摘要。
+```
+
+**约束**：
+- 只复刻结构、节奏、卖点展开方式，不复制原视频的人物、品牌、logo、音乐名或可识别台词
+- 内容理解结果只作为后续 `split-marketing-ad-units` 的参考，不直接替代本项目产品简报
 
 ---
 

@@ -58,6 +58,7 @@ ALLOWED_EXTENSIONS = {
     "scene": [".png", ".jpg", ".jpeg", ".webp"],
     "prop": [".png", ".jpg", ".jpeg", ".webp"],
     "storyboard": [".png", ".jpg", ".jpeg", ".webp"],
+    "reference_videos": [".mp4", ".mov", ".webm"],
 }
 
 
@@ -200,6 +201,12 @@ async def upload_file(
                     filename = f"scene_{name}.png"
                 else:
                     filename = f"{Path(original_filename).stem}.png"
+            elif upload_type == "reference_videos":
+                target_dir = project_dir / "reference_videos"
+                if name:
+                    filename = f"{name}{Path(original_filename).suffix.lower()}"
+                else:
+                    filename = original_filename
             else:
                 target_dir = project_dir / upload_type
                 filename = original_filename
@@ -210,10 +217,10 @@ async def upload_file(
             nonlocal content
             if upload_type in ("character", "character_ref", "scene", "prop", "storyboard"):
                 try:
-                    content, ext = normalize_uploaded_image(content, Path(original_filename).suffix.lower())
+                    content, normalized_ext = normalize_uploaded_image(content, Path(original_filename).suffix.lower())
                 except ValueError:
                     raise HTTPException(status_code=400, detail=_t("invalid_image_file"))
-                filename = Path(filename).with_suffix(ext).name
+                filename = Path(filename).with_suffix(normalized_ext).name
 
             target_path = target_dir / filename
             with open(target_path, "wb") as f:
@@ -232,6 +239,8 @@ async def upload_file(
                 relative_path = f"props/{filename}"
             elif upload_type == "storyboard":
                 relative_path = f"storyboards/{filename}"
+            elif upload_type == "reference_videos":
+                relative_path = f"reference_videos/{filename}"
             else:
                 relative_path = f"{upload_type}/{filename}"
 
@@ -404,6 +413,7 @@ async def list_project_files(project_name: str, _user: CurrentUser, _t: Translat
                 "props": [],
                 "storyboards": [],
                 "videos": [],
+                "reference_videos": [],
                 "output": [],
             }
 

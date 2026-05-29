@@ -94,6 +94,25 @@ class TestFilesRouter:
             missing = client.get("/api/v1/projects/demo/source/missing.txt")
             assert missing.status_code == 404
 
+    def test_reference_video_upload_and_list(self, tmp_path, monkeypatch):
+        client, _ = _client(monkeypatch, tmp_path)
+
+        with client:
+            upload = client.post(
+                "/api/v1/projects/demo/upload/reference_videos",
+                files={"file": ("viral.mp4", b"video-bytes", "video/mp4")},
+            )
+            assert upload.status_code == 200
+            assert upload.json()["path"] == "reference_videos/viral.mp4"
+
+            listed = client.get("/api/v1/projects/demo/files")
+            assert listed.status_code == 200
+            assert any(item["name"] == "viral.mp4" for item in listed.json()["files"]["reference_videos"])
+
+            served = client.get("/api/v1/files/demo/reference_videos/viral.mp4")
+            assert served.status_code == 200
+            assert served.content == b"video-bytes"
+
     def test_upload_assets_and_drafts(self, tmp_path, monkeypatch):
         client, pm = _client(monkeypatch, tmp_path)
 

@@ -15,6 +15,10 @@ import { useEscapeClose } from "@/hooks/useEscapeClose";
 import { WizardStep1Basics, type WizardStep1Value } from "./create-project/WizardStep1Basics";
 import { WizardStep2Models, type WizardStep2Data } from "./create-project/WizardStep2Models";
 import { WizardStep3Style, type WizardStep3Value } from "./create-project/WizardStep3Style";
+import {
+  WizardStep3MarketingReference,
+  type WizardStep3MarketingReferenceValue,
+} from "./create-project/WizardStep3MarketingReference";
 import type { ModelConfigValue } from "@/components/shared/ModelConfigSection";
 
 // 新建项目对话框 · "Open Reel"
@@ -27,11 +31,12 @@ const SPROCKET_STYLE: CSSProperties = {
 
 // ─── Step indicator ───────────────────────────────────────────────────────────
 
-const STEPS = [
-  { num: 1, key: "wizard_step_basics" },
-  { num: 2, key: "wizard_step_models" },
-  { num: 3, key: "wizard_step_style" },
-] as const;
+const STEP_KEYS = {
+  basics: "wizard_step_basics",
+  models: "wizard_step_models",
+  style: "wizard_step_style",
+  viralReference: "wizard_step_viral_reference",
+} as const;
 
 const STEP_BADGE_GRADIENT =
   "linear-gradient(180deg, oklch(0.30 0.05 295 / 0.65), oklch(0.20 0.02 280 / 0.65))";
@@ -62,8 +67,13 @@ const STEP_CONNECTOR_INACTIVE_STYLE: CSSProperties = {
   background: "var(--color-hairline-soft)",
 };
 
-function StepIndicator({ current }: { current: 1 | 2 | 3 }) {
+function StepIndicator({ current, isMarketing }: { current: 1 | 2 | 3; isMarketing: boolean }) {
   const { t } = useTranslation("templates");
+  const steps = [
+    { num: 1, key: STEP_KEYS.basics },
+    { num: 2, key: STEP_KEYS.models },
+    { num: 3, key: isMarketing ? STEP_KEYS.viralReference : STEP_KEYS.style },
+  ] as const;
   return (
     <div className="relative">
       {/* sprocket 上下边 — 暗示一段胶片正在过卷头 */}
@@ -71,10 +81,10 @@ function StepIndicator({ current }: { current: 1 | 2 | 3 }) {
       <div aria-hidden className="absolute inset-x-6 bottom-0 h-[3px] opacity-40" style={SPROCKET_STYLE} />
 
       <ol className="relative flex items-stretch py-5">
-        {STEPS.map((s, i) => {
+        {steps.map((s, i) => {
           const done = current > s.num;
           const active = current === s.num;
-          const last = i === STEPS.length - 1;
+          const last = i === steps.length - 1;
           return (
             <li
               key={s.num}
@@ -169,6 +179,9 @@ export function CreateProjectModal() {
     activeCategory: "live",
     uploadedFile: null,
     uploadedPreview: null,
+  });
+  const [marketingReference, setMarketingReference] = useState<WizardStep3MarketingReferenceValue>({
+    referenceVideoFile: null,
   });
 
   const [creating, setCreating] = useState(false);
@@ -272,7 +285,7 @@ export function CreateProjectModal() {
         aspect_ratio: basics.aspectRatio,
         generation_mode: basics.generationMode,
         default_duration: models.defaultDuration,
-        style_template_id: style.mode === "template" ? style.templateId : null,
+        style_template_id: basics.contentMode === "marketing" ? null : style.mode === "template" ? style.templateId : null,
         video_backend: models.videoBackend || null,
         image_provider_t2i: models.imageBackendT2I || null,
         image_provider_i2i: models.imageBackendI2I || null,
@@ -282,8 +295,8 @@ export function CreateProjectModal() {
         ...(Object.keys(modelSettings).length > 0 ? { model_settings: modelSettings } : {}),
       });
 
-      // Upload style image if in custom mode
-      if (style.mode === "custom" && style.uploadedFile) {
+      // Upload style image if in custom mode; marketing skips style selection.
+      if (basics.contentMode !== "marketing" && style.mode === "custom" && style.uploadedFile) {
         try {
           await API.uploadStyleImage(resp.name, style.uploadedFile);
         } catch {
@@ -291,6 +304,14 @@ export function CreateProjectModal() {
             t("dashboard:style_upload_failed_hint"),
             "warning"
           );
+        }
+      }
+
+      if (basics.contentMode === "marketing" && marketingReference.referenceVideoFile) {
+        try {
+          await API.uploadFile(resp.name, "reference_videos", marketingReference.referenceVideoFile);
+        } catch {
+          useAppStore.getState().pushToast(t("dashboard:reference_video_upload_failed_hint"), "warning");
         }
       }
 
@@ -306,6 +327,7 @@ export function CreateProjectModal() {
     }
   };
 
+  const isMarketing = basics.contentMode === "marketing";
   const stepKicker = `Reel ${step.toString().padStart(2, "0")} / 03`;
 
   const modal = (
@@ -379,13 +401,13 @@ export function CreateProjectModal() {
             <span aria-hidden className="mx-1.5 text-text-4">/</span>
             {t("templates:wizard_step_models")}
             <span aria-hidden className="mx-1.5 text-text-4">/</span>
-            {t("templates:wizard_step_style")}
+            {t(isMarketing ? "templates:wizard_step_viral_reference" : "templates:wizard_step_style")}
           </p>
         </div>
 
         {/* Step indicator strip */}
         <div className="shrink-0 border-y border-hairline-soft bg-[oklch(0.16_0.010_265_/_0.55)] px-6">
-          <StepIndicator current={step} />
+          <StepIndicator current={step} isMarketing={isMarketing} />
         </div>
 
         {/* Current step body */}
@@ -409,10 +431,20 @@ export function CreateProjectModal() {
               error={step2Error}
             />
           )}
-          {step === 3 && (
+          {step === 3 && !isMarketing && (
             <WizardStep3Style
               value={style}
               onChange={setStyle}
+              onBack={() => setStep(2)}
+              onCreate={voidPromise(handleCreate)}
+              onCancel={handleClose}
+              creating={creating}
+            />
+          )}
+          {step === 3 && isMarketing && (
+            <WizardStep3MarketingReference
+              value={marketingReference}
+              onChange={setMarketingReference}
               onBack={() => setStep(2)}
               onCreate={voidPromise(handleCreate)}
               onCancel={handleClose}

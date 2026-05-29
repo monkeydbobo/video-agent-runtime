@@ -16,6 +16,7 @@ import pytest
 
 from server.agent_runtime.sdk_tools import build_arcreel_mcp_server
 from server.agent_runtime.sdk_tools._context import ToolContext
+from server.agent_runtime.sdk_tools.analyze_viral_reference import analyze_viral_reference_tool
 from server.agent_runtime.sdk_tools.enqueue_assets import (
     generate_assets_tool,
     list_pending_assets_tool,
@@ -704,3 +705,47 @@ async def test_normalize_drama_script_no_source(fake_ctx: ToolContext) -> None:
     tool_obj = normalize_drama_script_tool(fake_ctx)
     out = await _call(tool_obj, {"episode": 1})
     assert out.get("is_error") is True
+
+
+async def test_analyze_viral_reference_writes_step0(fake_ctx: ToolContext, monkeypatch) -> None:
+    from server.agent_runtime.sdk_tools import analyze_viral_reference as mod
+
+    fake_ctx.pm.project_payload["content_mode"] = "marketing"
+    ref_dir = fake_ctx.project_path / "reference_videos"
+    ref_dir.mkdir()
+    (ref_dir / "viral.mp4").write_bytes(b"video")
+
+    def fake_probe(_video_path: Path) -> dict[str, Any]:
+        return {"duration_seconds": 12.0, "width": 720, "height": 1280}
+
+    def fake_extract(_video_path: Path, frames_dir: Path, _duration: float) -> list[Path]:
+        frames_dir.mkdir(parents=True, exist_ok=True)
+        frame = frames_dir / "frame_01.jpg"
+        frame.write_bytes(b"jpg")
+        return [frame]
+
+    class _FakeGenerator:
+        async def generate(self, request, project_name=None):
+            assert project_name == "demo"
+            assert request.images
+
+            class _Result:
+                text = "# 爆款视频内容理解\n## 基础信息\n## 结构拆解\n## 可复刻模板\n## 禁止照搬\n"
+
+            return _Result()
+
+    async def fake_create(_task_type, project_name=None):
+        assert project_name == "demo"
+        return _FakeGenerator()
+
+    monkeypatch.setattr(mod, "_probe_video", fake_probe)
+    monkeypatch.setattr(mod, "_extract_keyframes", fake_extract)
+    monkeypatch.setattr(mod.TextGenerator, "create", fake_create)
+
+    tool_obj = analyze_viral_reference_tool(fake_ctx)
+    out = await _call(tool_obj, {"episode": 1, "video_path": "reference_videos/viral.mp4"})
+
+    assert out.get("is_error") is not True, out
+    analysis = fake_ctx.project_path / "drafts" / "episode_1" / "step0_viral_analysis.md"
+    assert analysis.exists()
+    assert out["analysis_path"] == "drafts/episode_1/step0_viral_analysis.md"

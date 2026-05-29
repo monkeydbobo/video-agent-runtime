@@ -102,6 +102,7 @@ export default {
   wizard_step_basics: "Basics",
   wizard_step_models: "Models",
   wizard_step_style: "Style",
+  wizard_step_viral_reference: "Viral reference",
   next_step: "Next",
   prev_step: "Back",
 } as const;

@@ -23,6 +23,7 @@ export default {
   'export_diagnostics': 'Export Diagnostics',
   'project_title_required': 'Project title cannot be empty',
   'style_upload_failed_hint': 'Style reference image upload failed, you can upload it later in project settings',
+  'reference_video_upload_failed_hint': 'Viral reference video upload failed. You can upload it later from Source files.',
   'create_project_failed': 'Failed to create project: {{message}}',
   'project_id_auto_gen_hint': 'The system will automatically generate an internal project ID used for URLs and storage',
   'narration_visuals': 'Narration Mode',
@@ -68,7 +69,10 @@ export default {
   'project_overview': 'Project Overview',
   'source_files': 'Source Files',
   'output_files': 'Final Outputs',
+  'reference_videos': 'Viral reference videos',
   'upload_source_files': 'Upload source files',
+  'upload_reference_video': 'Upload viral video',
+  'replace_reference_video': 'Replace viral video',
   'no_files_yet': 'No files yet',
   'delete_file': 'Delete file',
   'lorebook': 'Lorebook',
@@ -467,6 +471,10 @@ export default {
   'source_files_drop_inline_hint': 'Drop more files to add',
   'source_open': 'Open',
   'output_open': 'Open video',
+  'reference_video_uploaded': 'Viral reference video uploaded',
+  'reference_video_unsupported_extension': 'Unsupported viral reference video type: {{filename}}',
+  'viral_reference_step_title': 'Viral reference video (optional)',
+  'viral_reference_step_desc': 'Marketing videos do not need a drama style preset. Upload a viral video as a structure reference; the Agent will analyze it first, then map its rhythm and shot structure to your product ad.',
 
   // TaskHud / Notifications / Usage v3
   'task_hud_title': 'Task Radar',
@@ -1089,6 +1097,7 @@ export default {
   'tool_name_generate_episode_script': 'Generate script',
   'tool_name_normalize_drama_script': 'Normalize drama script',
   'tool_name_get_video_capabilities': 'Query video model capabilities',
+  'tool_name_analyze_viral_reference': 'Analyze viral reference video',
   // Skill display names (single source of truth: user-invocable SKILL.md files
   // under agent_runtime_profile/.claude/skills/; tests/test_frontend_skill_i18n.py enforces parity)
   'skill_name_manga_workflow': 'Video workflow',

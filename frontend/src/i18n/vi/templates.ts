@@ -112,6 +112,7 @@ export default {
   wizard_step_basics: "Cơ bản",
   wizard_step_models: "Mô hình",
   wizard_step_style: "Phong cách",
+  wizard_step_viral_reference: "Tham chiếu viral",
   next_step: "Tiếp",
   prev_step: "Quay lại",
 } satisfies DeepStringify<typeof enTemplates>;

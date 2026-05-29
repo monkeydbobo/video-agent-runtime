@@ -102,6 +102,7 @@ export default {
   wizard_step_basics: "基础信息",
   wizard_step_models: "模型",
   wizard_step_style: "风格",
+  wizard_step_viral_reference: "爆款参考",
   next_step: "下一步",
   prev_step: "上一步",
 } as const;

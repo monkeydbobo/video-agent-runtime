@@ -475,6 +475,15 @@ class TestAddMetadataInjectsHiddenFields:
             {"speaker": "旁白", "line": "还在找充电线？扫码领券。"}
         ]
 
+    def test_marketing_loads_optional_viral_analysis(self, tmp_path: Path) -> None:
+        sg = self._make_generator(tmp_path, content_mode="marketing")
+        drafts = sg.project_path / "drafts" / "episode_1"
+        drafts.mkdir(parents=True)
+        (drafts / "step0_viral_analysis.md").write_text("# 爆款视频内容理解", encoding="utf-8")
+
+        assert sg._load_viral_analysis(1) == "# 爆款视频内容理解"
+        assert sg._load_viral_analysis(2) is None
+
     def test_partial_novel_only_title_is_also_reinjected(self, tmp_path: Path) -> None:
         """半填 novel(只有 title 或只有 chapter)也应触发重注入,避免 compose-video 文件名残缺。"""
         sg = self._make_generator(tmp_path, content_mode="drama")

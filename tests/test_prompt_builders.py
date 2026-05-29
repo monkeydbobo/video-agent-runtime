@@ -6,6 +6,7 @@ from lib.prompt_builders import (
     build_scene_prompt,
     build_storyboard_suffix,
 )
+from lib.prompt_builders_script import build_marketing_prompt
 
 
 class TestCharacterPrompt:
@@ -91,3 +92,23 @@ class TestVideoNegativeTail:
         for blank in ("   ", "\n\n", "\t \n"):
             result = append_video_negative_tail(blank)
             assert result.startswith("禁止出现"), f"input={blank!r} → {result!r}"
+
+
+class TestMarketingScriptPrompt:
+    def test_includes_optional_viral_analysis(self):
+        prompt = build_marketing_prompt(
+            project_overview={"synopsis": "智能手表广告"},
+            style="realistic",
+            style_description="soft light",
+            characters={"手表": {"description": "圆形表盘"}},
+            scenes={},
+            props={},
+            ad_units_md="| 镜头 ID | hook | voiceover | 时长 | segment_break | 产品 | 场景 | 配件 |",
+            supported_durations=[4, 6, 8],
+            episode=1,
+            viral_analysis_md="# 爆款视频内容理解\n## 结构拆解\n快节奏开头",
+        )
+
+        assert "<viral_analysis>" in prompt
+        assert "快节奏开头" in prompt
+        assert "禁止复制原视频人物" in prompt

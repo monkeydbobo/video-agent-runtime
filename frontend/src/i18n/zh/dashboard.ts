@@ -24,6 +24,7 @@ export default {
   'export_diagnostics': '导出诊断',
   'project_title_required': '项目标题不能为空',
   'style_upload_failed_hint': '风格参考图上传失败，可稍后在项目设置中重新上传',
+  'reference_video_upload_failed_hint': '爆款参考视频上传失败，可稍后在源文件页重新上传',
   'create_project_failed': '创建项目失败: {{message}}',
   'project_id_auto_gen_hint': '系统会自动生成内部项目标识并用于 URL 与文件存储',
   'narration_visuals': '旁白模式',
@@ -69,7 +70,10 @@ export default {
   'project_overview': '项目概览',
   'source_files': '源文件',
   'output_files': '成片输出',
+  'reference_videos': '爆款参考视频',
   'upload_source_files': '上传源文件',
+  'upload_reference_video': '上传爆款视频',
+  'replace_reference_video': '更换爆款视频',
   'no_files_yet': '暂无文件',
   'delete_file': '删除文件',
   'lorebook': '设定集',
@@ -468,6 +472,10 @@ export default {
   'source_files_drop_inline_hint': '可继续拖拽文件加入',
   'source_open': '打开',
   'output_open': '打开视频',
+  'reference_video_uploaded': '爆款参考视频已上传',
+  'reference_video_unsupported_extension': '不支持的爆款参考视频类型：{{filename}}',
+  'viral_reference_step_title': '爆款复刻参考视频（可选）',
+  'viral_reference_step_desc': '营销视频无需选择剧集风格。你可以上传一个爆款视频作为结构参考，Agent 会先做内容理解，再把节奏和镜头结构映射到你的产品广告里。',
 
   // TaskHud / Notifications / Usage v3
   'task_hud_title': '任务雷达',
@@ -1090,6 +1098,7 @@ export default {
   'tool_name_generate_episode_script': '生成剧本',
   'tool_name_normalize_drama_script': '规范化剧本',
   'tool_name_get_video_capabilities': '查询视频模型能力',
+  'tool_name_analyze_viral_reference': '分析爆款参考视频',
   // Skill display names (single source of truth: agent_runtime_profile/.claude/skills/*/SKILL.md
   // 中 user-invocable: true 的 skill；tests/test_frontend_skill_i18n.py 校验三语齐全)
   'skill_name_manga_workflow': '视频工作流',
