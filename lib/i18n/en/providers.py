@@ -8,6 +8,7 @@ MESSAGES: dict[str, str] = {
     "provider_name_ark-agent-plan": "Volcengine Ark Agent Plan",
     "provider_name_grok": "Grok",
     "provider_name_openai": "OpenAI",
+    "provider_name_atlascloud": "Atlas Cloud",
     "provider_name_vidu": "Vidu",
     # Provider descriptions
     "provider_desc_gemini-aistudio": "Google AI Studio provides Gemini models with image and video generation, ideal for rapid prototyping and personal projects.",
@@ -16,6 +17,7 @@ MESSAGES: dict[str, str] = {
     "provider_desc_ark-agent-plan": "Volcengine Ark Agent Plan aggregates Doubao and other major models for text, image and video generation.",
     "provider_desc_grok": "xAI Grok models supporting video and image generation.",
     "provider_desc_openai": "OpenAI platform supporting GPT-5.4 text, GPT Image and Sora video generation.",
+    "provider_desc_atlascloud": "Atlas Cloud unified inference platform with GPT Image 2 text-to-image and image editing, billed per image.",
     "provider_desc_vidu": "Shengshu Vidu video platform supporting text-to-video, image-to-video, first-last frame, reference-to-video and reference-to-image. Image and video only.",
     # Agent preset notes (lib/agent_provider_catalog.py)
     "preset_notes_deepseek": "DeepSeek official Anthropic-compat endpoint; needs sk- prefixed key.",

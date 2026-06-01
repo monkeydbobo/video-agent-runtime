@@ -1,4 +1,4 @@
-"""Tests for _build_options() — 营销视频 Agent 仅预置 ark + openai。
+"""Tests for _build_options() — 营销视频 Agent 预置 ark + openai + atlascloud。
 
 自定义供应商已移除，options 只来自 PROVIDER_REGISTRY 中 ready 的预置供应商。
 """
@@ -73,6 +73,13 @@ class TestBuildOptionsPresetOnly:
         assert any(v.startswith("openai/") for v in options["image_backends"])
         assert not any(v.startswith("openai/") for v in options["video_backends"])
         assert not any(v.startswith("openai/") for v in options["text_backends"])
+
+    async def test_ready_atlascloud_only_image(self, session):
+        db_session, _ = session
+        options = await _build_options(_make_mock_svc(ready_providers=["atlascloud"]), db_session)
+        assert any(v.startswith("atlascloud/") for v in options["image_backends"])
+        assert "atlascloud/gpt-image-2" in options["image_backends"]
+        assert not any(v.startswith("atlascloud/") for v in options["video_backends"])
 
     async def test_no_custom_entries_ever(self, session):
         db_session, _ = session

@@ -30,7 +30,7 @@ from lib.prompt_utils import (
     is_structured_video_prompt,
     video_prompt_to_yaml,
 )
-from lib.providers import PROVIDER_ARK, PROVIDER_OPENAI
+from lib.providers import PROVIDER_ARK, PROVIDER_ATLASCLOUD, PROVIDER_OPENAI
 from lib.storyboard_sequence import (
     build_previous_storyboard_reference,
     find_storyboard_item,
@@ -50,10 +50,11 @@ logger = logging.getLogger(__name__)
 _backend_cache: dict[tuple[str, str, str | None], Any] = {}
 
 # 新 provider_id → 旧 backend registry name 的映射
-# 营销视频 Agent：视频仅 Ark，图片 Ark + OpenAI；其余 provider 已从注册表移除。
+# 营销视频 Agent：视频仅 Ark，图片 Ark + OpenAI + Atlas Cloud；其余 provider 已从注册表移除。
 _PROVIDER_ID_TO_BACKEND: dict[str, str] = {
     PROVIDER_ARK: PROVIDER_ARK,
     PROVIDER_OPENAI: PROVIDER_OPENAI,
+    PROVIDER_ATLASCLOUD: PROVIDER_ATLASCLOUD,
 }
 
 
@@ -152,7 +153,7 @@ async def _get_or_create_image_backend(
     if cache_key in _backend_cache:
         return _backend_cache[cache_key]
 
-    # 营销视频 Agent 图片仅 Ark + OpenAI；统一走简单供应商配置填充。
+    # 营销视频 Agent 图片 Ark + OpenAI + Atlas Cloud；统一走简单供应商配置填充。
     backend_name = _PROVIDER_ID_TO_BACKEND.get(provider_name, provider_name)
     kwargs: dict = {}
     await _fill_simple_provider_kwargs(backend_name, resolver, kwargs, effective_model)
