@@ -513,6 +513,11 @@ class TestRegistryShape:
             assert (provider, "image") in PROVIDER_SPEC_REGISTRY
             assert (provider, "video") in PROVIDER_SPEC_REGISTRY
 
+    def test_atlascloud_image_only_registered(self):
+        assert ("atlascloud", "image") in PROVIDER_SPEC_REGISTRY
+        assert ("atlascloud", "video") not in PROVIDER_SPEC_REGISTRY
+        assert ("atlascloud", "text") not in PROVIDER_SPEC_REGISTRY
+
     def test_text_family_complete(self):
         # 文本九对：七 provider + gemini 两 id（aistudio/vertex）
         text_keys = {k for k in PROVIDER_SPEC_REGISTRY if k[1] == "text"}

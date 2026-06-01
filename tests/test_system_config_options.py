@@ -277,6 +277,14 @@ class TestBuildOptionsCustomModels:
         # Custom model also present
         assert f"custom-{provider.id}/my-text-model" in options["text_backends"]
 
+    async def test_ready_atlascloud_only_exposes_image_model(self, session):
+        db_session, _factory = session
+        options = await _build_options(_make_mock_svc(ready_providers=["atlascloud"]), db_session)
+
+        assert "atlascloud/gpt-image-2" in options["image_backends"]
+        assert not any(value.startswith("atlascloud/") for value in options["video_backends"])
+        assert not any(value.startswith("atlascloud/") for value in options["text_backends"])
+
 
 # ---------------------------------------------------------------------------
 # Tests: _build_options returns provider_names

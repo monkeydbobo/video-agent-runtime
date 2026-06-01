@@ -326,6 +326,7 @@ _SIMPLE_IMAGE_VIDEO_PROVIDERS = ("ark", "ark-agent-plan", "grok", "openai", "vid
 _SIMPLE_MEDIA_PAIRS: list[tuple[str, str]] = [
     *((p, "image") for p in _SIMPLE_IMAGE_VIDEO_PROVIDERS),
     *((p, "video") for p in _SIMPLE_IMAGE_VIDEO_PROVIDERS),
+    ("atlascloud", "image"),
     ("dashscope", "audio"),
 ]
 

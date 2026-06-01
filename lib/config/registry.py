@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 
 from lib.agnes_shared import AGNES_BASE_URL
 from lib.ark_shared import ARK_BASE_URL
+from lib.atlascloud_shared import ATLASCLOUD_BASE_URL, ATLASCLOUD_IMAGE_FLAT_COST_USD
 from lib.dashscope_shared import DASHSCOPE_BASE_URL
 from lib.minimax_shared import MINIMAX_BASE_URL
 from lib.pricing.types import (
@@ -196,6 +197,11 @@ def _grok_text_pricing(model_id: str, input_rate: float, output_rate: float) -> 
 
 # Grok 图片费率（美元/张）。
 def _grok_image_pricing(model_id: str, per_image: float) -> PerImageFlat:
+    return PerImageFlat(rates={model_id: per_image}, default_model=model_id, currency="USD")
+
+
+# Atlas Cloud 图片费率（美元/张）。
+def _atlascloud_image_pricing(model_id: str, per_image: float) -> PerImageFlat:
     return PerImageFlat(rates={model_id: per_image}, default_model=model_id, currency="USD")
 
 
@@ -849,6 +855,24 @@ PROVIDER_REGISTRY: dict[str, ProviderMeta] = {
                 pricing=_sora_video_pricing("sora-2-pro", {"720p": 0.30, "1024p": 0.50, "1080p": 0.70}),
             ),
         },
+    ),
+    "atlascloud": ProviderMeta(
+        display_name="Atlas Cloud",
+        description="Atlas Cloud 统一推理平台，提供 GPT Image 2 文生图与图生图能力，按张计费。",
+        required_keys=["api_key"],
+        optional_keys=["base_url", "image_max_workers"],
+        secret_keys=["api_key"],
+        models={
+            "gpt-image-2": ModelInfo(
+                display_name="GPT Image 2 (Atlas Cloud)",
+                media_type="image",
+                capabilities=["text_to_image", "image_to_image"],
+                default=True,
+                resolutions=["512px", "1K", "2K"],
+                pricing=_atlascloud_image_pricing("gpt-image-2", ATLASCLOUD_IMAGE_FLAT_COST_USD),
+            ),
+        },
+        default_base_url=ATLASCLOUD_BASE_URL,
     ),
     "vidu": ProviderMeta(
         display_name="Vidu",

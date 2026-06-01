@@ -42,6 +42,11 @@ from lib.providers import PROVIDER_OPENAI
 
 register_backend(PROVIDER_OPENAI, OpenAIImageBackend)
 
+from lib.image_backends.atlascloud import AtlasCloudImageBackend
+from lib.providers import PROVIDER_ATLASCLOUD
+
+register_backend(PROVIDER_ATLASCLOUD, AtlasCloudImageBackend)
+
 from lib.image_backends.vidu import ViduImageBackend
 from lib.providers import PROVIDER_VIDU
 
