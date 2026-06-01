@@ -647,3 +647,242 @@ AGENT_RUNTIME=claude | internal
 | SSE 清理 ADR | `docs/adr/0005-sse-stream-async-context-manager.md` |
 | 取消状态机 ADR | `docs/adr/0006-cancelling-intermediate-state.md` |
 | 重启孤儿任务 ADR | `docs/adr/0007-orphan-tasks-not-requeued-on-restart.md` |
+
+
+## 11. 前后端交互结构与卡片事件补充
+
+本节补充工作台内所有主要“卡片事件”的触发方式、前后端结构和交互图。它是前文迁移建议的落地点：替换 Agent Runtime 时，卡片层最好继续复用这些契约。
+
+### 11.1 工作台交互挂载结构
+
+```mermaid
+flowchart LR
+  Router["router.tsx /app/projects/:projectName"] -->|API.getProject| ProjectsStore["projects-store<br/>currentProjectData + scripts + fingerprints"]
+  Router --> Layout["StudioLayout"]
+  Layout --> TasksHook["useTasksSSE(projectName)"]
+  Layout --> EventsHook["useProjectEventsSSE(projectName)"]
+  Layout --> FailureHook["TaskFailureListener / useTaskFailureNotifications"]
+
+  TasksHook -->|GET /tasks + /tasks/stats 每 3 秒| TasksStore["tasks-store<br/>tasks + stats + connected"]
+  EventsHook -->|EventSource /events/stream| ProjectsStore
+  EventsHook --> AppStore["app-store<br/>toast/notification/scroll/gridsRevision/entityRevisions"]
+  FailureHook --> AppStore
+
+  ProjectsStore --> Sidebar["AssetSidebar / EpisodeCard"]
+  ProjectsStore --> Canvas["StudioCanvasRouter -> 各 Canvas/Card"]
+  TasksStore --> TaskHud["TaskHud"]
+  TasksStore --> Canvas
+  AppStore --> Canvas
+```
+
+前端有三层主要状态来源：
+
+| 来源 | 写入点 | 主要消费者 | 用途 |
+| --- | --- | --- | --- |
+| `projects-store` | `API.getProject`、Project Events 刷新 | 侧栏、Timeline、资产页、Grid、Reference | 项目与脚本真相源、媒体路径、asset fingerprints |
+| `tasks-store` | `useTasksSSE` 轮询 | 生成按钮、TaskHud、失败通知、Reference statusMap | queued/running/cancelling/failed 等任务态 |
+| `app-store` | 卡片回调、Project Events、失败监听 | toast、workspace notification、滚动高亮、grid revision | 用户反馈、自动导航、缓存失效 |
+
+### 11.2 前后端交互契约总表
+
+| 前端入口 | API 方法 | 后端路由 | 返回/事件 | 主要回写 |
+| --- | --- | --- | --- | --- |
+| 项目大厅 | `listProjects` | `GET /api/v1/projects` | `ProjectSummary[]` | `projects-store.projects` |
+| 进入项目 | `getProject` | `GET /api/v1/projects/{name}` | `project + scripts + asset_fingerprints` | `projects-store.current*` |
+| 项目 CRUD | `createProject/deleteProject/importProject` | `POST /projects`、`DELETE /projects/{name}`、`POST /projects/import` | success/project | 列表刷新或路由跳转 |
+| Assistant 发送 | `sendAssistantMessage` | `POST /projects/{p}/assistant/sessions/send` | `{status:"accepted", session_id}` | `assistant-store` optimistic turn |
+| Assistant 流 | `getAssistantStreamUrl` | `GET /projects/{p}/assistant/sessions/{id}/stream` | SSE `snapshot/patch/delta/status/question` | `assistant-store.turns/draft/status` |
+| Assistant 快照 | `getAssistantSnapshot` | `GET /projects/{p}/assistant/sessions/{id}/snapshot` | `AssistantSnapshot` | 会话切换/重连 |
+| 分镜/视频生成 | `generateStoryboard/generateVideo` | `POST /projects/{p}/generate/storyboard|video/{segmentId}` | `{success, task_id}` | toast + tasks-store poll + project-events |
+| 资产生成 | `generateCharacter/generateProjectScene/generateProjectProp` | `POST /projects/{p}/generate/character|scene|prop/{name}` | `{success, task_id}` | toast + tasks-store poll + project-events |
+| Grid 生成 | `generateGrid/regenerateGrid/listGrids` | `/projects/{p}/generate/grid/{episode}`、`/grids...` | task/grid data | `app-store.gridsRevision` + project-events |
+| Reference video | `list/add/patch/delete/reorder/generateReferenceVideoUnit` | `/projects/{p}/reference-videos/episodes/{ep}/units...` | unit/task | `reference-video-store` + tasks-store |
+| 任务列表 | `listTasks/getTaskStats` | `GET /tasks`、`GET /tasks/stats` | `TaskItem[]`、`TaskStats` | `tasks-store` |
+| 任务取消 | `cancelPreview/cancelTask/cancelAllQueued` | `GET/POST /tasks...cancel...` | cancel result | 下一轮任务 poll |
+| 项目变更 | `openProjectEventStream` | `GET /projects/{p}/events/stream` | SSE `snapshot/changes` | `projects-store`、`app-store` |
+
+### 11.3 同步写与异步生成的分叉
+
+卡片事件分两类：同步写立即刷新项目；异步生成只返回任务 ID，等待队列和项目事件回写。
+
+```mermaid
+flowchart TD
+  A["用户操作卡片"] --> B{"操作类型"}
+  B -->|PATCH/上传/CRUD| C["REST 写项目或资产"]
+  C --> D["StudioCanvasRouter.refreshProject()"]
+  D --> E["API.getProject"]
+  E --> F["projects-store 更新"]
+  F --> G["卡片重新渲染"]
+
+  B -->|POST /generate/*| H["GenerationQueue.enqueue_task"]
+  H --> I["返回 task_id + toast"]
+  I --> J["useTasksSSE 每 3 秒轮询"]
+  J --> K["tasks-store: queued/running"]
+  K --> L["卡片按钮 loading / TaskHud 展示"]
+  H --> M["GenerationWorker 执行并写项目文件"]
+  M --> N["emit_project_change_batch/hint"]
+  N --> O["Project Events SSE changes"]
+  O --> P["useProjectEventsSSE -> API.getProject"]
+  P --> F
+  O --> Q["asset fingerprints / notifications / gridsRevision / cost refresh"]
+```
+
+### 11.4 生成类卡片通用时序图
+
+```mermaid
+sequenceDiagram
+  participant U as 用户
+  participant Card as 卡片组件
+  participant Router as StudioCanvasRouter / Store action
+  participant API as frontend/src/api.ts
+  participant BE as FastAPI Router
+  participant Queue as GenerationQueue
+  participant Worker as GenerationWorker
+  participant Tasks as useTasksSSE + tasks-store
+  participant Events as ProjectEventService SSE
+  participant Projects as projects-store
+
+  U->>Card: 点击生成按钮
+  Card->>Router: onGenerate(resourceId)
+  Router->>API: generate*(project, resourceId, payload)
+  API->>BE: POST /generate/*
+  BE->>Queue: enqueue_task(source=webui)
+  Queue-->>BE: task_id
+  BE-->>Router: success + task_id
+  Router-->>U: toast: 已提交
+
+  loop 每 3 秒
+    Tasks->>API: GET /tasks + /tasks/stats
+    API-->>Tasks: TaskItem[] + stats
+  end
+  Tasks-->>Card: queued/running => loading
+
+  Worker->>Queue: claim_next_task
+  Worker->>Worker: execute_generation_task
+  Worker->>Events: emit_project_change_batch(source=worker)
+  Events-->>Projects: changes => refreshProject()
+  Projects-->>Card: 新媒体路径/fingerprint
+  Tasks-->>Card: succeeded/failed/cancelled
+```
+
+### 11.5 项目大厅卡片
+
+| 用户事件 | 前端触发 | 后端交互 | UI 回写 |
+| --- | --- | --- | --- |
+| 点击项目卡片 | `ProjectsPage` 使用 `Link` 进入 `/app/projects/{name}` | 路由层调用 `API.getProject` | `projects-store.setCurrentProject`，进入工作台 |
+| 新建项目 | `CreateProjectModal` 调 `API.createProject` | `POST /projects` | 创建成功后路由跳转到新项目 |
+| 删除项目 | 卡片菜单确认后 `API.deleteProject` | `DELETE /projects/{name}` | 重新拉项目列表 |
+| 导入 ZIP | 上传后 `API.importProject` | `POST /projects/import` | 成功后刷新列表或进入项目 |
+| 搜索/筛选 | 本地 state | 无 | 仅过滤 `projects-store.projects` |
+
+项目大厅卡片不订阅 `tasks-store` 或 Project Events；卡片上的阶段与进度来自 `GET /projects` 返回的 `ProjectSummary.status`，由后端读时计算。
+
+### 11.6 项目内资产卡片：Character / Scene / Prop
+
+`StudioCanvasRouter` 为资产页统一提供 `onSave/onGenerate/onAdd/onRestore/onRefreshProject`。
+
+| 用户事件 | 组件 | API 方法 | 后端路由 | 回写路径 |
+| --- | --- | --- | --- | --- |
+| 编辑并保存角色 | `CharacterCard.handleSave` -> `onSaveCharacter` | `updateCharacter`，可附带 `uploadFile(character_ref)` | `PATCH /projects/{p}/characters/{name}` + upload | `refreshProject()` |
+| 上传角色/场景/道具设计图 | `CharacterCard/SceneCard/PropCard` 文件 input | `uploadFile(character|scene|prop)` | `POST /projects/{p}/upload/{type}` | `onReload/refreshProject()` |
+| 生成角色设计图 | `GenerateButton` -> `onGenerateCharacter` | `generateCharacter` | `POST /projects/{p}/generate/character/{name}` | toast + `tasks-store` loading + Project Events `character:updated` |
+| 生成场景/道具图 | `SceneCard/PropCard` | `generateProjectScene/generateProjectProp` | `POST /projects/{p}/generate/scene|prop/{name}` | 同上 |
+| 新增资产 | `AssetFormModal` | `addCharacter/addProjectScene/addProjectProp` | `POST /projects/{p}/characters|scenes|props` | `refreshProject()` |
+| 版本还原 | `VersionTimeMachine` | `restoreVersion` | `POST /versions/{type}/{id}/restore/{version}` | `refreshProject()` + fingerprint 失效 |
+| 加入全局资产库 | `AddToLibraryButton` | `addAssetFromProject` | `POST /assets/from-project` | toast；不直接改 `projects-store` |
+
+资产生成 loading 不存在本地 state，来自 `tasks-store.tasks`：`task.project_name == currentProjectName`，`task.task_type == character|scene|prop`，`task.resource_id == assetName`，且 `task.status in queued|running`。
+
+### 11.7 Timeline / Segment 卡片
+
+结构：`TimelineCanvas -> ShotSplitView -> ShotList + ShotDetail -> MediaCard(storyboard/video)`。
+
+| 用户事件 | 前端触发 | API 方法 | 后端路由 | 回写路径 |
+| --- | --- | --- | --- | --- |
+| 选中 segment | `ShotList.onSelect` | 无 | 无 | 本地 `selectedIndex` |
+| 修改 prompt/时长/对白 | `ShotDetail` -> `onUpdatePrompt` | `updateSegment` 或 drama 下 `updateScene` | `PATCH /segments/{id}` 或 `PATCH /script-scenes/{id}` | `refreshProject()` |
+| 生成分镜 | `MediaCard(kind=storyboard).onGenerate` | `generateStoryboard` | `POST /generate/storyboard/{segmentId}` | toast + tasks loading + `storyboard_ready` |
+| 生成视频 | `MediaCard(kind=video).onGenerate` | `generateVideo` | `POST /generate/video/{segmentId}` | toast + tasks loading + `video_ready` |
+| 还原分镜/视频版本 | `VersionTimeMachine` | `restoreVersion(storyboards|videos)` | `POST /versions/.../restore/...` | `refreshProject()` |
+
+Timeline 的生成态按 `task_type=storyboard|video` + `resource_id=segmentId` 从 `tasks-store` 派生。视频按钮还会基于是否已有分镜图禁用。
+
+### 11.8 Grid 模式卡片
+
+Grid 模式复用 Timeline 的 segment 卡片，同时增加 Grid 预览与整集生成。
+
+| 用户事件 | 前端触发 | API 方法 | 后端路由 | 回写路径 |
+| --- | --- | --- | --- | --- |
+| 切换 tab | `GridImageToVideoCanvas` 本地 `activeTab` | 无 | 无 | 本地渲染 |
+| 生成整集 Grid | `handleGenerateAllGrids` -> `onGenerateGrid` | `generateGrid(project, episode, scriptFile, sceneIds?)` | `POST /projects/{p}/generate/grid/{episode}` | toast + tasks + `grid_ready` |
+| 列 Grid | `GridPreviewView` effect | `listGrids` | `GET /projects/{p}/grids` | 本地 grid state |
+| 重新生成 Grid | `GridPreviewPanel` | `regenerateGrid` | `POST /projects/{p}/grids/{gridId}/regenerate` | `app-store.invalidateGrids()` 后重拉 |
+| 生成分镜/视频 | `ShotSplitView/MediaCard` | 同 Timeline | 同 Timeline | 同 Timeline |
+
+`Project Events` 收到 `grid_ready` 后会触发 `invalidateGrids()`，Grid 预览监听 `gridsRevision` 再重拉列表。
+
+### 11.9 Reference Video 卡片
+
+Reference Video 不走 `StudioCanvasRouter` 的 generate 回调，而是由 `reference-video-store` 管理 unit CRUD 和生成。
+
+| 用户事件 | 前端触发 | API 方法 | 后端路由 | 回写路径 |
+| --- | --- | --- | --- | --- |
+| 加载 unit | `ReferenceVideoCanvas` mount | `listReferenceVideoUnits` | `GET /reference-videos/episodes/{ep}/units` | `reference-video-store.unitsByEpisode` |
+| 新建 unit | `UnitList` / `handleAdd` | `addReferenceVideoUnit` | `POST /reference-videos/episodes/{ep}/units` | store 追加并选中 |
+| 编辑 prompt / 引用 | `ReferenceVideoCard` draft | `patchReferenceVideoUnit` | `PATCH /units/{unitId}` | store 替换 unit |
+| 删除/排序 | `ReferencePanel/UnitList` | `deleteReferenceVideoUnit/reorderReferenceVideoUnits` | `DELETE /units/{id}` / reorder | store 更新 |
+| 生成 reference video | `handleGenerate` | `generateReferenceVideoUnit` | `POST /units/{unitId}/generate` | optimistic running + tasks-store + Project Events |
+| 批量生成 | `handleBatchGenerate` 串行调用 `handleGenerate` | 同上 | 同上 | 同上 |
+
+Reference 的状态是合成值：`unit.generated_assets.video_clip -> ready`；`tasks-store reference_video queued/running -> running`；`tasks-store failed -> failed`；`optimisticUnitIds` 且队列未出现时仍显示 running；否则为 pending。
+
+### 11.10 TaskHud 卡片
+
+TaskHud 是任务队列的只读视图加取消入口。
+
+| 用户事件 | API 方法 | 后端路由 | 回写路径 |
+| --- | --- | --- | --- |
+| 打开/关闭 | 无 | 无 | `app-store.taskHudOpen` |
+| 展开失败详情 | 无 | 无 | TaskHud 本地 `expandedErrorId` |
+| 取消 queued/running | `cancelPreview` -> `cancelTask` | `GET /tasks/{id}/cancel-preview` -> `POST /tasks/{id}/cancel` | 下一轮 `useTasksSSE` poll |
+| 取消全部 queued | `cancelAllPreview` -> `cancelAllQueued` | `GET /projects/{p}/tasks/cancel-all-preview` -> `POST /projects/{p}/tasks/cancel-all` | 下一轮 poll |
+
+TaskHud 不主动刷新项目内容；如果 worker 已经产出文件，仍由 Project Events 刷新项目。
+
+### 11.11 AgentCopilot 卡片与工具块
+
+Assistant 面板的“卡片”主要是消息 block、tool block、pending question 和 task progress block。
+
+| 用户事件 | 前端触发 | 后端交互 | 回写路径 |
+| --- | --- | --- | --- |
+| 发送消息 | `useAssistantSession.sendMessage` | `POST /assistant/sessions/send` | optimistic user turn + SSE |
+| 流式回复 | `EventSource(getAssistantStreamUrl)` | `GET /assistant/sessions/{id}/stream` | `assistant-store.turns/draftTurn/status` |
+| 中断 | `interruptAssistantSession` | `POST /assistant/sessions/{id}/interrupt` | SSE status 收敛 |
+| 回答问题 | `answerAssistantQuestion` | `POST /questions/{question_id}/answer` | 清 pending question，继续 SSE |
+| 工具块展示 | 无前端副作用 | 后端 MCP 工具执行 | SSE `tool_use/tool_result` block |
+
+Agent 工具触发生成时，前端不会调用 `api.ts` 的生成方法。真实链路是：
+
+```mermaid
+flowchart TB
+  Copilot["AgentCopilot"] -->|send + SSE| AssistantStore["assistant-store<br/>Turn / Tool block"]
+  Runtime["SessionManager / Agent Runtime"] --> Tools["in-process sdk_tools / Tool Gateway"]
+  Tools --> Queue["GenerationQueue(source=agent/skill)"]
+  Queue --> Worker["GenerationWorker"]
+  Worker --> TasksStore["tasks-store via polling"]
+  Worker --> Events["Project Events SSE"]
+  Events --> ProjectsStore["projects-store refresh"]
+  Events --> AppStore["notification / focus / cache invalidation"]
+```
+
+因此工具块只是展示；项目副作用仍必须通过队列、项目文件和 Project Events 回写到工作台。
+
+### 11.12 前端卡片事件的迁移原则
+
+替换 Agent Runtime 时，前端卡片事件应尽量不改：
+
+1. 同步卡片操作继续走现有 REST 并 `refreshProject()`。
+2. 生成类卡片继续只拿 `task_id`，loading 从 `tasks-store` 派生。
+3. Agent 触发的生成也必须写同一套 `tasks` 表，不能只在聊天流里展示。
+4. Project Events 仍是画布数据刷新的唯一实时通道。
+5. 新平台 workflow/tool card 如果要展示进度，应映射为 `ContentBlock`，而不是新增一套全局 UI 状态。
