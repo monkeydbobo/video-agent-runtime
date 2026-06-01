@@ -2,21 +2,14 @@ from lib.config.registry import PROVIDER_REGISTRY, ModelInfo, ProviderMeta
 
 
 def test_all_providers_registered():
-    assert set(PROVIDER_REGISTRY.keys()) == {
-        "gemini-aistudio",
-        "gemini-vertex",
-        "ark",
-        "ark-agent-plan",
-        "grok",
-        "openai",
-        "vidu",
-    }
+    # 营销视频 Agent：仅保留 ark（文本/图片/视频）+ openai（图片）。
+    assert set(PROVIDER_REGISTRY.keys()) == {"ark", "openai"}
 
 
 def test_provider_meta_fields():
-    meta = PROVIDER_REGISTRY["gemini-aistudio"]
+    meta = PROVIDER_REGISTRY["ark"]
     assert isinstance(meta, ProviderMeta)
-    assert meta.display_name == "AI Studio"
+    assert meta.display_name == "火山方舟"
     assert "video" in meta.media_types
     assert "image" in meta.media_types
     assert "api_key" in meta.required_keys
@@ -28,6 +21,11 @@ def test_ark_supports_video_and_image():
     meta = PROVIDER_REGISTRY["ark"]
     assert "video" in meta.media_types
     assert "image" in meta.media_types
+
+
+def test_openai_is_image_only():
+    meta = PROVIDER_REGISTRY["openai"]
+    assert meta.media_types == ["image"]
 
 
 def test_required_keys_are_subset_of_all_keys():
@@ -62,21 +60,6 @@ class TestModelInfoDurations:
                     assert model_info.supported_durations == [], (
                         f"{provider_id}/{model_id} 不是视频模型但有 supported_durations"
                     )
-
-    def test_aistudio_veo_has_resolution_constraints(self):
-        """AI Studio Veo 模型在 1080p 下只支持 8s。"""
-        meta = PROVIDER_REGISTRY["gemini-aistudio"]
-        for model_id, model_info in meta.models.items():
-            if model_info.media_type == "video":
-                assert "1080p" in model_info.duration_resolution_constraints
-                assert model_info.duration_resolution_constraints["1080p"] == [8]
-
-    def test_vertex_veo_has_no_resolution_constraints(self):
-        """Vertex Veo 模型无分辨率约束。"""
-        meta = PROVIDER_REGISTRY["gemini-vertex"]
-        for model_id, model_info in meta.models.items():
-            if model_info.media_type == "video":
-                assert model_info.duration_resolution_constraints == {}
 
     def test_model_info_default_values(self):
         """ModelInfo 新字段的默认值。"""

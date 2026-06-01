@@ -52,23 +52,23 @@ class TestProviderMeta:
 
 
 class TestProviderRegistry:
-    # vidu 仅提供图片与视频能力，跳过文本相关断言
-    _TEXT_PROVIDERS = [pid for pid in PROVIDER_REGISTRY if pid != "vidu"]
+    # 营销视频 Agent：文本仅 ark；图片 ark + openai；视频仅 ark。
+    _TEXT_PROVIDERS = ["ark"]
 
-    def test_all_providers_have_text_models(self):
+    def test_text_providers_have_text_models(self):
         for provider_id in self._TEXT_PROVIDERS:
             meta = PROVIDER_REGISTRY[provider_id]
             text_models = [mid for mid, m in meta.models.items() if m.media_type == "text"]
             assert len(text_models) > 0, f"{provider_id} has no text models"
 
-    def test_all_providers_have_image_models(self):
-        for provider_id in ("gemini-aistudio", "gemini-vertex", "ark", "grok"):
+    def test_image_providers_have_image_models(self):
+        for provider_id in ("ark", "openai"):
             meta = PROVIDER_REGISTRY[provider_id]
             image_models = [mid for mid, m in meta.models.items() if m.media_type == "image"]
             assert len(image_models) > 0, f"{provider_id} has no image models"
 
-    def test_all_providers_have_video_models(self):
-        for provider_id in ("gemini-aistudio", "gemini-vertex", "ark", "grok"):
+    def test_video_providers_have_video_models(self):
+        for provider_id in ("ark",):
             meta = PROVIDER_REGISTRY[provider_id]
             video_models = [mid for mid, m in meta.models.items() if m.media_type == "video"]
             assert len(video_models) > 0, f"{provider_id} has no video models"

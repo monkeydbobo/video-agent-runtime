@@ -59,6 +59,7 @@ ALLOWED_EXTENSIONS = {
     "prop": [".png", ".jpg", ".jpeg", ".webp"],
     "storyboard": [".png", ".jpg", ".jpeg", ".webp"],
     "reference_videos": [".mp4", ".mov", ".webm"],
+    "product_images": [".png", ".jpg", ".jpeg", ".webp"],
 }
 
 
@@ -207,6 +208,13 @@ async def upload_file(
                     filename = f"{name}{Path(original_filename).suffix.lower()}"
                 else:
                     filename = original_filename
+            elif upload_type == "product_images":
+                # 商品图（产品图）：保留多张，统一规范化为 PNG；用 name 或原文件名 stem 命名
+                target_dir = project_dir / "product_images"
+                if name:
+                    filename = f"{name}.png"
+                else:
+                    filename = f"{Path(original_filename).stem}.png"
             else:
                 target_dir = project_dir / upload_type
                 filename = original_filename
@@ -215,7 +223,7 @@ async def upload_file(
 
             # 保存文件（大于 2MB 时压缩为 JPEG，否则校验后原样保存）
             nonlocal content
-            if upload_type in ("character", "character_ref", "scene", "prop", "storyboard"):
+            if upload_type in ("character", "character_ref", "scene", "prop", "storyboard", "product_images"):
                 try:
                     content, normalized_ext = normalize_uploaded_image(content, Path(original_filename).suffix.lower())
                 except ValueError:
@@ -241,6 +249,8 @@ async def upload_file(
                 relative_path = f"storyboards/{filename}"
             elif upload_type == "reference_videos":
                 relative_path = f"reference_videos/{filename}"
+            elif upload_type == "product_images":
+                relative_path = f"product_images/{filename}"
             else:
                 relative_path = f"{upload_type}/{filename}"
 
@@ -414,6 +424,7 @@ async def list_project_files(project_name: str, _user: CurrentUser, _t: Translat
                 "storyboards": [],
                 "videos": [],
                 "reference_videos": [],
+                "product_images": [],
                 "output": [],
             }
 

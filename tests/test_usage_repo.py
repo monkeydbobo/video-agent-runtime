@@ -120,39 +120,40 @@ class TestMultiProviderUsage:
         assert item["usage_tokens"] == 246840
         assert item["cost_amount"] == pytest.approx(3.9494, rel=1e-3)
 
-    async def test_gemini_call_defaults_to_usd(self, db_session):
+    async def test_video_call_defaults_to_ark(self, db_session):
         repo = UsageRepository(db_session)
         call_id = await repo.start_call(
             project_name="demo",
             call_type="video",
-            model="veo-3.1-generate-001",
+            model="doubao-seedance-1-5-pro-251215",
             resolution="1080p",
             duration_seconds=8,
             generate_audio=True,
         )
-        await repo.finish_call(call_id, status="success")
+        await repo.finish_call(call_id, status="success", usage_tokens=246840, service_tier="default")
 
         calls = await repo.get_calls(project_name="demo")
         item = calls["items"][0]
-        assert item["provider"] == "gemini"
-        assert item["currency"] == "USD"
-        assert item["cost_amount"] == pytest.approx(3.2)
+        # 营销视频 Agent：未显式传 provider → 默认 ark（CNY）。
+        assert item["provider"] == "ark"
+        assert item["currency"] == "CNY"
+        assert item["cost_amount"] == pytest.approx(3.9494, rel=1e-3)
 
     async def test_get_stats_groups_by_currency(self, db_session):
         repo = UsageRepository(db_session)
 
-        # Gemini call
+        # USD 调用（显式记账，避免依赖具体 provider 费率表）
         c1 = await repo.start_call(
             project_name="demo",
-            call_type="video",
-            model="veo-3.1-generate-001",
-            duration_seconds=8,
-            resolution="1080p",
-            generate_audio=True,
+            call_type="text",
+            model="claude-sonnet-4",
+            provider="anthropic",
         )
-        await repo.finish_call(c1, status="success")
+        await repo.finish_call(c1, status="success", input_tokens=0, output_tokens=0)
+        await db_session.execute(update(ApiCall).where(ApiCall.id == c1).values(cost_amount=3.2, currency="USD"))
+        await db_session.commit()
 
-        # Ark call
+        # Ark call（CNY，token 计费）
         c2 = await repo.start_call(
             project_name="demo",
             call_type="video",
@@ -177,12 +178,14 @@ class TestMultiProviderUsage:
 
         ok = await repo.start_call(
             project_name="demo",
-            call_type="image",
-            model="viduq2",
+            call_type="video",
+            model="doubao-seedance-1-5-pro-251215",
             resolution="1080p",
-            provider="vidu",
+            duration_seconds=5,
+            generate_audio=True,
+            provider="ark",
         )
-        await repo.finish_call(ok, status="success", usage_tokens=8)
+        await repo.finish_call(ok, status="success", usage_tokens=246840, service_tier="default")
 
         failed = await repo.start_call(
             project_name="demo",
@@ -201,17 +204,16 @@ class TestMultiProviderUsage:
         failed_unbilled = await repo.start_call(
             project_name="demo",
             call_type="image",
-            model="viduq2",
-            resolution="1080p",
-            provider="vidu",
+            model="doubao-seedream-5-0-lite-260128",
+            provider="ark",
         )
         await repo.finish_call(failed_unbilled, status="failed", error_message="boom")
 
         zero_cost = await repo.start_call(
             project_name="demo",
             call_type="text",
-            model="gemini-3-flash-preview",
-            provider="gemini",
+            model="doubao-seed-2-0-lite-260215",
+            provider="ark",
         )
         await repo.finish_call(zero_cost, status="success", input_tokens=0, output_tokens=0)
 
@@ -221,38 +223,30 @@ class TestMultiProviderUsage:
         assert stats["failed_count"] == 2
         assert stats["total_cost"] == pytest.approx(0)
         assert stats["cost_by_currency"] == {
-            "CNY": pytest.approx(0.25),
+            "CNY": pytest.approx(3.9494, rel=1e-3),
         }
 
     async def test_get_stats_grouped_by_provider_includes_cost_by_currency(self, db_session):
         repo = UsageRepository(db_session)
 
-        gemini_id = await repo.start_call(
+        ark_id = await repo.start_call(
             project_name="demo",
-            call_type="image",
-            model="gemini-3.1-flash-image-preview",
-            resolution="1K",
-            provider="gemini",
-        )
-        await repo.finish_call(gemini_id, status="success")
-
-        vidu_id = await repo.start_call(
-            project_name="demo",
-            call_type="image",
-            model="viduq2",
+            call_type="video",
+            model="doubao-seedance-1-5-pro-251215",
             resolution="1080p",
-            provider="vidu",
+            duration_seconds=5,
+            generate_audio=True,
+            provider="ark",
         )
-        await repo.finish_call(vidu_id, status="success", usage_tokens=8)
+        await repo.finish_call(ark_id, status="success", usage_tokens=246840, service_tier="default")
 
-        failed_vidu_id = await repo.start_call(
+        failed_ark_id = await repo.start_call(
             project_name="demo",
             call_type="image",
-            model="viduq2",
-            resolution="1080p",
-            provider="vidu",
+            model="doubao-seedream-5-0-lite-260128",
+            provider="ark",
         )
-        await repo.finish_call(failed_vidu_id, status="failed", error_message="boom")
+        await repo.finish_call(failed_ark_id, status="failed", error_message="boom")
 
         failed_anthropic_id = await repo.start_call(
             project_name="demo",
@@ -273,20 +267,19 @@ class TestMultiProviderUsage:
 
         assert set(by_group) == {
             ("anthropic", "text"),
-            ("gemini", "image"),
-            ("vidu", "image"),
+            ("ark", "video"),
+            ("ark", "image"),
         }
 
         assert by_group[("anthropic", "text")]["total_cost_usd"] == pytest.approx(0)
         assert by_group[("anthropic", "text")]["cost_by_currency"] == {}
         assert by_group[("anthropic", "text")]["total_calls"] == 1
         assert by_group[("anthropic", "text")]["success_calls"] == 0
-        assert by_group[("gemini", "image")]["total_cost_usd"] == pytest.approx(0.067)
-        assert by_group[("gemini", "image")]["cost_by_currency"] == {"USD": pytest.approx(0.067)}
-        assert by_group[("vidu", "image")]["total_cost_usd"] == 0
-        assert by_group[("vidu", "image")]["cost_by_currency"] == {"CNY": pytest.approx(0.25)}
-        assert by_group[("vidu", "image")]["total_calls"] == 2
-        assert by_group[("vidu", "image")]["success_calls"] == 1
+        assert by_group[("ark", "video")]["cost_by_currency"] == {"CNY": pytest.approx(3.9494, rel=1e-3)}
+        assert by_group[("ark", "video")]["total_calls"] == 1
+        assert by_group[("ark", "video")]["success_calls"] == 1
+        assert by_group[("ark", "image")]["total_calls"] == 1
+        assert by_group[("ark", "image")]["success_calls"] == 0
 
     async def test_text_call_gemini_cost(self, db_session):
         repo = UsageRepository(db_session)

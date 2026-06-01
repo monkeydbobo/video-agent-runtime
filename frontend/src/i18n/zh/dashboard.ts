@@ -476,6 +476,13 @@ export default {
   'reference_video_unsupported_extension': '不支持的爆款参考视频类型：{{filename}}',
   'viral_reference_step_title': '爆款复刻参考视频（可选）',
   'viral_reference_step_desc': '营销视频无需选择剧集风格。你可以上传一个爆款视频作为结构参考，Agent 会先做内容理解，再把节奏和镜头结构映射到你的产品广告里。',
+  'product_images': '商品图',
+  'upload_product_image': '上传商品图',
+  'product_image_uploaded': '商品图已上传',
+  'product_image_unsupported_extension': '不支持的商品图类型：{{filename}}',
+  'product_image_upload_failed_hint': '商品图上传失败，可稍后在源文件页重新上传',
+  'product_image_step_title': '商品图（可选，可多张）',
+  'product_image_step_desc': '上传你的商品图（产品图），Agent 会对其做内容理解，自动生成产品简报，并把商品图作为参考图驱动后续产品三视图与广告镜头生成。',
 
   // TaskHud / Notifications / Usage v3
   'task_hud_title': '任务雷达',
@@ -1099,6 +1106,7 @@ export default {
   'tool_name_normalize_drama_script': '规范化剧本',
   'tool_name_get_video_capabilities': '查询视频模型能力',
   'tool_name_analyze_viral_reference': '分析爆款参考视频',
+  'tool_name_analyze_product_images': '分析商品图生成产品简报',
   // Skill display names (single source of truth: agent_runtime_profile/.claude/skills/*/SKILL.md
   // 中 user-invocable: true 的 skill；tests/test_frontend_skill_i18n.py 校验三语齐全)
   'skill_name_manga_workflow': '视频工作流',

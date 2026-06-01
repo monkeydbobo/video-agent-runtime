@@ -7,27 +7,22 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
-import os
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
 
-from lib.app_data_dir import app_data_dir
 from lib.config.registry import PROVIDER_REGISTRY
 from lib.config.repository import mask_secret
 from lib.config.service import ConfigService
-from lib.config.url_utils import normalize_base_url
 from lib.db import get_async_session
 from lib.db.base import dt_to_iso
 from lib.db.repositories.credential_repository import CredentialRepository
-from lib.gemini_shared import VERTEX_SCOPES
 from lib.i18n import Translator
 from server.dependencies import get_config_service
 
@@ -424,141 +419,11 @@ async def activate_credential(
     return Response(status_code=204)
 
 
-@router.post("/gemini-vertex/credentials/upload", status_code=201, response_model=CredentialResponse)
-async def upload_vertex_credential(
-    request: Request,
-    _t: Translator,
-    name: str = "Vertex Credentials",
-    session: AsyncSession = Depends(get_async_session),
-    file: UploadFile = File(...),
-) -> CredentialResponse:
-    """上传 Vertex AI 服务账号 JSON 凭证文件，同时创建凭证记录。"""
-    try:
-        contents = await file.read(MAX_VERTEX_CREDENTIALS_BYTES + 1)
-    except Exception:
-        raise HTTPException(status_code=400, detail=_t("vertex_json_read_failed"))
-
-    if len(contents) > MAX_VERTEX_CREDENTIALS_BYTES:
-        raise HTTPException(status_code=413, detail=_t("vertex_json_too_large"))
-
-    try:
-        payload = json.loads(contents.decode("utf-8"))
-    except Exception:
-        raise HTTPException(status_code=400, detail=_t("vertex_json_invalid"))
-
-    if not isinstance(payload, dict) or not payload.get("project_id"):
-        raise HTTPException(status_code=400, detail=_t("vertex_json_missing_project_id"))
-
-    repo = CredentialRepository(session)
-    cred = await repo.create(provider="gemini-vertex", name=name)
-
-    dest = app_data_dir().parent / "vertex_keys" / f"vertex_cred_{cred.id}.json"
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = dest.with_suffix(".tmp")
-    tmp_path.write_bytes(contents)
-    # chmod 0o600 在 Windows 上只控制只读位，无法限制其他用户访问；
-    # Windows 上凭证保护交给文件系统 ACL（用户级 %LOCALAPPDATA%）。
-    if os.name == "posix":
-        try:
-            os.chmod(tmp_path, 0o600)
-        except OSError:
-            logger.warning("无法设置临时凭证文件权限: %s", tmp_path, exc_info=True)
-    os.replace(tmp_path, dest)
-    if os.name == "posix":
-        try:
-            os.chmod(dest, 0o600)
-        except OSError:
-            logger.warning("无法设置凭证文件权限: %s", dest, exc_info=True)
-
-    await repo.update(cred.id, credentials_path=str(dest))
-    await session.commit()
-    await _invalidate_caches(request)
-
-    await session.refresh(cred)
-    return _cred_to_response(cred)
-
-
 # ---------------------------------------------------------------------------
 # 连接测试：各供应商实现
 # ---------------------------------------------------------------------------
 
 _CONNECTION_TEST_TIMEOUT = 15  # 秒
-
-
-def _test_gemini_aistudio(config: dict[str, str], _t: Callable[..., str]) -> ConnectionTestResponse:
-    """通过 models.list() 验证 Gemini AI Studio API Key。"""
-    from google import genai
-
-    api_key = config["api_key"]
-    base_url = normalize_base_url(config.get("base_url"))
-    http_options = {"base_url": base_url} if base_url else None
-    client = genai.Client(api_key=api_key, http_options=http_options)  # type: ignore[arg-type]
-
-    pager = client.models.list()
-    available = _extract_gemini_models(pager)
-    return ConnectionTestResponse(
-        success=True,
-        available_models=available,
-        message=_t("connection_success"),
-    )
-
-
-def _test_gemini_vertex(config: dict[str, str], _t: Callable[..., str]) -> ConnectionTestResponse:
-    """通过 Vertex AI 凭证验证连通性。"""
-    from google import genai
-    from google.oauth2 import service_account
-
-    credentials_path = config.get("credentials_path", "")
-    if not credentials_path or not Path(credentials_path).is_file():
-        return ConnectionTestResponse(
-            success=False,
-            available_models=[],
-            message=_t("file_not_found", path=credentials_path),
-        )
-
-    with open(credentials_path, encoding="utf-8") as f:
-        creds_data = json.load(f)
-
-    project_id = creds_data.get("project_id")
-    if not project_id:
-        return ConnectionTestResponse(
-            success=False,
-            available_models=[],
-            message=_t("vertex_json_missing_project_id"),
-        )
-
-    credentials = service_account.Credentials.from_service_account_file(
-        credentials_path,
-        scopes=VERTEX_SCOPES,
-    )
-    client = genai.Client(
-        vertexai=True,
-        project=project_id,
-        location="global",
-        credentials=credentials,
-    )
-
-    pager = client.models.list()
-    available = _extract_gemini_models(pager)
-    return ConnectionTestResponse(
-        success=True,
-        available_models=available,
-        message=_t("connection_success"),
-    )
-
-
-def _extract_gemini_models(pager) -> list[str]:
-    """从 Gemini models.list() 结果中提取视频/图像相关模型，去除路径前缀。"""
-    keywords = ("veo", "imagen", "image")
-    models: set[str] = set()
-    for m in pager:
-        name = m.name or ""
-        if not any(k in name.lower() for k in keywords):
-            continue
-        # 去掉 "models/" 或 "publishers/google/models/" 前缀
-        short = name.rsplit("/", 1)[-1]
-        models.add(short)
-    return sorted(models)
 
 
 def _test_ark(config: dict[str, str], _t: Callable[..., str]) -> ConnectionTestResponse:
@@ -571,20 +436,6 @@ def _test_ark(config: dict[str, str], _t: Callable[..., str]) -> ConnectionTestR
     return ConnectionTestResponse(
         success=True,
         available_models=[],
-        message=_t("connection_success"),
-    )
-
-
-def _test_grok(config: dict[str, str], _t: Callable[..., str]) -> ConnectionTestResponse:
-    """通过 models.list_language_models() 验证 xAI API Key。"""
-    import xai_sdk
-
-    client = xai_sdk.Client(api_key=config["api_key"])
-    models = client.models.list_language_models()
-    available = sorted(m.name for m in models if m.name)
-    return ConnectionTestResponse(
-        success=True,
-        available_models=available,
         message=_t("connection_success"),
     )
 
@@ -610,26 +461,9 @@ def _test_openai(config: dict[str, str], _t: Callable[..., str]) -> ConnectionTe
     )
 
 
-def _test_vidu(config: dict[str, str], _t: Callable[..., str]) -> ConnectionTestResponse:
-    """Vidu 连接测试 — HTTP 细节封装在 lib.vidu_shared.test_vidu_connection（fork-only）。"""
-    from lib.vidu_shared import test_vidu_connection
-
-    test_vidu_connection(config)
-    return ConnectionTestResponse(
-        success=True,
-        available_models=[],
-        message=_t("connection_success"),
-    )
-
-
 _TEST_DISPATCH: dict[str, Callable[[dict[str, str], Any], ConnectionTestResponse]] = {
-    "gemini-aistudio": _test_gemini_aistudio,
-    "gemini-vertex": _test_gemini_vertex,
     "ark": _test_ark,
-    "ark-agent-plan": _test_ark,
-    "grok": _test_grok,
     "openai": _test_openai,
-    "vidu": _test_vidu,
 }
 
 

@@ -7,16 +7,8 @@
 
 from __future__ import annotations
 
-from lib.custom_provider import is_custom_provider
 from lib.openai_shared import OPENAI_IMAGE_SIZE_MAP
-from lib.providers import PROVIDER_ANTHROPIC, PROVIDER_ARK, PROVIDER_GROK, PROVIDER_OPENAI, CallType
-
-# fork: Vidu provider — 单独 import 块以避免与上游聚合 import 冲突
-# isort: off
-from lib.providers import PROVIDER_VIDU
-from lib.vidu_shared import calculate_vidu_cost as _vidu_cost
-
-# isort: on
+from lib.providers import PROVIDER_ANTHROPIC, PROVIDER_ARK, PROVIDER_OPENAI, CallType
 
 
 class CostCalculator:
@@ -445,7 +437,6 @@ class CostCalculator:
     _TEXT_COST_TABLES: dict[str, tuple[str, str, str]] = {
         # provider -> (cost_table_attr, default_model, currency)
         PROVIDER_ARK: ("ARK_TEXT_COST", "doubao-seed-2-0-lite-260215", "CNY"),
-        PROVIDER_GROK: ("GROK_TEXT_COST", "grok-4-1-fast-reasoning", "USD"),
         PROVIDER_OPENAI: ("OPENAI_TEXT_COST", "gpt-5.4-mini", "USD"),
         PROVIDER_ANTHROPIC: ("ANTHROPIC_TEXT_COST", "claude-sonnet-4", "USD"),
     }
@@ -494,17 +485,6 @@ class CostCalculator:
 
         自定义供应商的价格信息通过 custom_price_* 参数传入（调用方需预先查询 DB）。
         """
-        if is_custom_provider(provider):
-            return self._calculate_custom_cost(
-                call_type,
-                price_input=custom_price_input,
-                price_output=custom_price_output,
-                currency=custom_currency,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                duration_seconds=duration_seconds,
-            )
-
         if call_type == "text":
             if input_tokens is None:
                 return 0.0, "USD"
@@ -518,8 +498,6 @@ class CostCalculator:
         if call_type == "image":
             if provider == PROVIDER_ARK:
                 return self.calculate_ark_image_cost(model=model)
-            if provider == PROVIDER_GROK:
-                return self.calculate_grok_image_cost(model=model)
             if provider == PROVIDER_OPENAI:
                 return self.calculate_openai_image_cost(
                     model=model,
@@ -532,13 +510,6 @@ class CostCalculator:
                     aspect_ratio=aspect_ratio,
                     size=size,
                 )
-            if provider == PROVIDER_VIDU:
-                return _vidu_cost(
-                    call_type="image",
-                    usage_tokens=usage_tokens,
-                    model=model,
-                    resolution=resolution,
-                )
             return self.calculate_image_cost(resolution or "1K", model=model), "USD"
 
         if call_type == "video":
@@ -549,24 +520,11 @@ class CostCalculator:
                     generate_audio=generate_audio,
                     model=model,
                 )
-            if provider == PROVIDER_GROK:
-                return self.calculate_grok_video_cost(
-                    duration_seconds=duration_seconds or 8,
-                    model=model,
-                )
             if provider == PROVIDER_OPENAI:
                 return self.calculate_openai_video_cost(
                     duration_seconds=duration_seconds or 8,
                     model=model,
                     resolution=resolution or "720p",
-                )
-            if provider == PROVIDER_VIDU:
-                return _vidu_cost(
-                    call_type="video",
-                    usage_tokens=usage_tokens,
-                    model=model,
-                    resolution=resolution,
-                    duration_seconds=duration_seconds,
                 )
             return self.calculate_video_cost(
                 duration_seconds=duration_seconds or 8,
@@ -598,8 +556,6 @@ class CostCalculator:
         if not unit_durations_seconds:
             if provider == PROVIDER_ARK:
                 return 0.0, "CNY"
-            if provider == PROVIDER_VIDU:
-                return 0.0, "CNY"
             return 0.0, "USD"
 
         total_duration = sum(max(0, int(d)) for d in unit_durations_seconds)
@@ -611,23 +567,11 @@ class CostCalculator:
                 generate_audio=generate_audio,
                 model=model,
             )
-        if provider == PROVIDER_GROK:
-            return self.calculate_grok_video_cost(
-                duration_seconds=total_duration,
-                model=model,
-            )
         if provider == PROVIDER_OPENAI:
             return self.calculate_openai_video_cost(
                 duration_seconds=total_duration,
                 model=model,
                 resolution=resolution,
-            )
-        if provider == PROVIDER_VIDU:
-            return _vidu_cost(
-                call_type="video",
-                model=model,
-                resolution=resolution,
-                duration_seconds=total_duration,
             )
         # Gemini/Veo 默认
         return (

@@ -13,12 +13,11 @@ from lib.i18n import _ as _default_translate
 def validate_backend_value(value: str, field_name: str, _t: Callable[..., str] = _default_translate) -> None:
     """校验 ``provider/model`` 格式的 backend 字段值。
 
-    只接受规范 provider id（``PROVIDER_REGISTRY`` 的 key 或 ``custom-`` 前缀）。legacy provider 名
-    （``gemini``/``aistudio``/``vertex``/``seedance``）一律拒绝——它们是待清除的历史数据，由一次性项目迁移
-    转为规范 id 后即不再被接受（见 ``docs/adr/0001``）。
+    营销视频 Agent 仅接受 ``PROVIDER_REGISTRY`` 的规范 provider id（ark / openai）。
+    legacy provider 名与已移除的自定义供应商（``custom-`` 前缀）一律拒绝。
 
     Raises:
-        HTTPException(400): 格式不合法、provider 不在注册表中、或为 legacy 名。
+        HTTPException(400): 格式不合法、或 provider 不在注册表中。
     """
     if "/" not in value:
         if value in PROVIDER_REGISTRY:
@@ -29,7 +28,7 @@ def validate_backend_value(value: str, field_name: str, _t: Callable[..., str] =
             detail=detail,
         )
     provider_id = value.split("/", 1)[0]
-    if provider_id not in PROVIDER_REGISTRY and not provider_id.startswith("custom-"):
+    if provider_id not in PROVIDER_REGISTRY:
         detail = _t("unknown_provider", provider_id=provider_id)
         raise HTTPException(
             status_code=400,

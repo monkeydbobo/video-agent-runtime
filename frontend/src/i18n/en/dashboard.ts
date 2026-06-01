@@ -475,6 +475,13 @@ export default {
   'reference_video_unsupported_extension': 'Unsupported viral reference video type: {{filename}}',
   'viral_reference_step_title': 'Viral reference video (optional)',
   'viral_reference_step_desc': 'Marketing videos do not need a drama style preset. Upload a viral video as a structure reference; the Agent will analyze it first, then map its rhythm and shot structure to your product ad.',
+  'product_images': 'Product images',
+  'upload_product_image': 'Upload product image',
+  'product_image_uploaded': 'Product image uploaded',
+  'product_image_unsupported_extension': 'Unsupported product image type: {{filename}}',
+  'product_image_upload_failed_hint': 'Product image upload failed; you can re-upload later on the source files page',
+  'product_image_step_title': 'Product images (optional, multiple)',
+  'product_image_step_desc': 'Upload your product images; the Agent will analyze them into a product brief and use them as references to drive product sheets and ad shots.',
 
   // TaskHud / Notifications / Usage v3
   'task_hud_title': 'Task Radar',
@@ -1098,6 +1105,7 @@ export default {
   'tool_name_normalize_drama_script': 'Normalize drama script',
   'tool_name_get_video_capabilities': 'Query video model capabilities',
   'tool_name_analyze_viral_reference': 'Analyze viral reference video',
+  'tool_name_analyze_product_images': 'Analyze product images into a brief',
   // Skill display names (single source of truth: user-invocable SKILL.md files
   // under agent_runtime_profile/.claude/skills/; tests/test_frontend_skill_i18n.py enforces parity)
   'skill_name_manga_workflow': 'Video workflow',

@@ -1173,6 +1173,13 @@ export default {
   'reference_video_unsupported_extension': 'Loại video tham chiếu viral không được hỗ trợ: {{filename}}',
   'viral_reference_step_title': 'Video tham chiếu viral (tùy chọn)',
   'viral_reference_step_desc': 'Video marketing không cần chọn preset phong cách phim. Bạn có thể tải một video viral làm tham chiếu cấu trúc; Agent sẽ phân tích trước rồi ánh xạ nhịp điệu và cấu trúc cảnh quay vào quảng cáo sản phẩm.',
+  'product_images': 'Ảnh sản phẩm',
+  'upload_product_image': 'Tải ảnh sản phẩm',
+  'product_image_uploaded': 'Đã tải ảnh sản phẩm',
+  'product_image_unsupported_extension': 'Loại ảnh sản phẩm không được hỗ trợ: {{filename}}',
+  'product_image_upload_failed_hint': 'Tải ảnh sản phẩm thất bại; bạn có thể tải lại sau ở trang tệp nguồn',
+  'product_image_step_title': 'Ảnh sản phẩm (tùy chọn, nhiều ảnh)',
+  'product_image_step_desc': 'Tải ảnh sản phẩm của bạn; Agent sẽ phân tích thành brief sản phẩm và dùng làm ảnh tham chiếu để tạo bộ ảnh sản phẩm và cảnh quảng cáo.',
   'source_unsupported_extension': 'Loại tệp không được hỗ trợ: {{filename}}',
   'tab_preprocessing': 'Tiền xử lý',
   'tab_timeline': 'Cảnh quay',
@@ -1200,6 +1207,7 @@ export default {
   'tool_name_normalize_drama_script': 'Chuẩn hóa kịch bản',
   'tool_name_get_video_capabilities': 'Truy vấn năng lực mô hình video',
   'tool_name_analyze_viral_reference': 'Phân tích video tham chiếu viral',
+  'tool_name_analyze_product_images': 'Phân tích ảnh sản phẩm thành brief',
   // Skill display names (single source of truth: user-invocable SKILL.md
   // dưới agent_runtime_profile/.claude/skills/; tests/test_frontend_skill_i18n.py kiểm tra đồng bộ)
   'skill_name_manga_workflow': 'Quy trình video',

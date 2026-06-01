@@ -29,7 +29,7 @@ def _make_app() -> tuple[FastAPI, MagicMock]:
 
 def _fake_cred(
     id: int = 1,
-    provider: str = "gemini-aistudio",
+    provider: str = "ark",
     name: str = "测试Key",
     api_key: str = "AIzaSyFAKE12345678",
     is_active: bool = True,
@@ -57,7 +57,7 @@ class TestListCredentials:
         mock_repo.list_by_provider = AsyncMock(return_value=[_fake_cred()])
         with patch("server.routers.providers.CredentialRepository", return_value=mock_repo):
             with TestClient(app) as client:
-                resp = client.get("/api/v1/providers/gemini-aistudio/credentials")
+                resp = client.get("/api/v1/providers/ark/credentials")
         assert resp.status_code == 200
         body = resp.json()
         assert len(body["credentials"]) == 1
@@ -80,7 +80,7 @@ class TestCreateCredential:
         with patch("server.routers.providers.CredentialRepository", return_value=mock_repo):
             with TestClient(app) as client:
                 resp = client.post(
-                    "/api/v1/providers/gemini-aistudio/credentials",
+                    "/api/v1/providers/ark/credentials",
                     json={"name": "测试Key", "api_key": "AIza-new"},
                 )
         assert resp.status_code == 201
@@ -91,7 +91,7 @@ class TestCreateCredential:
         with patch("server.routers.providers.CredentialRepository", return_value=mock_repo):
             with TestClient(app) as client:
                 resp = client.post(
-                    "/api/v1/providers/gemini-aistudio/credentials",
+                    "/api/v1/providers/ark/credentials",
                     json={"api_key": "AIza-new"},
                 )
         assert resp.status_code == 422
@@ -101,11 +101,11 @@ class TestActivateCredential:
     def test_returns_204(self):
         app, _ = _make_app()
         mock_repo = MagicMock(spec=CredentialRepository)
-        mock_repo.get_by_id = AsyncMock(return_value=_fake_cred(provider="gemini-aistudio"))
+        mock_repo.get_by_id = AsyncMock(return_value=_fake_cred(provider="ark"))
         mock_repo.activate = AsyncMock()
         with patch("server.routers.providers.CredentialRepository", return_value=mock_repo):
             with TestClient(app) as client:
-                resp = client.post("/api/v1/providers/gemini-aistudio/credentials/1/activate")
+                resp = client.post("/api/v1/providers/ark/credentials/1/activate")
         assert resp.status_code == 204
 
     def test_returns_404_for_nonexistent(self):
@@ -114,7 +114,7 @@ class TestActivateCredential:
         mock_repo.get_by_id = AsyncMock(return_value=None)
         with patch("server.routers.providers.CredentialRepository", return_value=mock_repo):
             with TestClient(app) as client:
-                resp = client.post("/api/v1/providers/gemini-aistudio/credentials/999/activate")
+                resp = client.post("/api/v1/providers/ark/credentials/999/activate")
         assert resp.status_code == 404
 
 
@@ -126,5 +126,5 @@ class TestDeleteCredential:
         mock_repo.delete = AsyncMock()
         with patch("server.routers.providers.CredentialRepository", return_value=mock_repo):
             with TestClient(app) as client:
-                resp = client.delete("/api/v1/providers/gemini-aistudio/credentials/1")
+                resp = client.delete("/api/v1/providers/ark/credentials/1")
         assert resp.status_code == 204

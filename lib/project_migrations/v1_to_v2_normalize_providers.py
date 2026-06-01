@@ -18,9 +18,6 @@ from lib.json_io import atomic_write_json, load_json
 # 系统中**唯一**一份 legacy 别名表（旧三处映射表的并集，不发明新别名）。
 # 校验：所有目标必须是 PROVIDER_REGISTRY 中真实存在的规范 id。
 _LEGACY_PROVIDER_ALIASES: dict[str, str] = {
-    "gemini": "gemini-aistudio",
-    "aistudio": "gemini-aistudio",
-    "vertex": "gemini-vertex",
     "seedance": "ark",
 }
 

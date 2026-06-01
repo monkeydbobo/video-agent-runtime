@@ -121,7 +121,7 @@ describe("CreateProjectModal", () => {
     );
   });
 
-  it("submits createProject with default template when Create clicked on step 3", async () => {
+  it("submits createProject as marketing (no style template) when Create clicked on step 3", async () => {
     render(<CreateProjectModal />);
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "demo" } });
     fireEvent.click(screen.getByRole("button", { name: /下一步/ }));
@@ -137,10 +137,10 @@ describe("CreateProjectModal", () => {
     expect(API.createProject).toHaveBeenCalledWith(
       expect.objectContaining({
         title: "demo",
-        content_mode: "narration",
+        content_mode: "marketing",
         aspect_ratio: "9:16",
         generation_mode: "storyboard",
-        style_template_id: "live_premium_drama",
+        style_template_id: null,
         video_backend: null,
         image_provider_t2i: null,
         image_provider_i2i: null,
@@ -179,7 +179,7 @@ describe("CreateProjectModal", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: /创建项目/ })).toBeEnabled());
   });
 
-  it("calls uploadStyleImage after createProject when in custom mode with uploaded file", async () => {
+  it("marketing step 3 shows the viral reference uploader (no style picker)", async () => {
     render(<CreateProjectModal />);
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "demo" } });
     fireEvent.click(screen.getByRole("button", { name: /下一步/ }));
@@ -187,25 +187,19 @@ describe("CreateProjectModal", () => {
     fireEvent.click(screen.getByRole("button", { name: /下一步/ }));
     await waitFor(() => expect(screen.getByRole("button", { name: /创建项目/ })).toBeInTheDocument());
 
-    // Switch to custom tab
-    fireEvent.click(screen.getByRole("button", { name: /自定义|Custom/ }));
-    // Upload a file via the hidden file input
-    const file = new File(["content"], "style.png", { type: "image/png" });
-    const fileInput = document.querySelector("input[type='file']") as HTMLInputElement;
-    Object.defineProperty(fileInput, "files", { value: [file], configurable: true });
-    fireEvent.change(fileInput);
-
-    await waitFor(() => expect(screen.getByRole("button", { name: /创建项目/ })).toBeEnabled());
+    // No style "自定义/Custom" tab in marketing flow
+    expect(screen.queryByRole("button", { name: /自定义|Custom/ })).toBeNull();
+    // Create without uploading reference video → style_template_id null, no style upload
     fireEvent.click(screen.getByRole("button", { name: /创建项目/ }));
-
     await waitFor(() => expect(API.createProject).toHaveBeenCalled());
-    expect(API.createProject).toHaveBeenCalledWith(expect.objectContaining({
-      style_template_id: null,
-    }));
-    await waitFor(() => expect(API.uploadStyleImage).toHaveBeenCalledWith("demo-proj", file));
+    expect(API.createProject).toHaveBeenCalledWith(expect.objectContaining({ style_template_id: null }));
+    expect(API.uploadStyleImage).not.toHaveBeenCalled();
   });
 
-  it("允许在 custom tab 未上传文件时创建项目（风格为可选）", async () => {
+  it("marketing step 3 uploads selected product images to product_images on create", async () => {
+    const uploadSpy = vi
+      .spyOn(API, "uploadFile")
+      .mockResolvedValue({ success: true, filename: "bottle.png", path: "product_images/bottle.png", url: "" } as never);
     render(<CreateProjectModal />);
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "demo" } });
     fireEvent.click(screen.getByRole("button", { name: /下一步/ }));
@@ -213,18 +207,15 @@ describe("CreateProjectModal", () => {
     fireEvent.click(screen.getByRole("button", { name: /下一步/ }));
     await waitFor(() => expect(screen.getByRole("button", { name: /创建项目/ })).toBeInTheDocument());
 
-    // Switch to custom tab WITHOUT uploading anything
-    fireEvent.click(screen.getByRole("button", { name: /自定义|Custom/ }));
+    const imageInput = document.querySelector('input[type="file"][multiple]') as HTMLInputElement;
+    expect(imageInput).not.toBeNull();
+    const file = new File(["x"], "bottle.png", { type: "image/png" });
+    fireEvent.change(imageInput, { target: { files: [file] } });
 
-    // Create button should still be enabled — style is optional
-    await waitFor(() => expect(screen.getByRole("button", { name: /创建项目/ })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: /创建项目/ }));
-
     await waitFor(() => expect(API.createProject).toHaveBeenCalled());
-    expect(API.createProject).toHaveBeenCalledWith(expect.objectContaining({
-      style_template_id: null,
-    }));
-    // No upload since no file
-    expect(API.uploadStyleImage).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(uploadSpy).toHaveBeenCalledWith("demo-proj", "product_images", expect.any(File)),
+    );
   });
 });

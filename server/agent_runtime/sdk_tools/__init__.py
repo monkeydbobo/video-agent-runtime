@@ -17,6 +17,7 @@ from typing import Any
 from claude_agent_sdk import create_sdk_mcp_server
 
 from server.agent_runtime.sdk_tools._context import ToolContext
+from server.agent_runtime.sdk_tools.analyze_product_images import analyze_product_images_tool
 from server.agent_runtime.sdk_tools.analyze_viral_reference import analyze_viral_reference_tool
 from server.agent_runtime.sdk_tools.enqueue_assets import (
     generate_assets_tool,
@@ -58,6 +59,7 @@ ARCREEL_MCP_TOOL_IDS: tuple[str, ...] = (
     "normalize_drama_script",
     "get_video_capabilities",
     "analyze_viral_reference",
+    "analyze_product_images",
 )
 
 
@@ -80,5 +82,6 @@ def build_arcreel_mcp_server(*, project_name: str, projects_root: Path) -> Any:
             normalize_drama_script_tool(ctx),
             get_video_capabilities_tool(ctx),
             analyze_viral_reference_tool(ctx),
+            analyze_product_images_tool(ctx),
         ],
     )

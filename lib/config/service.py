@@ -10,9 +10,9 @@ from lib.config.registry import PROVIDER_REGISTRY
 from lib.config.repository import ProviderConfigRepository, SystemSettingRepository
 from lib.db.repositories.credential_repository import CredentialRepository
 
-_DEFAULT_VIDEO_BACKEND = "gemini-aistudio/veo-3.1-lite-generate-preview"
-_DEFAULT_IMAGE_BACKEND = "gemini-aistudio/gemini-3.1-flash-image-preview"
-_DEFAULT_TEXT_BACKEND = "gemini-aistudio/gemini-3-flash-preview"
+_DEFAULT_VIDEO_BACKEND = "ark/doubao-seedance-1-5-pro-251215"
+_DEFAULT_IMAGE_BACKEND = "ark/doubao-seedream-5-0-lite-260128"
+_DEFAULT_TEXT_BACKEND = "ark/doubao-seed-2-0-lite-260215"
 
 # DB setting key → environment variable name
 _ANTHROPIC_ENV_MAP: dict[str, str] = {

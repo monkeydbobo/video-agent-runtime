@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
-import { BookOpen, FileText, Plus, Trash2, Upload, ArrowRight, Film } from "lucide-react";
+import { BookOpen, FileText, Plus, Trash2, Upload, ArrowRight, Film, ImagePlus } from "lucide-react";
 import { API, ConflictError } from "@/api";
 import { useAppStore } from "@/stores/app-store";
 import { errMsg, voidPromise } from "@/utils/async";
@@ -20,6 +20,7 @@ interface SourceFilesPageProps {
 
 const ALLOWED_EXTENSIONS = [".txt", ".md", ".docx", ".epub", ".pdf"];
 const ALLOWED_REFERENCE_VIDEO_EXTENSIONS = [".mp4", ".mov", ".webm"];
+const ALLOWED_PRODUCT_IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp"];
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -35,6 +36,7 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
 
   const [files, setFiles] = useState<SourceFile[]>([]);
   const [referenceVideoFiles, setReferenceVideoFiles] = useState<SourceFile[]>([]);
+  const [productImageFiles, setProductImageFiles] = useState<SourceFile[]>([]);
   const [outputFiles, setOutputFiles] = useState<SourceFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
@@ -46,6 +48,7 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const referenceVideoInputRef = useRef<HTMLInputElement>(null);
+  const productImageInputRef = useRef<HTMLInputElement>(null);
   const uploadInFlightRef = useRef(false);
   const projectNameRef = useRef(projectName);
   projectNameRef.current = projectName;
@@ -59,6 +62,7 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
         if (!cancelled) {
           setFiles(res.files?.source ?? []);
           setReferenceVideoFiles(res.files?.reference_videos ?? []);
+          setProductImageFiles(res.files?.product_images ?? []);
           setOutputFiles(res.files?.output ?? []);
         }
       })
@@ -224,6 +228,53 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
     [handleReferenceVideoUpload],
   );
 
+  const handleProductImageUpload = useCallback(
+    async (file: File) => {
+      if (!ALLOWED_PRODUCT_IMAGE_EXTENSIONS.some((ext) => file.name.toLowerCase().endsWith(ext))) {
+        useAppStore
+          .getState()
+          .pushToast(
+            tRef.current("dashboard:product_image_unsupported_extension", { filename: file.name }),
+            "error",
+          );
+        return;
+      }
+      if (uploadInFlightRef.current) return;
+      uploadInFlightRef.current = true;
+      setUploading(true);
+      try {
+        await API.uploadFile(projectName, "product_images", file);
+        useAppStore.getState().pushToast(tRef.current("dashboard:product_image_uploaded"), "success");
+        useAppStore.getState().invalidateSourceFiles();
+      } catch (err) {
+        useAppStore
+          .getState()
+          .pushToast(tRef.current("dashboard:upload_failed", { message: errMsg(err) }), "error");
+      } finally {
+        uploadInFlightRef.current = false;
+        setUploading(false);
+      }
+    },
+    [projectName],
+  );
+
+  const handleProductImageSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (uploadInFlightRef.current) {
+        e.target.value = "";
+        return;
+      }
+      const picked = Array.from(e.target.files ?? []);
+      void (async () => {
+        for (const f of picked) {
+          await handleProductImageUpload(f);
+        }
+      })();
+      e.target.value = "";
+    },
+    [handleProductImageUpload],
+  );
+
   const handleDelete = useCallback(
     async (filename: string) => {
       if (!confirm(tRef.current("dashboard:confirm_delete_source_file", { filename }))) return;
@@ -320,6 +371,28 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
           onChange={handleReferenceVideoSelect}
           className="hidden"
         />
+        <input
+          ref={productImageInputRef}
+          type="file"
+          accept={ALLOWED_PRODUCT_IMAGE_EXTENSIONS.join(",")}
+          multiple
+          onChange={handleProductImageSelect}
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => productImageInputRef.current?.click()}
+          disabled={uploading}
+          className="focus-ring inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-[11.5px] font-medium transition-colors disabled:opacity-50"
+          style={{
+            color: "var(--color-text-2)",
+            border: "1px solid var(--color-hairline)",
+            background: "oklch(0.22 0.011 265 / 0.5)",
+          }}
+        >
+          <ImagePlus className="h-3.5 w-3.5" />
+          {t("dashboard:upload_product_image")}
+        </button>
         <button
           type="button"
           onClick={() => referenceVideoInputRef.current?.click()}
@@ -360,7 +433,10 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
           >
             {t("common:loading")}
           </div>
-        ) : files.length === 0 && referenceVideoFiles.length === 0 && outputFiles.length === 0 ? (
+        ) : files.length === 0 &&
+          referenceVideoFiles.length === 0 &&
+          productImageFiles.length === 0 &&
+          outputFiles.length === 0 ? (
           <button
             type="button"
             disabled={uploading}
@@ -670,6 +746,103 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
                     }}
                   >
                     <Film className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div
+                      className="truncate text-[13px]"
+                      style={{ color: "var(--color-text)", fontWeight: 500 }}
+                      title={file.name}
+                    >
+                      {file.name}
+                    </div>
+                    <div className="num mt-0.5 text-[10.5px]" style={{ color: "var(--color-text-4)" }}>
+                      {formatFileSize(file.size)}
+                    </div>
+                  </div>
+                  <a
+                    href={file.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="focus-ring inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-colors"
+                    style={{
+                      color: "var(--color-text-3)",
+                      border: "1px solid var(--color-hairline)",
+                      background: "oklch(0.22 0.011 265 / 0.5)",
+                    }}
+                  >
+                    {t("dashboard:source_open")}
+                    <ArrowRight className="h-3 w-3" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {!loading && productImageFiles.length > 0 && (
+          <div
+            className="mt-5 rounded-2xl"
+            style={{
+              border: "1px solid var(--color-hairline-soft)",
+              background:
+                "linear-gradient(180deg, oklch(0.22 0.012 265 / 0.5), oklch(0.19 0.010 265 / 0.35))",
+              boxShadow:
+                "inset 0 1px 0 oklch(1 0 0 / 0.04), 0 8px 24px -10px oklch(0 0 0 / 0.5)",
+            }}
+          >
+            <div
+              className="flex items-center gap-3 px-5 py-3"
+              style={{ borderBottom: "1px solid var(--color-hairline-soft)" }}
+            >
+              <ImagePlus className="h-3.5 w-3.5" style={{ color: "var(--color-text-4)" }} />
+              <span
+                className="text-[10.5px] font-bold uppercase"
+                style={{ color: "var(--color-text-4)", letterSpacing: "1.0px" }}
+              >
+                {t("dashboard:product_images")}
+              </span>
+              <span className="num text-[10px]" style={{ color: "var(--color-text-4)" }}>
+                {productImageFiles.length}
+              </span>
+              <div className="flex-1" />
+              <button
+                type="button"
+                onClick={() => productImageInputRef.current?.click()}
+                disabled={uploading}
+                className="focus-ring inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-colors disabled:opacity-50"
+                style={{
+                  color: "var(--color-text-3)",
+                  border: "1px solid var(--color-hairline)",
+                  background: "oklch(0.22 0.011 265 / 0.5)",
+                }}
+              >
+                <Plus className="h-3 w-3" />
+                {t("dashboard:upload_product_image")}
+              </button>
+            </div>
+            <ul>
+              {productImageFiles.map((file, idx) => (
+                <li
+                  key={file.name}
+                  className="group flex items-center gap-3 px-5 py-3 transition-colors"
+                  style={{
+                    borderTop: idx === 0 ? "none" : "1px solid var(--color-hairline-soft)",
+                  }}
+                >
+                  <span
+                    className="num shrink-0 text-[10px]"
+                    style={{ color: "var(--color-text-4)", letterSpacing: "0.5px" }}
+                  >
+                    {String(idx + 1).padStart(2, "0")}
+                  </span>
+                  <span
+                    aria-hidden
+                    className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-lg"
+                    style={{
+                      border: "1px solid var(--color-accent-soft)",
+                    }}
+                  >
+                    <img src={file.url} alt={file.name} className="h-full w-full object-cover" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <div

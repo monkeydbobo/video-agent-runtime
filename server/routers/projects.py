@@ -33,9 +33,9 @@ from lib.config.resolver import ConfigResolver
 from lib.db import async_session_factory
 from lib.i18n import Translator
 from lib.profile_manifest import ContentMode
-from lib.script_models import script_shape
 from lib.project_change_hints import project_change_source
 from lib.project_manager import ProjectManager
+from lib.script_models import script_shape
 from lib.status_calculator import StatusCalculator
 from lib.style_templates import is_known_template, resolve_template_prompt
 from server.auth import CurrentUser, create_download_token, verify_download_token
@@ -74,7 +74,7 @@ class CreateProjectRequest(BaseModel):
     name: str | None = None
     title: str | None = None
     style: str | None = ""  # 保留但不再是用户入口
-    content_mode: ContentMode | None = "narration"
+    content_mode: ContentMode | None = "marketing"
     aspect_ratio: str | None = "9:16"
     default_duration: int | None = None
     generation_mode: str | None = None
@@ -477,7 +477,7 @@ async def create_project(
                     validate_backend_value(value, field_name, _t)
 
             try:
-                manager.create_project(project_name, content_mode=req.content_mode or "narration")
+                manager.create_project(project_name, content_mode=req.content_mode or "marketing")
             except FileExistsError:
                 raise HTTPException(status_code=400, detail=_t("project_exists", name=project_name))
             extras = {
@@ -893,9 +893,15 @@ async def update_segment(name: str, segment_id: str, req: UpdateSegmentRequest, 
                             item["props"] = req.props or []
                         if shape.chars_field == "products_in_unit" and "products_in_unit" in req.model_fields_set:
                             item["products_in_unit"] = req.products_in_unit or []
-                        elif shape.chars_field == "characters_in_segment" and "characters_in_segment" in req.model_fields_set:
+                        elif (
+                            shape.chars_field == "characters_in_segment"
+                            and "characters_in_segment" in req.model_fields_set
+                        ):
                             item["characters_in_segment"] = req.characters_in_segment or []
-                        elif shape.chars_field == "characters_in_scene" and "characters_in_segment" in req.model_fields_set:
+                        elif (
+                            shape.chars_field == "characters_in_scene"
+                            and "characters_in_segment" in req.model_fields_set
+                        ):
                             item["characters_in_scene"] = req.characters_in_segment or []
                         break
 

@@ -31,7 +31,7 @@ mcp__arcreel__get_video_capabilities({})
 
 Read `project.json`：overview、characters（产品）、scenes、props。
 
-Read 本集源文件。
+如果存在 `drafts/episode_{N}/step0_product_brief.md`，必须读取，并把它作为产品简报真相源（卖点、规格、受众、口播方向）。否则 Read 本集源文件 `source/episode_{N}.txt`。
 
 如果存在 `drafts/episode_{N}/step0_viral_analysis.md`，必须读取，并把它作为爆款结构参考。
 

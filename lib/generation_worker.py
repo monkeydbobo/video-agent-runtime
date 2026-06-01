@@ -27,7 +27,7 @@ from lib.generation_queue import (
 )
 
 # Default provider used when a task payload does not specify one.
-DEFAULT_PROVIDER = "gemini-aistudio"
+DEFAULT_PROVIDER = "ark"
 
 
 def _non_resumable_video_providers() -> frozenset[str]:
@@ -128,7 +128,6 @@ async def _load_pools_from_db() -> dict[str, ProviderPool]:
     from lib.config.registry import PROVIDER_REGISTRY
     from lib.config.service import ConfigService
     from lib.db import safe_session_factory
-    from lib.db.repositories.custom_provider_repo import CustomProviderRepository
 
     default_image = _read_int_env("IMAGE_MAX_WORKERS", 5, minimum=1)
     default_video = _read_int_env("VIDEO_MAX_WORKERS", 3, minimum=1)
@@ -147,19 +146,6 @@ async def _load_pools_from_db() -> dict[str, ProviderPool]:
                 provider_id=provider_id,
                 image_max=max(0, image_max),
                 video_max=max(0, video_max),
-            )
-
-        # 加载自定义供应商的池配置（使用与内置供应商相同的默认值）
-        from lib.custom_provider.endpoints import endpoint_to_media_type
-
-        repo = CustomProviderRepository(session)
-        for provider, models in await repo.list_providers_with_models():
-            pid = provider.provider_id  # "custom-{id}"
-            media_types = {endpoint_to_media_type(m.endpoint) for m in models if m.is_enabled}
-            pools[pid] = ProviderPool(
-                provider_id=pid,
-                image_max=default_image if "image" in media_types else 0,
-                video_max=default_video if "video" in media_types else 0,
             )
 
     logger.info(

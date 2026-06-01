@@ -124,8 +124,8 @@ class TestExtractProvider:
 
     async def test_image_payload_provider(self):
         """payload 携带历史 image_provider → 投影取到。"""
-        task = {"payload": {"image_provider": "gemini-vertex"}, "task_type": "storyboard"}
-        assert await _extract_provider(task) == "gemini-vertex"
+        task = {"payload": {"image_provider": "openai"}, "task_type": "storyboard"}
+        assert await _extract_provider(task) == "openai"
 
     async def test_default_when_unresolvable(self):
         """无 project、无 payload、全局未配供应商 → 回退 DEFAULT_PROVIDER（仅供限流）。"""
@@ -408,7 +408,7 @@ class TestGenerationWorker:
                         "task_id": "img1",
                         "task_type": "gen_image",
                         "media_type": "image",
-                        "payload": {"image_provider": "gemini-aistudio"},
+                        "payload": {"image_provider": "openai"},
                     },
                     {
                         "task_id": "vid1",
@@ -426,7 +426,7 @@ class TestGenerationWorker:
 
         queue = _ClaimableQueue()
         pools = {
-            "gemini-aistudio": ProviderPool(provider_id="gemini-aistudio", image_max=3, video_max=2),
+            "openai": ProviderPool(provider_id="openai", image_max=3, video_max=0),
             "ark": ProviderPool(provider_id="ark", image_max=0, video_max=2),
         }
         worker = GenerationWorker(queue=queue, pools=pools)
@@ -441,13 +441,13 @@ class TestGenerationWorker:
 
         claimed = await worker._claim_tasks()
         assert claimed
-        assert "img1" in pools["gemini-aistudio"].image_inflight
+        assert "img1" in pools["openai"].image_inflight
         assert "vid1" in pools["ark"].video_inflight
 
         # Wait for tasks to complete
         await asyncio.gather(
             *[
-                *pools["gemini-aistudio"].image_inflight.values(),
+                *pools["openai"].image_inflight.values(),
                 *pools["ark"].video_inflight.values(),
             ],
             return_exceptions=True,

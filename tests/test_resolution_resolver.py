@@ -1,7 +1,5 @@
 """测试 resolve_resolution 按 project → legacy → custom default → None 顺序解析。"""
 
-from unittest.mock import patch
-
 import pytest
 
 from server.services.resolution_resolver import _from_project, resolve_resolution
@@ -52,45 +50,16 @@ def test_from_project_tolerates_null_entries():
 
 @pytest.mark.asyncio
 async def test_resolve_returns_none_when_nothing_configured():
-    assert await resolve_resolution({}, "gemini-aistudio", "veo-3.1") is None
+    assert await resolve_resolution({}, "ark", "doubao-seedance-1-5-pro-251215") is None
 
 
 @pytest.mark.asyncio
-async def test_resolve_returns_custom_default_when_only_custom():
-    with patch(
-        "server.services.resolution_resolver.get_custom_resolution_default",
-        return_value="720p",
-    ):
-        assert await resolve_resolution({}, "custom-1", "my-model") == "720p"
+async def test_resolve_project_override_wins():
+    project = {"model_settings": {"ark/m": {"resolution": "2K"}}}
+    assert await resolve_resolution(project, "ark", "m") == "2K"
 
 
 @pytest.mark.asyncio
-async def test_resolve_project_override_wins_over_custom_default():
-    project = {"model_settings": {"custom-1/m": {"resolution": "2K"}}}
-    with patch(
-        "server.services.resolution_resolver.get_custom_resolution_default",
-        return_value="1K",
-    ) as mock_custom:
-        assert await resolve_resolution(project, "custom-1", "m") == "2K"
-        mock_custom.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_resolve_legacy_wins_over_custom_default():
+async def test_resolve_legacy_used_when_no_model_settings():
     project = {"video_model_settings": {"m": {"resolution": "1080p"}}}
-    with patch(
-        "server.services.resolution_resolver.get_custom_resolution_default",
-        return_value="720p",
-    ) as mock_custom:
-        assert await resolve_resolution(project, "custom-1", "m") == "1080p"
-        mock_custom.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_resolve_falls_through_to_custom_when_project_empty_string():
-    project = {"model_settings": {"custom-1/m": {"resolution": ""}}}
-    with patch(
-        "server.services.resolution_resolver.get_custom_resolution_default",
-        return_value="1K",
-    ):
-        assert await resolve_resolution(project, "custom-1", "m") == "1K"
+    assert await resolve_resolution(project, "ark", "m") == "1080p"

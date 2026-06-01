@@ -48,12 +48,14 @@ async def test_provider_env_overrides_includes_anthropic_and_empties(
     assert env["ANTHROPIC_API_KEY"] == "sk-from-db"
     assert env["ANTHROPIC_BASE_URL"] == "https://anthropic.example.com"
 
-    # 其他 provider 空值覆盖
+    # 营销视频 Agent 仅保留 ark + openai 两个 provider 的空值覆盖
     assert env["ARK_API_KEY"] == ""
-    assert env["XAI_API_KEY"] == ""
-    assert env["GEMINI_API_KEY"] == ""
-    assert env["VIDU_API_KEY"] == ""
-    assert env["GOOGLE_APPLICATION_CREDENTIALS"] == ""
+    assert env["OPENAI_API_KEY"] == ""
+    # 已移除的 provider 不应再出现
+    assert "XAI_API_KEY" not in env
+    assert "GEMINI_API_KEY" not in env
+    assert "VIDU_API_KEY" not in env
+    assert "GOOGLE_APPLICATION_CREDENTIALS" not in env
 
 
 def test_default_allowed_tools_includes_bash() -> None:

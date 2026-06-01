@@ -156,7 +156,9 @@ class ScriptGenerator:
         caps = await self._fetch_video_capabilities()
 
         step1_md = self._load_step1(episode)
-        viral_analysis_md = self._load_viral_analysis(episode) if self.content_mode == "marketing" else None
+        is_marketing = self.content_mode == "marketing"
+        viral_analysis_md = self._load_viral_analysis(episode) if is_marketing else None
+        product_brief_md = self._load_product_brief(episode) if is_marketing else None
 
         characters = self.project_json.get("characters", {})
         scenes = self.project_json.get("scenes", {})
@@ -192,6 +194,7 @@ class ScriptGenerator:
                 aspect_ratio=self._resolve_aspect_ratio(),
                 episode=episode,
                 viral_analysis_md=viral_analysis_md,
+                product_brief_md=product_brief_md,
             )
             schema = MarketingAdScript
         elif self.content_mode == "narration":
@@ -268,7 +271,9 @@ class ScriptGenerator:
         gen_mode = self._effective_generation_mode(episode)
         caps = await self._fetch_video_capabilities()
         step1_md = self._load_step1(episode)
-        viral_analysis_md = self._load_viral_analysis(episode) if self.content_mode == "marketing" else None
+        is_marketing = self.content_mode == "marketing"
+        viral_analysis_md = self._load_viral_analysis(episode) if is_marketing else None
+        product_brief_md = self._load_product_brief(episode) if is_marketing else None
         characters = self.project_json.get("characters", {})
         scenes = self.project_json.get("scenes", {})
         props = self.project_json.get("props", {})
@@ -302,6 +307,7 @@ class ScriptGenerator:
                 aspect_ratio=self._resolve_aspect_ratio(),
                 episode=episode,
                 viral_analysis_md=viral_analysis_md,
+                product_brief_md=product_brief_md,
             )
         elif self.content_mode == "narration":
             return build_narration_prompt(
@@ -434,6 +440,14 @@ class ScriptGenerator:
     def _load_viral_analysis(self, episode: int) -> str | None:
         """加载 marketing 爆款内容理解文件；不存在时保持普通营销流程。"""
         path = self.project_path / "drafts" / f"episode_{episode}" / "step0_viral_analysis.md"
+        if not path.exists():
+            return None
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+
+    def _load_product_brief(self, episode: int) -> str | None:
+        """加载 marketing 商品图内容理解产出的产品简报；不存在时回落到 source/step1。"""
+        path = self.project_path / "drafts" / f"episode_{episode}" / "step0_product_brief.md"
         if not path.exists():
             return None
         with open(path, encoding="utf-8") as f:

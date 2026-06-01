@@ -194,7 +194,7 @@ class TestProjectsRouter:
 
             create_ok = client.post(
                 "/api/v1/projects",
-                json={"title": "New", "style": "Real", "content_mode": "narration"},
+                json={"title": "New", "style": "Real", "content_mode": "marketing"},
             )
             assert create_ok.status_code == 200
             assert create_ok.json()["name"] == "project-aa11bb22"
@@ -202,7 +202,7 @@ class TestProjectsRouter:
 
             create_manual_name = client.post(
                 "/api/v1/projects",
-                json={"name": "manual-project", "style": "Anime", "content_mode": "narration"},
+                json={"name": "manual-project", "style": "Anime", "content_mode": "marketing"},
             )
             assert create_manual_name.status_code == 200
             assert create_manual_name.json()["name"] == "manual-project"
@@ -210,19 +210,19 @@ class TestProjectsRouter:
 
             create_exists = client.post(
                 "/api/v1/projects",
-                json={"name": "exists", "title": "Dup", "style": "", "content_mode": "narration"},
+                json={"name": "exists", "title": "Dup", "style": "", "content_mode": "marketing"},
             )
             assert create_exists.status_code == 400
 
             create_invalid = client.post(
                 "/api/v1/projects",
-                json={"name": "bad_name", "title": "Bad", "style": "", "content_mode": "narration"},
+                json={"name": "bad_name", "title": "Bad", "style": "", "content_mode": "marketing"},
             )
             assert create_invalid.status_code == 400
 
             create_missing_title = client.post(
                 "/api/v1/projects",
-                json={"style": "", "content_mode": "narration"},
+                json={"style": "", "content_mode": "marketing"},
             )
             assert create_missing_title.status_code == 400
 
@@ -249,9 +249,10 @@ class TestProjectsRouter:
             assert update.status_code == 200
             assert update.json()["project"]["title"] == "Updated"
 
+            # content_mode 创建后不可变：PATCH 任何 content_mode 都应 400
             rejected_mode = client.patch(
                 "/api/v1/projects/ready",
-                json={"content_mode": "drama"},
+                json={"content_mode": "marketing"},
             )
             assert rejected_mode.status_code == 400
 
@@ -316,12 +317,6 @@ class TestProjectsRouter:
             )
             assert patch_segment.status_code == 200
 
-            not_narration = client.patch(
-                "/api/v1/projects/ready/segments/001",
-                json={"script_file": "episode_1.json", "duration_seconds": 8},
-            )
-            assert not_narration.status_code == 400
-
             segment_missing = client.patch(
                 "/api/v1/projects/ready/segments/E9S99",
                 json={"script_file": "narration.json", "duration_seconds": 8},
@@ -376,24 +371,6 @@ class TestProjectsRouter:
             assert seg2["characters_in_segment"] == ["Bob", "Carol"]
             assert seg2["scenes"] == ["Castle"]
             assert seg2["props"] == []
-
-    def test_update_segment_rejects_drama_script_with_residual_segments(self, tmp_path, monkeypatch):
-        # drama 脚本残留 segments 键不应被当 narration 改写：须返回 400 而非放行
-        fake_pm = _FakePM(tmp_path)
-        fake_pm.scripts[("ready", "drama.json")] = {
-            "content_mode": "drama",
-            "segments": [{"segment_id": "E1S01", "duration_seconds": 4}],
-            "scenes": [{"scene_id": "E1S01"}],
-        }
-
-        client = _client(monkeypatch, fake_pm, _FakeCalc())
-
-        with client:
-            resp = client.patch(
-                "/api/v1/projects/ready/segments/E1S01",
-                json={"script_file": "drama.json", "duration_seconds": 7},
-            )
-            assert resp.status_code == 400
 
     def test_update_segment_write_value_error_returns_422(self, tmp_path, monkeypatch):
         # 写盘统一入口对客户端错误（结构非法 / 集号错配 / 非法文件名）抛 ValueError，
@@ -490,7 +467,7 @@ class TestProjectsRouter:
                     "title": "模版项目",
                     "name": "tpl-1",
                     "style_template_id": "live_premium_drama",
-                    "content_mode": "drama",
+                    "content_mode": "marketing",
                     "aspect_ratio": "9:16",
                 },
             )
@@ -524,17 +501,17 @@ class TestProjectsRouter:
                 json={
                     "title": "模型项目",
                     "name": "m-1",
-                    "video_backend": "gemini-aistudio/veo-3",
-                    "image_provider_t2i": "gemini-aistudio/nano-banana",
-                    "text_backend_script": "gemini-aistudio/gemini-2.5",
+                    "video_backend": "ark/doubao-seedance-1-5-pro-251215",
+                    "image_provider_t2i": "openai/gpt-image-2",
+                    "text_backend_script": "ark/doubao-seed-2-0-pro-260215",
                     "default_duration": 8,
                 },
             )
             assert resp.status_code == 200
             data = fake_pm.project_data["m-1"]
-            assert data["video_backend"] == "gemini-aistudio/veo-3"
-            assert data["image_provider_t2i"] == "gemini-aistudio/nano-banana"
-            assert data["text_backend_script"] == "gemini-aistudio/gemini-2.5"
+            assert data["video_backend"] == "ark/doubao-seedance-1-5-pro-251215"
+            assert data["image_provider_t2i"] == "openai/gpt-image-2"
+            assert data["text_backend_script"] == "ark/doubao-seed-2-0-pro-260215"
             assert data["default_duration"] == 8
 
     def test_create_project_rejects_legacy_image_backend(self, tmp_path, monkeypatch):
@@ -851,7 +828,7 @@ class TestGetVideoCapabilities:
             "max_reference_images": 7,
             "source": "registry",
             "default_duration": None,
-            "content_mode": "narration",
+            "content_mode": "marketing",
             "generation_mode": "reference_video",
         }
         self._patch_resolver(monkeypatch, return_value=fake_caps)

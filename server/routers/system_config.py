@@ -145,26 +145,6 @@ async def _build_options(svc: ConfigService, session: AsyncSession) -> _OptionsD
             if bucket:
                 buckets[bucket].append(f"{provider_id}/{model_id}")
 
-    from lib.custom_provider import make_provider_id
-    from lib.custom_provider.endpoints import endpoint_to_media_type
-    from lib.db.repositories.custom_provider_repo import CustomProviderRepository
-
-    try:
-        repo = CustomProviderRepository(session)
-        providers = await repo.list_providers()
-        provider_name_map = {p.id: p.display_name for p in providers}
-        enabled_models = await repo.list_all_enabled_models()
-        for model in enabled_models:
-            pid = make_provider_id(model.provider_id)
-            media_type = endpoint_to_media_type(model.endpoint)
-            bucket = _MEDIA_TO_BUCKET.get(media_type)
-            if bucket:
-                buckets[bucket].append(f"{pid}/{model.model_id}")
-            if pid not in provider_names and model.provider_id in provider_name_map:
-                provider_names[pid] = provider_name_map[model.provider_id]
-    except Exception:
-        pass  # Non-fatal: custom providers unavailable shouldn't break the options endpoint
-
     return {**buckets, "provider_names": provider_names}  # type: ignore[return-value]
 
 

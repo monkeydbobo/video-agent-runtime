@@ -156,7 +156,7 @@ export function CreateProjectModal() {
 
   const [basics, setBasics] = useState<WizardStep1Value>({
     title: "",
-    contentMode: "narration",
+    contentMode: "marketing",
     aspectRatio: "9:16",
     generationMode: "storyboard",
   });
@@ -182,6 +182,7 @@ export function CreateProjectModal() {
   });
   const [marketingReference, setMarketingReference] = useState<WizardStep3MarketingReferenceValue>({
     referenceVideoFile: null,
+    productImageFiles: [],
   });
 
   const [creating, setCreating] = useState(false);
@@ -312,6 +313,16 @@ export function CreateProjectModal() {
           await API.uploadFile(resp.name, "reference_videos", marketingReference.referenceVideoFile);
         } catch {
           useAppStore.getState().pushToast(t("dashboard:reference_video_upload_failed_hint"), "warning");
+        }
+      }
+
+      if (basics.contentMode === "marketing" && marketingReference.productImageFiles.length > 0) {
+        for (const img of marketingReference.productImageFiles) {
+          try {
+            await API.uploadFile(resp.name, "product_images", img);
+          } catch {
+            useAppStore.getState().pushToast(t("dashboard:product_image_upload_failed_hint"), "warning");
+          }
         }
       }
 

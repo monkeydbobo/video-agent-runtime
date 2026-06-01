@@ -190,8 +190,7 @@ def test_resolve_max_refs_by_provider(tmp_path: Path, video_backend, expected):
 @pytest.mark.parametrize(
     "video_backend, expected_max_duration_sec",
     [
-        ("grok/grok-imagine-video", "15"),
-        ("gemini-aistudio/veo-3.1-generate-preview", "8"),
+        ("ark/doubao-seedance-1-5-pro-251215", "12"),
         ("ark/doubao-seedance-2-0-260128", "15"),
     ],
 )

@@ -11,18 +11,13 @@ from lib.project_migrations.v1_to_v2_normalize_providers import (
 
 class TestMigrateProjectDictPureFunction:
     def test_normalizes_legacy_provider_names(self):
+        # 营销视频 Agent 仅保留 seedance→ark 别名；gemini 系列已移除，不再归一化。
         before = {
             "schema_version": 1,
             "video_backend": "seedance/seedance-1-0-pro",
-            "text_backend_script": "gemini/gemini-2.5-pro",
-            "text_backend_overview": "aistudio/gemini-2.5-flash",
-            "text_backend_style": "vertex/gemini-2.5-pro",
         }
         after = migrate_project_dict(before)
         assert after["video_backend"] == "ark/seedance-1-0-pro"
-        assert after["text_backend_script"] == "gemini-aistudio/gemini-2.5-pro"
-        assert after["text_backend_overview"] == "gemini-aistudio/gemini-2.5-flash"
-        assert after["text_backend_style"] == "gemini-vertex/gemini-2.5-pro"
 
     def test_splits_legacy_image_backend_into_two_slots(self):
         after = migrate_project_dict({"image_backend": "seedance/x"})
@@ -47,17 +42,13 @@ class TestMigrateProjectDictPureFunction:
 
     def test_strips_whitespace_before_normalizing(self):
         """带空白的 legacy 名也须归一化（先 strip 再比对别名表），否则残留未规范值。"""
-        after = migrate_project_dict(
-            {"video_backend": " seedance / seedance-1-0-pro ", "text_backend_script": " gemini "}
-        )
+        after = migrate_project_dict({"video_backend": " seedance / seedance-1-0-pro "})
         assert after["video_backend"] == "ark/seedance-1-0-pro"
-        assert after["text_backend_script"] == "gemini-aistudio"
 
     def test_slash_without_model_yields_provider_only(self):
-        """带斜杠但缺 model（如 "gemini /"）归一化为纯 provider，不留尾斜杠非规范串。"""
-        after = migrate_project_dict({"video_backend": "seedance /", "text_backend_script": "gemini/"})
+        """带斜杠但缺 model（如 "seedance /"）归一化为纯 provider，不留尾斜杠非规范串。"""
+        after = migrate_project_dict({"video_backend": "seedance /"})
         assert after["video_backend"] == "ark"
-        assert after["text_backend_script"] == "gemini-aistudio"
 
     def test_deletes_legacy_image_backend_key(self):
         after = migrate_project_dict({"image_backend": "openai/gpt-image-1"})

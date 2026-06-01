@@ -195,13 +195,13 @@ class ProjectManager:
             (root / sub).mkdir(exist_ok=True)
         return root
 
-    def create_project(self, name: str, content_mode: ContentMode = "narration") -> Path:
+    def create_project(self, name: str, content_mode: ContentMode = "marketing") -> Path:
         """
         创建新项目
 
         Args:
             name: 项目标识（全局唯一，用于 URL 和文件系统）
-            content_mode: 内容模式（narration / drama），影响 profile 物化时选哪份变体
+            content_mode: 内容模式，营销视频 Agent 默认且仅支持 marketing
 
         Returns:
             项目目录路径
@@ -273,28 +273,19 @@ class ProjectManager:
         return _force_resync_profile(profile_dir, project_dir, content_mode, paths=paths)
 
     def _resolve_content_mode(self, project_dir: Path) -> ContentMode:
-        """从 project_dir/project.json 读 content_mode；缺失回退 narration。
+        """从 project_dir/project.json 读 content_mode；营销视频 Agent 只支持 marketing。
 
-        ``project.json`` 不存在或缺 ``content_mode`` 字段 → 回退 narration（兼容
-        老项目）。文件存在但读取/解析失败 → raise，让上层 sync_all_agent_profiles
-        走 failed_projects 分支；若静默回退到 narration，drama 项目会因 manifest
-        记录的 mode 不匹配触发破坏性 reset，把 profile 错误切回说书变体。
+        ``project.json`` 不存在 / 缺字段 / 是历史 narration·drama·reference 值 → 一律归一化为
+        ``marketing``。营销单模式仓库不再保留多变体，因此老项目也物化同一份 marketing profile。
         """
         pj_path = project_dir / self.PROJECT_FILE
         try:
             data = load_json(pj_path)
         except FileNotFoundError:
-            logger.info("project.json missing under %s, defaulting content_mode=narration", project_dir)
-            return "narration"
+            return "marketing"
         mode = data.get("content_mode") if isinstance(data, dict) else None
-        if mode is None:
-            logger.info("project.json has no content_mode under %s, defaulting narration", project_dir)
-            return "narration"
         if not isinstance(mode, str) or mode not in VALID_CONTENT_MODES:
-            raise ValueError(
-                f"project {project_dir.name}: invalid content_mode={mode!r} "
-                f"(must be one of {sorted(VALID_CONTENT_MODES)})"
-            )
+            return "marketing"
         return cast(ContentMode, mode)
 
     def sync_all_agent_profiles(self) -> dict:

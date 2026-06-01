@@ -299,7 +299,7 @@ class TestProjectArchiveService:
         pj = project_dir / "project.json"
         data = _json.loads(pj.read_text(encoding="utf-8"))
         data["schema_version"] = 1
-        data["image_backend"] = "vertex/imagen-3"
+        data["image_backend"] = "seedance/imagen-3"
         data.pop("image_provider_t2i", None)
         data.pop("image_provider_i2i", None)
         pj.write_text(_json.dumps(data, ensure_ascii=False), encoding="utf-8")
@@ -312,8 +312,8 @@ class TestProjectArchiveService:
 
         installed = _json.loads((pm.get_project_path(result.project_name) / "project.json").read_text(encoding="utf-8"))
         assert installed["schema_version"] == 2
-        assert installed["image_provider_t2i"] == "gemini-vertex/imagen-3"
-        assert installed["image_provider_i2i"] == "gemini-vertex/imagen-3"  # image_backend 拆分到两槽
+        assert installed["image_provider_t2i"] == "ark/imagen-3"
+        assert installed["image_provider_i2i"] == "ark/imagen-3"  # image_backend 拆分到两槽
         assert "image_backend" not in installed
 
     def test_import_rejects_missing_project_json(self, tmp_path):

@@ -71,6 +71,10 @@ class _FakePM:
     def load_project(self, _name: str) -> dict[str, Any]:
         return self.project_payload
 
+    def update_project(self, _name: str, mutate_fn) -> dict[str, Any]:
+        mutate_fn(self.project_payload)
+        return self.project_payload
+
     def load_script(self, _name: str, _filename: str) -> dict[str, Any]:
         return self.script_payload
 
@@ -749,3 +753,73 @@ async def test_analyze_viral_reference_writes_step0(fake_ctx: ToolContext, monke
     analysis = fake_ctx.project_path / "drafts" / "episode_1" / "step0_viral_analysis.md"
     assert analysis.exists()
     assert out["analysis_path"] == "drafts/episode_1/step0_viral_analysis.md"
+
+
+async def test_analyze_product_images_writes_brief_and_binds_reference(fake_ctx: ToolContext, monkeypatch) -> None:
+    from server.agent_runtime.sdk_tools import analyze_product_images as mod
+    from server.agent_runtime.sdk_tools.analyze_product_images import analyze_product_images_tool
+
+    fake_ctx.pm.project_payload["content_mode"] = "marketing"
+    fake_ctx.pm.project_payload["characters"] = {}
+    img_dir = fake_ctx.project_path / "product_images"
+    img_dir.mkdir()
+    (img_dir / "bottle.png").write_bytes(b"png")
+
+    brief_json = json.dumps(
+        {
+            "products": [
+                {
+                    "name": "保温杯",
+                    "category": "家居",
+                    "description": "316 不锈钢保温杯",
+                    "selling_points": ["24h 保温", "防漏"],
+                    "specs": "500ml",
+                    "visual_features": "哑光黑、圆润",
+                    "image": "product_images/bottle.png",
+                }
+            ],
+            "target_audience": "通勤白领",
+            "brand_tone": "极简高级",
+            "voiceover_direction": "先痛点后卖点",
+        }
+    )
+
+    class _FakeGenerator:
+        async def generate(self, request, project_name=None):
+            assert project_name == "demo"
+            assert request.images
+            assert request.response_schema is not None
+
+            class _Result:
+                text = brief_json
+
+            return _Result()
+
+    async def fake_create(_task_type, project_name=None):
+        assert project_name == "demo"
+        return _FakeGenerator()
+
+    monkeypatch.setattr(mod.TextGenerator, "create", fake_create)
+
+    tool_obj = analyze_product_images_tool(fake_ctx)
+    out = await _call(tool_obj, {"episode": 1})
+
+    assert out.get("is_error") is not True, out
+    brief = fake_ctx.project_path / "drafts" / "episode_1" / "step0_product_brief.md"
+    source = fake_ctx.project_path / "source" / "episode_1.txt"
+    assert brief.exists()
+    assert source.exists()
+    assert out["brief_path"] == "drafts/episode_1/step0_product_brief.md"
+    assert out["product_count"] == 1
+    # 产品写入 characters 桶并绑定 reference_image
+    product = fake_ctx.pm.project_payload["characters"]["保温杯"]
+    assert product["reference_image"] == "product_images/bottle.png"
+
+
+async def test_analyze_product_images_rejects_non_marketing(fake_ctx: ToolContext) -> None:
+    from server.agent_runtime.sdk_tools.analyze_product_images import analyze_product_images_tool
+
+    fake_ctx.pm.project_payload["content_mode"] = "narration"
+    tool_obj = analyze_product_images_tool(fake_ctx)
+    out = await _call(tool_obj, {"episode": 1})
+    assert out.get("is_error") is True

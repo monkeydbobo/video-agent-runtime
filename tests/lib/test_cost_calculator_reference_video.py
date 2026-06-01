@@ -3,23 +3,12 @@ from __future__ import annotations
 import pytest
 
 from lib.cost_calculator import CostCalculator
-from lib.providers import PROVIDER_ARK, PROVIDER_GROK, PROVIDER_OPENAI
+from lib.providers import PROVIDER_ARK, PROVIDER_OPENAI
 
 
 @pytest.fixture
 def calc() -> CostCalculator:
     return CostCalculator()
-
-
-def test_estimate_grok_reference_video_per_second(calc: CostCalculator):
-    # Grok: 2 units, 各 8s, 费率 0.050 USD/s → 0.8 USD
-    amount, currency = calc.estimate_reference_video_cost(
-        unit_durations_seconds=[8, 8],
-        provider=PROVIDER_GROK,
-        model="grok-imagine-video",
-    )
-    assert currency == "USD"
-    assert amount == pytest.approx(0.8, abs=1e-6)
 
 
 def test_estimate_openai_reference_video_with_resolution(calc: CostCalculator):
@@ -49,8 +38,8 @@ def test_estimate_ark_reference_video_requires_token_estimate(calc: CostCalculat
 def test_estimate_empty_units_returns_zero(calc: CostCalculator):
     amount, currency = calc.estimate_reference_video_cost(
         unit_durations_seconds=[],
-        provider=PROVIDER_GROK,
-        model="grok-imagine-video",
+        provider=PROVIDER_OPENAI,
+        model="sora-2",
     )
     assert amount == 0.0
     assert currency == "USD"

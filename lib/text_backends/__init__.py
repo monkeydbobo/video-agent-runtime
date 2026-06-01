@@ -22,24 +22,8 @@ __all__ = [
     "register_backend",
 ]
 
-# Backend auto-registration
-from lib.providers import PROVIDER_GEMINI
-from lib.text_backends.gemini import GeminiTextBackend
-
-register_backend(PROVIDER_GEMINI, GeminiTextBackend)
-
-from lib.providers import PROVIDER_ARK, PROVIDER_ARK_AGENT_PLAN
+# Backend auto-registration — 营销视频 Agent 仅保留 Ark（火山方舟）文本后端。
+from lib.providers import PROVIDER_ARK
 from lib.text_backends.ark import ArkTextBackend
 
 register_backend(PROVIDER_ARK, ArkTextBackend)
-register_backend(PROVIDER_ARK_AGENT_PLAN, ArkTextBackend)
-
-from lib.providers import PROVIDER_GROK
-from lib.text_backends.grok import GrokTextBackend
-
-register_backend(PROVIDER_GROK, GrokTextBackend)
-
-from lib.providers import PROVIDER_OPENAI
-from lib.text_backends.openai import OpenAITextBackend
-
-register_backend(PROVIDER_OPENAI, OpenAITextBackend)

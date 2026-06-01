@@ -113,6 +113,29 @@ class TestFilesRouter:
             assert served.status_code == 200
             assert served.content == b"video-bytes"
 
+    def test_product_image_upload_and_list(self, tmp_path, monkeypatch):
+        client, _ = _client(monkeypatch, tmp_path)
+
+        with client:
+            upload = client.post(
+                "/api/v1/projects/demo/upload/product_images",
+                files={"file": ("bottle.png", _img_bytes("PNG"), "image/png")},
+            )
+            assert upload.status_code == 200
+            assert upload.json()["path"] == "product_images/bottle.png"
+
+            # 多张：再传一张，两张都应保留
+            upload2 = client.post(
+                "/api/v1/projects/demo/upload/product_images",
+                files={"file": ("cup.png", _img_bytes("PNG"), "image/png")},
+            )
+            assert upload2.status_code == 200
+
+            listed = client.get("/api/v1/projects/demo/files")
+            assert listed.status_code == 200
+            names = {item["name"] for item in listed.json()["files"]["product_images"]}
+            assert {"bottle.png", "cup.png"} <= names
+
     def test_upload_assets_and_drafts(self, tmp_path, monkeypatch):
         client, pm = _client(monkeypatch, tmp_path)
 

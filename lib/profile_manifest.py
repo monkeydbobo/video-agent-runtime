@@ -55,8 +55,10 @@ class ProfileMisconfiguredError(RuntimeError):
     """profile 端变体文件不合法（成对缺失或与通用文件并存）→ 部署错误。sync 拒绝运行。"""
 
 
-ContentMode = Literal["narration", "drama", "marketing"]
-VALID_CONTENT_MODES: frozenset[str] = frozenset({"narration", "drama", "marketing"})
+# 营销视频 Agent：仅支持 marketing 单一内容模式。
+# 历史 narration/drama 概念在 lib 数据结构层仍保留，但 profile 变体只物化 marketing。
+ContentMode = Literal["marketing"]
+VALID_CONTENT_MODES: frozenset[str] = frozenset({"marketing"})
 
 
 # ---------- 基础工具 ----------

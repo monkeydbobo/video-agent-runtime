@@ -23,7 +23,6 @@ MODULES = [
     "lib.generation_queue_client",
     "lib.generation_worker",
     "lib.grid_manager",
-    "lib.grok_shared",
     "lib.image_utils",
     "lib.logging_config",
     "lib.media_generator",
@@ -47,7 +46,6 @@ MODULES = [
     "lib.version_manager",
     # lib 子包
     "lib.config",
-    "lib.custom_provider",
     "lib.db",
     "lib.db.models",
     "lib.db.repositories",

@@ -10,7 +10,7 @@ def test_model_info_has_resolutions_default_empty_list():
 
 def test_all_image_video_models_have_resolutions_populated():
     missing: list[str] = []
-    ark_provider_ids = {"ark", "ark-agent-plan"}
+    ark_provider_ids = {"ark"}
     for pid, meta in PROVIDER_REGISTRY.items():
         for mid, minfo in meta.models.items():
             if minfo.media_type in ("image", "video"):
@@ -28,8 +28,7 @@ def test_text_models_have_empty_resolutions():
 
 def test_ark_seedream_image_resolutions_empty():
     """Ark Seedream 当前不传分辨率，留空 → UI 不展示下拉。"""
-    for pid in ("ark", "ark-agent-plan"):
-        meta = PROVIDER_REGISTRY[pid]
-        for mid, minfo in meta.models.items():
-            if minfo.media_type == "image":
-                assert minfo.resolutions == [], f"{pid}/{mid}: Ark Seedream 应留空"
+    meta = PROVIDER_REGISTRY["ark"]
+    for mid, minfo in meta.models.items():
+        if minfo.media_type == "image":
+            assert minfo.resolutions == [], f"ark/{mid}: Ark Seedream 应留空"

@@ -15,7 +15,6 @@ if TYPE_CHECKING:
 from lib.app_data_dir import app_data_dir
 from lib.asset_types import ASSET_SPECS
 from lib.config.registry import PROVIDER_REGISTRY
-from lib.custom_provider import is_custom_provider
 from lib.db.base import DEFAULT_USER_ID
 from lib.gemini_shared import get_shared_rate_limiter
 from lib.i18n import DEFAULT_LOCALE
@@ -31,7 +30,7 @@ from lib.prompt_utils import (
     is_structured_video_prompt,
     video_prompt_to_yaml,
 )
-from lib.providers import PROVIDER_ARK, PROVIDER_GEMINI, PROVIDER_GROK, PROVIDER_OPENAI, PROVIDER_VIDU
+from lib.providers import PROVIDER_ARK, PROVIDER_OPENAI
 from lib.storyboard_sequence import (
     build_previous_storyboard_reference,
     find_storyboard_item,
@@ -51,14 +50,10 @@ logger = logging.getLogger(__name__)
 _backend_cache: dict[tuple[str, str, str | None], Any] = {}
 
 # 新 provider_id → 旧 backend registry name 的映射
+# 营销视频 Agent：视频仅 Ark，图片 Ark + OpenAI；其余 provider 已从注册表移除。
 _PROVIDER_ID_TO_BACKEND: dict[str, str] = {
-    "gemini-aistudio": PROVIDER_GEMINI,
-    "gemini-vertex": PROVIDER_GEMINI,
-    PROVIDER_GEMINI: PROVIDER_GEMINI,
     PROVIDER_ARK: PROVIDER_ARK,
-    PROVIDER_GROK: PROVIDER_GROK,
     PROVIDER_OPENAI: PROVIDER_OPENAI,
-    PROVIDER_VIDU: PROVIDER_VIDU,
 }
 
 
@@ -91,60 +86,6 @@ async def _resolve_effective_image_backend(
     return await resolver.resolve_image_backend(project, payload, capability=capability)
 
 
-async def _create_custom_backend(provider_name: str, model_id: str | None, media_type: str):
-    """自定义供应商的 backend 创建路径。
-
-    media_type 仅用于回退到默认模型时分组（仍接收以兼容调用方调用语义）。
-    实际派发以 model.endpoint 为准；若 endpoint 推算 media_type 与 caller 传入不符 → 视为模型不存在并 fallback。
-    """
-    from lib.custom_provider import parse_provider_id
-    from lib.custom_provider.endpoints import endpoint_to_media_type
-    from lib.custom_provider.factory import create_custom_backend
-    from lib.db import async_session_factory
-    from lib.db.repositories.custom_provider_repo import CustomProviderRepository
-
-    async with async_session_factory() as session:
-        repo = CustomProviderRepository(session)
-        db_id = parse_provider_id(provider_name)
-        provider = await repo.get_provider(db_id)
-        if provider is None:
-            raise ValueError(f"自定义供应商 {provider_name} 不存在")
-
-        model = None
-        if model_id:
-            from sqlalchemy import select
-
-            from lib.db.models.custom_provider import CustomProviderModel
-
-            stmt = select(CustomProviderModel).where(
-                CustomProviderModel.provider_id == db_id,
-                CustomProviderModel.model_id == model_id,
-                CustomProviderModel.is_enabled == True,  # noqa: E712
-            )
-            result = await session.execute(stmt)
-            candidate = result.scalar_one_or_none()
-            if candidate and endpoint_to_media_type(candidate.endpoint) == media_type:
-                model = candidate
-            else:
-                logger.warning(
-                    "自定义模型 %s/%s 已不存在 / 已禁用 / 媒体类型不符（期望 %s），回退到默认模型",
-                    provider_name,
-                    model_id,
-                    media_type,
-                )
-                model_id = None
-
-        if model is None:
-            default_model = await repo.get_default_model(db_id, media_type)
-            if default_model is None:
-                raise ValueError(f"自定义供应商 {provider_name} 没有默认 {media_type} 模型")
-            model = default_model
-            model_id = default_model.model_id
-
-        assert model_id is not None
-        return create_custom_backend(provider=provider, model_id=model_id, endpoint=model.endpoint)
-
-
 async def _get_or_create_video_backend(
     provider_name: str,
     provider_settings: dict,
@@ -165,32 +106,10 @@ async def _get_or_create_video_backend(
     if cache_key in _backend_cache:
         return _backend_cache[cache_key]
 
-    # 自定义供应商走独立工厂路径
-    if is_custom_provider(provider_name):
-        backend = await _create_custom_backend(provider_name, effective_model, "video")
-        _backend_cache[cache_key] = backend
-        return backend
-
-    # 解析 provider_id → backend registry name
+    # 营销视频 Agent 视频仅 Ark；统一走简单供应商配置填充。
     backend_name = _PROVIDER_ID_TO_BACKEND.get(provider_name, provider_name)
-
     kwargs: dict = {}
-    if backend_name == PROVIDER_GEMINI:
-        # 确定 backend_type（aistudio 或 vertex）
-        if provider_name == "gemini-vertex":
-            kwargs["backend_type"] = "vertex"
-        elif provider_name == "gemini-aistudio":
-            kwargs["backend_type"] = "aistudio"
-        else:
-            kwargs["backend_type"] = "aistudio"
-
-        config_provider_id = "gemini-vertex" if kwargs["backend_type"] == "vertex" else "gemini-aistudio"
-        db_config = await resolver.provider_config(config_provider_id)
-        kwargs["api_key"] = db_config.get("api_key")
-        kwargs["rate_limiter"] = rate_limiter
-        kwargs["video_model"] = effective_model
-    else:
-        await _fill_simple_provider_kwargs(backend_name, resolver, kwargs, effective_model)
+    await _fill_simple_provider_kwargs(backend_name, resolver, kwargs, effective_model)
 
     backend = create_backend(backend_name, **kwargs)
     _backend_cache[cache_key] = backend
@@ -233,28 +152,10 @@ async def _get_or_create_image_backend(
     if cache_key in _backend_cache:
         return _backend_cache[cache_key]
 
-    # 自定义供应商走独立工厂路径
-    if is_custom_provider(provider_name):
-        backend = await _create_custom_backend(provider_name, effective_model, "image")
-        _backend_cache[cache_key] = backend
-        return backend
-
+    # 营销视频 Agent 图片仅 Ark + OpenAI；统一走简单供应商配置填充。
     backend_name = _PROVIDER_ID_TO_BACKEND.get(provider_name, provider_name)
-
     kwargs: dict = {}
-    if backend_name == PROVIDER_GEMINI:
-        if provider_name == "gemini-vertex":
-            kwargs["backend_type"] = "vertex"
-        else:
-            kwargs["backend_type"] = "aistudio"
-        config_id = "gemini-vertex" if kwargs["backend_type"] == "vertex" else "gemini-aistudio"
-        db_config = await resolver.provider_config(config_id)
-        kwargs["api_key"] = db_config.get("api_key")
-        kwargs["base_url"] = db_config.get("base_url")
-        kwargs["rate_limiter"] = rate_limiter
-        kwargs["image_model"] = effective_model
-    else:
-        await _fill_simple_provider_kwargs(backend_name, resolver, kwargs, effective_model)
+    await _fill_simple_provider_kwargs(backend_name, resolver, kwargs, effective_model)
 
     backend = create_backend(backend_name, **kwargs)
     _backend_cache[cache_key] = backend
@@ -277,10 +178,8 @@ async def _resolve_video_backend(
     resolved = await resolver.resolve_video_backend(project, payload)
 
     video_backend = None
-    video_backend_type = "aistudio"
-    mapped = _PROVIDER_ID_TO_BACKEND.get(resolved.provider_id, resolved.provider_id)
-    if mapped == PROVIDER_GEMINI:
-        video_backend_type = "vertex" if resolved.provider_id == "gemini-vertex" else "aistudio"
+    # 营销视频 Agent 视频仅 Ark；保留返回签名中的 backend_type 占位以兼容调用方。
+    video_backend_type = "ark"
 
     if payload:
         provider_settings: dict = {"model": resolved.model_id} if resolved.model_id else {}
@@ -850,7 +749,7 @@ async def execute_video_task(
         registry_provider_id = resolved_video.provider_id
         model_name = resolved_video.model_id or None
     except Exception:
-        registry_provider_id, model_name = "gemini-aistudio", "veo-3.1-lite-generate-preview"
+        registry_provider_id, model_name = "ark", "doubao-seedance-1-5-pro-251215"
 
     # supported_durations 按上面已解析出的 provider/model 取（而非按 project 二次解析），
     # 确保 duration 守卫所依据的能力与实际要调用的 model 一致——历史任务 payload 携带

@@ -17,18 +17,10 @@ ANTHROPIC_ENV_KEYS: tuple[str, ...] = (
 )
 
 # —— 其他 provider env keys（options.env 用空值覆盖兜底）——
+# 营销视频 Agent 仅保留 Ark（文本/视频/图片）+ OpenAI（图片）。
 OTHER_PROVIDER_ENV_KEYS: tuple[str, ...] = (
     "ARK_API_KEY",
-    "XAI_API_KEY",
-    "GEMINI_API_KEY",
-    "VIDU_API_KEY",
-    "GOOGLE_APPLICATION_CREDENTIALS",
-    "GEMINI_BASE_URL",
-    "GEMINI_IMAGE_MODEL",
-    "GEMINI_VIDEO_MODEL",
-    "GEMINI_IMAGE_BACKEND",
-    "GEMINI_VIDEO_BACKEND",
-    "VERTEX_GCS_BUCKET",
+    "OPENAI_API_KEY",
     "FILE_SERVICE_BASE_URL",
     "DEFAULT_VIDEO_PROVIDER",
 )
@@ -38,10 +30,7 @@ PROVIDER_SECRET_KEYS: frozenset[str] = frozenset(
     {
         "ANTHROPIC_API_KEY",
         "ARK_API_KEY",
-        "XAI_API_KEY",
-        "GEMINI_API_KEY",
-        "VIDU_API_KEY",
-        "GOOGLE_APPLICATION_CREDENTIALS",
+        "OPENAI_API_KEY",
     }
 )
 

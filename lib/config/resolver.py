@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -27,9 +26,7 @@ from lib.config.service import (
     _DEFAULT_VIDEO_BACKEND,
     ConfigService,
 )
-from lib.custom_provider import is_custom_provider, parse_provider_id
 from lib.db.repositories.credential_repository import CredentialRepository
-from lib.db.repositories.custom_provider_repo import CustomProviderRepository
 from lib.project_manager import ProjectManager
 from lib.reference_video.limits import DEFAULT_MAX_REFS, PROVIDER_MAX_REFS, normalize_provider_id
 from lib.text_backends.base import TextTaskType
@@ -127,7 +124,7 @@ def _trusted_payload_provider(provider_id: object) -> str | None:
     provider_id = provider_id.strip()
     if not provider_id:
         return None
-    if provider_id in PROVIDER_REGISTRY or is_custom_provider(provider_id):
+    if provider_id in PROVIDER_REGISTRY:
         return provider_id
     return None
 
@@ -446,45 +443,14 @@ class ConfigResolver:
         model_id: str,
         project: dict | None,
     ) -> dict:
-        if is_custom_provider(provider_id):
-            source = "custom"
-            try:
-                db_pid = parse_provider_id(provider_id)
-            except ValueError as exc:
-                raise ValueError(f"invalid custom provider_id: {provider_id}") from exc
-            repo = CustomProviderRepository(session)
-            model = await repo.get_model_by_ids(db_pid, model_id)
-            if model is None:
-                raise ValueError(f"custom model not found: {provider_id}/{model_id}")
-
-            from lib.custom_provider.endpoints import endpoint_to_media_type
-
-            derived_media = endpoint_to_media_type(model.endpoint)
-            if derived_media != "video":
-                raise ValueError(
-                    f"endpoint media_type mismatch: {provider_id}/{model_id} endpoint={model.endpoint!r} "
-                    f"is {derived_media}, not video"
-                )
-            raw_durations = model.supported_durations
-            supported_durations: list[int] = []
-            if raw_durations:
-                try:
-                    parsed = json.loads(raw_durations)
-                except (TypeError, ValueError) as exc:
-                    raise ValueError(
-                        f"invalid supported_durations JSON on custom model {provider_id}/{model_id}"
-                    ) from exc
-                if isinstance(parsed, list):
-                    supported_durations = [int(d) for d in parsed]
-        else:
-            source = "registry"
-            provider_meta = PROVIDER_REGISTRY.get(provider_id)
-            if provider_meta is None:
-                raise ValueError(f"provider not in PROVIDER_REGISTRY: {provider_id}")
-            model_info = provider_meta.models.get(model_id)
-            if model_info is None:
-                raise ValueError(f"model not found in registry: {provider_id}/{model_id}")
-            supported_durations = list(model_info.supported_durations or [])
+        source = "registry"
+        provider_meta = PROVIDER_REGISTRY.get(provider_id)
+        if provider_meta is None:
+            raise ValueError(f"provider not in PROVIDER_REGISTRY: {provider_id}")
+        model_info = provider_meta.models.get(model_id)
+        if model_info is None:
+            raise ValueError(f"model not found in registry: {provider_id}/{model_id}")
+        supported_durations: list[int] = list(model_info.supported_durations or [])
 
         if not supported_durations:
             raise ValueError(f"supported_durations is empty for {provider_id}/{model_id}; cannot derive capabilities")
@@ -624,14 +590,5 @@ class ConfigResolver:
             for model_id, model_info in meta.models.items():
                 if model_info.media_type == media_type and model_info.default:
                     return provider_id, model_id
-
-        from lib.custom_provider import make_provider_id
-        from lib.db.repositories.custom_provider_repo import CustomProviderRepository
-
-        repo = CustomProviderRepository(session)
-        custom_models = await repo.list_enabled_models_by_media_type(media_type)
-        for model in custom_models:
-            if model.is_default:
-                return make_provider_id(model.provider_id), model.model_id
 
         raise ValueError(f"未找到可用的 {media_type} 供应商。请在「全局设置 → 供应商」页面配置至少一个供应商。")

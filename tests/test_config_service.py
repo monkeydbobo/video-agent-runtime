@@ -35,31 +35,31 @@ async def test_get_all_providers_status_empty(config_service: ConfigService):
 async def test_provider_becomes_ready(config_service: ConfigService, session: AsyncSession):
     # 新逻辑：status 由凭证表中的活跃凭证决定，而不是 ProviderConfig 表
     cred_repo = CredentialRepository(session)
-    await cred_repo.create("gemini-aistudio", "default", api_key="AIza-test")
+    await cred_repo.create("ark", "default", api_key="ark-test")
     await session.flush()
     statuses = await config_service.get_all_providers_status()
-    aistudio = next(s for s in statuses if s.name == "gemini-aistudio")
-    assert aistudio.status == "ready"
-    assert aistudio.missing_keys == []
+    ark = next(s for s in statuses if s.name == "ark")
+    assert ark.status == "ready"
+    assert ark.missing_keys == []
 
 
 async def test_get_provider_config(config_service: ConfigService):
-    await config_service.set_provider_config("grok", "api_key", "xai-test")
-    config = await config_service.get_provider_config("grok")
-    assert config == {"api_key": "xai-test"}
+    await config_service.set_provider_config("ark", "api_key", "ark-test")
+    config = await config_service.get_provider_config("ark")
+    assert config == {"api_key": "ark-test"}
 
 
 async def test_delete_provider_config(config_service: ConfigService):
-    await config_service.set_provider_config("grok", "api_key", "xai-test")
-    await config_service.delete_provider_config("grok", "api_key")
-    config = await config_service.get_provider_config("grok")
+    await config_service.set_provider_config("ark", "api_key", "ark-test")
+    await config_service.delete_provider_config("ark", "api_key")
+    config = await config_service.get_provider_config("ark")
     assert config == {}
 
 
 async def test_system_settings(config_service: ConfigService):
-    await config_service.set_setting("default_video_backend", "gemini-vertex/veo-3.1-fast-generate-001")
+    await config_service.set_setting("default_video_backend", "ark/doubao-seedance-2-0-fast-260128")
     val = await config_service.get_setting("default_video_backend")
-    assert val == "gemini-vertex/veo-3.1-fast-generate-001"
+    assert val == "ark/doubao-seedance-2-0-fast-260128"
 
 
 async def test_get_default_video_backend(config_service: ConfigService):
@@ -71,7 +71,7 @@ async def test_get_default_video_backend(config_service: ConfigService):
 
 async def test_get_default_backend_fallback(config_service: ConfigService):
     provider_id, model_id = await config_service.get_default_video_backend()
-    assert provider_id == "gemini-aistudio"
+    assert provider_id == "ark"
 
 
 async def test_unknown_provider_raises(config_service: ConfigService):

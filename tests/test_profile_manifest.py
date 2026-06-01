@@ -70,11 +70,10 @@ def test_enumerate_profile_files_empty_when_missing_roots(tmp_path: Path) -> Non
 def test_enumerate_profile_files_includes_claude_variants(tmp_path: Path) -> None:
     profile = tmp_path / "profile"
     profile.mkdir()
-    (profile / "CLAUDE.narration.md").write_text("n")
-    (profile / "CLAUDE.drama.md").write_text("d")
+    (profile / "CLAUDE.marketing.md").write_text("m")
 
     files = enumerate_profile_files(profile)
-    assert files == {"CLAUDE.narration.md", "CLAUDE.drama.md"}
+    assert files == {"CLAUDE.marketing.md"}
 
 
 def test_enumerate_profile_files_ignores_unrelated_top_files(tmp_path: Path) -> None:
@@ -417,41 +416,23 @@ def test_profile_misconfigured_error_is_runtime_error() -> None:
 def test_valid_content_modes_constant() -> None:
     from lib.profile_manifest import VALID_CONTENT_MODES
 
-    assert VALID_CONTENT_MODES == frozenset({"narration", "drama", "marketing"})
+    assert VALID_CONTENT_MODES == frozenset({"marketing"})
 
 
 # ---------- resolve_profile_files_for_mode ----------
 
 
 def _make_profile(tmp_path: Path) -> Path:
-    """构造典型 profile：通用文件 + narration/drama 变体配对。"""
+    """构造营销视频 Agent 的 profile：通用文件 + marketing 单变体。"""
     profile = tmp_path / "profile"
     (profile / ".claude" / "skills" / "manga-workflow").mkdir(parents=True)
     (profile / ".claude" / "agents").mkdir(parents=True)
     # 通用文件
     (profile / ".claude" / "agents" / "generate-assets.md").write_text("common")
-    # CLAUDE.md 变体配对
-    (profile / "CLAUDE.narration.md").write_text("narration top")
-    (profile / "CLAUDE.drama.md").write_text("drama top")
+    # CLAUDE.md / SKILL.md 仅 marketing 变体
     (profile / "CLAUDE.marketing.md").write_text("marketing top")
-    # SKILL.md 变体配对
-    (profile / ".claude" / "skills" / "manga-workflow" / "SKILL.narration.md").write_text("nar skill")
-    (profile / ".claude" / "skills" / "manga-workflow" / "SKILL.drama.md").write_text("dra skill")
     (profile / ".claude" / "skills" / "manga-workflow" / "SKILL.marketing.md").write_text("mkt skill")
     return profile
-
-
-def test_resolve_for_narration_picks_narration_variants(tmp_path: Path) -> None:
-    from lib.profile_manifest import resolve_profile_files_for_mode
-
-    profile = _make_profile(tmp_path)
-    mapping = resolve_profile_files_for_mode(profile, "narration")
-
-    assert mapping == {
-        "CLAUDE.md": "CLAUDE.narration.md",
-        ".claude/agents/generate-assets.md": ".claude/agents/generate-assets.md",
-        ".claude/skills/manga-workflow/SKILL.md": ".claude/skills/manga-workflow/SKILL.narration.md",
-    }
 
 
 def test_resolve_for_marketing_picks_marketing_variants(tmp_path: Path) -> None:
@@ -459,30 +440,11 @@ def test_resolve_for_marketing_picks_marketing_variants(tmp_path: Path) -> None:
 
     profile = _make_profile(tmp_path)
     mapping = resolve_profile_files_for_mode(profile, "marketing")
-    assert mapping["CLAUDE.md"] == "CLAUDE.marketing.md"
-    assert mapping[".claude/skills/manga-workflow/SKILL.md"] == ".claude/skills/manga-workflow/SKILL.marketing.md"
-
-
-def test_resolve_for_drama_picks_drama_variants(tmp_path: Path) -> None:
-    from lib.profile_manifest import resolve_profile_files_for_mode
-
-    profile = _make_profile(tmp_path)
-    mapping = resolve_profile_files_for_mode(profile, "drama")
-
-    assert mapping[".claude/skills/manga-workflow/SKILL.md"] == ".claude/skills/manga-workflow/SKILL.drama.md"
-    assert mapping["CLAUDE.md"] == "CLAUDE.drama.md"
-
-
-def test_resolve_unpaired_variant_raises(tmp_path: Path) -> None:
-    """只有 narration 变体没有 drama 变体 → ProfileMisconfiguredError。"""
-    from lib.profile_manifest import ProfileMisconfiguredError, resolve_profile_files_for_mode
-
-    profile = tmp_path / "profile"
-    profile.mkdir()
-    (profile / "CLAUDE.narration.md").write_text("only narration")
-
-    with pytest.raises(ProfileMisconfiguredError, match="missing variant"):
-        resolve_profile_files_for_mode(profile, "narration")
+    assert mapping == {
+        "CLAUDE.md": "CLAUDE.marketing.md",
+        ".claude/agents/generate-assets.md": ".claude/agents/generate-assets.md",
+        ".claude/skills/manga-workflow/SKILL.md": ".claude/skills/manga-workflow/SKILL.marketing.md",
+    }
 
 
 def test_resolve_common_plus_variant_collision_raises(tmp_path: Path) -> None:
@@ -492,11 +454,10 @@ def test_resolve_common_plus_variant_collision_raises(tmp_path: Path) -> None:
     profile = tmp_path / "profile"
     profile.mkdir()
     (profile / "CLAUDE.md").write_text("common")
-    (profile / "CLAUDE.narration.md").write_text("variant")
-    (profile / "CLAUDE.drama.md").write_text("variant")
+    (profile / "CLAUDE.marketing.md").write_text("variant")
 
     with pytest.raises(ProfileMisconfiguredError, match="common.*variant"):
-        resolve_profile_files_for_mode(profile, "narration")
+        resolve_profile_files_for_mode(profile, "marketing")
 
 
 def test_resolve_invalid_mode_raises(tmp_path: Path) -> None:
@@ -508,15 +469,15 @@ def test_resolve_invalid_mode_raises(tmp_path: Path) -> None:
 
 
 def test_resolve_double_dot_filename_not_treated_as_variant(tmp_path: Path) -> None:
-    """`foo.narration.bar.md` 不认作变体（只识别最后一段 stem）。"""
+    """`foo.marketing.bar.md` 不认作变体（只识别最后一段 stem）。"""
     from lib.profile_manifest import resolve_profile_files_for_mode
 
     profile = tmp_path / "profile"
     (profile / ".claude").mkdir(parents=True)
-    (profile / ".claude" / "weird.narration.bar.md").write_text("not a variant")
+    (profile / ".claude" / "weird.marketing.bar.md").write_text("not a variant")
 
-    mapping = resolve_profile_files_for_mode(profile, "narration")
-    assert mapping == {".claude/weird.narration.bar.md": ".claude/weird.narration.bar.md"}
+    mapping = resolve_profile_files_for_mode(profile, "marketing")
+    assert mapping == {".claude/weird.marketing.bar.md": ".claude/weird.marketing.bar.md"}
 
 
 # ---------- Manifest.content_mode 字段 ----------
@@ -538,11 +499,11 @@ def test_manifest_serialize_includes_set_content_mode() -> None:
     m = Manifest(
         schema_version=MANIFEST_SCHEMA_VERSION,
         profile_id=EXPECTED_PROFILE_ID,
-        content_mode="narration",
+        content_mode="marketing",
         entries={},
     )
     data = json.loads(m.normalized_bytes().decode("utf-8"))
-    assert data["content_mode"] == "narration"
+    assert data["content_mode"] == "marketing"
 
 
 def test_load_manifest_legacy_no_content_mode_field(tmp_path: Path) -> None:
@@ -563,14 +524,14 @@ def test_load_manifest_new_with_content_mode(tmp_path: Path) -> None:
     payload = {
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "profile_id": EXPECTED_PROFILE_ID,
-        "content_mode": "drama",
+        "content_mode": "marketing",
         "entries": {},
     }
     (tmp_path / MANIFEST_FILENAME).write_text(json.dumps(payload))
     loaded = load_manifest(tmp_path)
     assert loaded is not None
     manifest, _raw = loaded
-    assert manifest.content_mode == "drama"
+    assert manifest.content_mode == "marketing"
 
 
 def test_load_manifest_invalid_content_mode_returns_none(tmp_path: Path) -> None:
@@ -594,20 +555,6 @@ def _fresh_project(tmp_path: Path, name: str = "proj") -> Path:
     return d
 
 
-def test_sync_narration_project_writes_narration_variant(tmp_path: Path) -> None:
-    from lib.profile_manifest import sync_profile_to_project
-
-    profile = _make_profile(tmp_path)
-    project = _fresh_project(tmp_path / "proj_root")
-
-    sync_profile_to_project(profile, project, content_mode="narration")
-
-    assert (project / "CLAUDE.md").read_text() == "narration top"
-    assert (project / ".claude" / "skills" / "manga-workflow" / "SKILL.md").read_text() == "nar skill"
-    assert not (project / "CLAUDE.narration.md").exists()
-    assert not (project / "CLAUDE.drama.md").exists()
-
-
 def test_sync_marketing_project_writes_marketing_variant(tmp_path: Path) -> None:
     from lib.profile_manifest import sync_profile_to_project
 
@@ -617,16 +564,7 @@ def test_sync_marketing_project_writes_marketing_variant(tmp_path: Path) -> None
     sync_profile_to_project(profile, project, content_mode="marketing")
     assert (project / "CLAUDE.md").read_text() == "marketing top"
     assert (project / ".claude" / "skills" / "manga-workflow" / "SKILL.md").read_text() == "mkt skill"
-
-
-def test_sync_drama_project_writes_drama_variant(tmp_path: Path) -> None:
-    from lib.profile_manifest import sync_profile_to_project
-
-    profile = _make_profile(tmp_path)
-    project = _fresh_project(tmp_path / "proj_root")
-
-    sync_profile_to_project(profile, project, content_mode="drama")
-    assert (project / "CLAUDE.md").read_text() == "drama top"
+    assert not (project / "CLAUDE.marketing.md").exists()
 
 
 def test_sync_writes_manifest_content_mode(tmp_path: Path) -> None:
@@ -635,23 +573,9 @@ def test_sync_writes_manifest_content_mode(tmp_path: Path) -> None:
     profile = _make_profile(tmp_path)
     project = _fresh_project(tmp_path / "proj_root")
 
-    sync_profile_to_project(profile, project, content_mode="narration")
+    sync_profile_to_project(profile, project, content_mode="marketing")
     manifest_data = json.loads((project / MANIFEST_FILENAME).read_text())
-    assert manifest_data["content_mode"] == "narration"
-
-
-def test_sync_mode_mismatch_triggers_reset(tmp_path: Path) -> None:
-    """已有 manifest 标记 narration，下次 sync 传 drama → reset 路径覆盖 dest。"""
-    from lib.profile_manifest import sync_profile_to_project
-
-    profile = _make_profile(tmp_path)
-    project = _fresh_project(tmp_path / "proj_root")
-
-    sync_profile_to_project(profile, project, content_mode="narration")
-    assert (project / "CLAUDE.md").read_text() == "narration top"
-
-    sync_profile_to_project(profile, project, content_mode="drama")
-    assert (project / "CLAUDE.md").read_text() == "drama top"
+    assert manifest_data["content_mode"] == "marketing"
 
 
 def test_sync_legacy_manifest_migrates_without_reset(tmp_path: Path) -> None:
@@ -660,19 +584,19 @@ def test_sync_legacy_manifest_migrates_without_reset(tmp_path: Path) -> None:
 
     profile = _make_profile(tmp_path)
     project = _fresh_project(tmp_path / "proj_root")
-    # 1) 先按 narration 物化一份（生成 manifest）
-    sync_profile_to_project(profile, project, content_mode="narration")
+    # 1) 先物化一份（生成 manifest）
+    sync_profile_to_project(profile, project, content_mode="marketing")
     # 2) 手工把 manifest 改成"老 manifest"形态（删 content_mode 字段）
     manifest_path = project / MANIFEST_FILENAME
     data = json.loads(manifest_path.read_text())
     data.pop("content_mode", None)
     manifest_path.write_text(json.dumps(data, indent=2, sort_keys=True))
     # 3) 再次 sync，应当被认作 needs_migration，正常走 #3 unchanged，写回 mode
-    sync_profile_to_project(profile, project, content_mode="narration")
+    sync_profile_to_project(profile, project, content_mode="marketing")
     after = json.loads(manifest_path.read_text())
-    assert after["content_mode"] == "narration"
+    assert after["content_mode"] == "marketing"
     # 内容不变
-    assert (project / "CLAUDE.md").read_text() == "narration top"
+    assert (project / "CLAUDE.md").read_text() == "marketing top"
 
 
 def test_sync_invalid_mode_raises(tmp_path: Path) -> None:
@@ -693,14 +617,14 @@ def test_force_resync_picks_correct_variant(tmp_path: Path) -> None:
 
     profile = _make_profile(tmp_path)
     project = _fresh_project(tmp_path / "proj_root")
-    sync_profile_to_project(profile, project, content_mode="narration")
+    sync_profile_to_project(profile, project, content_mode="marketing")
 
     # 用户手动改 CLAUDE.md
     (project / "CLAUDE.md").write_text("user-edited")
 
-    # force_resync 应当用 narration 变体覆盖
-    force_resync_profile(profile, project, content_mode="narration", paths=["CLAUDE.md"])
-    assert (project / "CLAUDE.md").read_text() == "narration top"
+    # force_resync 应当用 marketing 变体覆盖
+    force_resync_profile(profile, project, content_mode="marketing", paths=["CLAUDE.md"])
+    assert (project / "CLAUDE.md").read_text() == "marketing top"
 
 
 def test_force_resync_full_uses_mapping(tmp_path: Path) -> None:
@@ -709,8 +633,8 @@ def test_force_resync_full_uses_mapping(tmp_path: Path) -> None:
 
     profile = _make_profile(tmp_path)
     project = _fresh_project(tmp_path / "proj_root")
-    force_resync_profile(profile, project, content_mode="drama")
-    assert (project / "CLAUDE.md").read_text() == "drama top"
+    force_resync_profile(profile, project, content_mode="marketing")
+    assert (project / "CLAUDE.md").read_text() == "marketing top"
 
 
 def test_force_resync_invalid_mode_raises(tmp_path: Path) -> None:
@@ -744,89 +668,49 @@ def test_create_project_with_marketing_mode_materializes_marketing_variant(
     assert (project_dir / ".claude" / "skills" / "manga-workflow" / "SKILL.md").read_text() == "mkt skill"
 
 
-def test_create_project_with_drama_mode_materializes_drama_variant(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    pm, _ = _setup_pm_with_profile(tmp_path, monkeypatch)
-    project_dir = pm.create_project("demo", content_mode="drama")
-    assert (project_dir / "CLAUDE.md").read_text() == "drama top"
-    assert (project_dir / ".claude" / "skills" / "manga-workflow" / "SKILL.md").read_text() == "dra skill"
-
-
-def test_create_project_default_is_narration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """老 caller 不传 content_mode → 默认 narration（与产品默认一致）。"""
+def test_create_project_default_is_marketing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """营销视频 Agent：不传 content_mode → 默认 marketing。"""
     pm, _ = _setup_pm_with_profile(tmp_path, monkeypatch)
     project_dir = pm.create_project("demo")
-    assert (project_dir / "CLAUDE.md").read_text() == "narration top"
+    assert (project_dir / "CLAUDE.md").read_text() == "marketing top"
 
 
 def test_sync_agent_profile_reads_content_mode_from_project_json(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     pm, _ = _setup_pm_with_profile(tmp_path, monkeypatch)
-    project_dir = pm.create_project("demo", content_mode="narration")
-    # 改 project.json 模拟"老项目缺 mode 字段"
+    project_dir = pm.create_project("demo", content_mode="marketing")
     pj_path = project_dir / "project.json"
-    pj_path.write_text(json.dumps({"title": "demo", "content_mode": "drama"}))
-    # 再次 sync，应当读 project.json 拿到 drama，触发 mode mismatch reset
+    pj_path.write_text(json.dumps({"title": "demo", "content_mode": "marketing"}))
     pm.sync_agent_profile(project_dir)
-    assert (project_dir / "CLAUDE.md").read_text() == "drama top"
+    assert (project_dir / "CLAUDE.md").read_text() == "marketing top"
 
 
-def test_sync_agent_profile_missing_mode_fallback_narration(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
+def test_sync_agent_profile_missing_mode_coerces_marketing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """老项目 project.json 没有 content_mode → 归一化为 marketing。"""
     pm, _ = _setup_pm_with_profile(tmp_path, monkeypatch)
-    project_dir = pm.create_project("demo", content_mode="narration")
-    # 模拟老项目：project.json 没有 content_mode 字段
+    project_dir = pm.create_project("demo", content_mode="marketing")
     pj_path = project_dir / "project.json"
     pj_path.write_text(json.dumps({"title": "demo"}))
     pm.sync_agent_profile(project_dir)
-    # 回退 narration，内容不变
-    assert (project_dir / "CLAUDE.md").read_text() == "narration top"
+    assert (project_dir / "CLAUDE.md").read_text() == "marketing top"
 
 
-def test_sync_agent_profile_invalid_mode_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_sync_agent_profile_legacy_mode_coerces_marketing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """历史 narration/drama 项目 → 归一化为 marketing（单模式仓库不再保留旧变体）。"""
     pm, _ = _setup_pm_with_profile(tmp_path, monkeypatch)
-    project_dir = pm.create_project("demo", content_mode="narration")
+    project_dir = pm.create_project("demo", content_mode="marketing")
     pj_path = project_dir / "project.json"
-    pj_path.write_text(json.dumps({"title": "demo", "content_mode": "garbage"}))
-    with pytest.raises(ValueError, match="content_mode"):
-        pm.sync_agent_profile(project_dir)
+    pj_path.write_text(json.dumps({"title": "demo", "content_mode": "drama"}))
+    pm.sync_agent_profile(project_dir)
+    assert (project_dir / "CLAUDE.md").read_text() == "marketing top"
 
 
-def test_sync_agent_profile_corrupt_json_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """project.json 损坏 → raise，避免 drama 项目被静默回退到 narration 触发
-    destructive reset 错切回说书变体。"""
+def test_sync_all_agent_profiles_per_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     pm, _ = _setup_pm_with_profile(tmp_path, monkeypatch)
-    project_dir = pm.create_project("demo", content_mode="drama")
-    (project_dir / "project.json").write_text("{not json")
-    with pytest.raises(json.JSONDecodeError):
-        pm.sync_agent_profile(project_dir)
-
-
-def test_sync_all_agent_profiles_isolates_corrupt_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """一个项目的 project.json 损坏 → failed_projects++，其它项目正常 sync，
-    损坏项目的 manifest 不被错误切回 narration（不触发破坏性 reset）。"""
-    pm, _ = _setup_pm_with_profile(tmp_path, monkeypatch)
-    pm.create_project("good", content_mode="narration")
-    bad_dir = pm.create_project("bad", content_mode="drama")
-    (bad_dir / "project.json").write_text("{not json")
-
+    pm.create_project("a", content_mode="marketing")
+    pm.create_project("b", content_mode="marketing")
     stats = pm.sync_all_agent_profiles()
     assert stats.get("aborted") is not True
-    assert stats["failed_projects"] == 1
-    assert (pm.projects_root / "good" / "CLAUDE.md").read_text() == "narration top"
-    # 损坏项目的 CLAUDE.md 保持上次 sync 的 drama 内容，未被错切回 narration
-    assert (bad_dir / "CLAUDE.md").read_text() == "drama top"
-
-
-def test_sync_all_agent_profiles_per_project_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    pm, _ = _setup_pm_with_profile(tmp_path, monkeypatch)
-    pm.create_project("a", content_mode="narration")
-    pm.create_project("b", content_mode="drama")
-    # 改两个项目的内容（模拟 server 启动前 profile 已升级）
-    stats = pm.sync_all_agent_profiles()
-    assert stats.get("aborted") is not True
-    assert (pm.projects_root / "a" / "CLAUDE.md").read_text() == "narration top"
-    assert (pm.projects_root / "b" / "CLAUDE.md").read_text() == "drama top"
+    assert (pm.projects_root / "a" / "CLAUDE.md").read_text() == "marketing top"
+    assert (pm.projects_root / "b" / "CLAUDE.md").read_text() == "marketing top"

@@ -1,14 +1,14 @@
 import { useId, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { GenerationModeSelector } from "@/components/shared/GenerationModeSelector";
-import { ACCENT_BTN_CLS, ACCENT_BUTTON_STYLE, radioCardClass } from "@/components/ui/darkroom-tokens";
+import { ACCENT_BTN_CLS, ACCENT_BUTTON_STYLE } from "@/components/ui/darkroom-tokens";
 import { FieldLabel } from "@/components/ui/FieldLabel";
 import type { GenerationMode } from "@/utils/generation-mode";
 
 export interface WizardStep1Value {
   title: string;
-  contentMode: "narration" | "drama" | "marketing";
+  // 营销视频 Agent：内容模式固定 marketing、竖屏 9:16、storyboard，不在 UI 暴露。
+  contentMode: "marketing";
   aspectRatio: "9:16" | "16:9";
   generationMode: GenerationMode;
 }
@@ -79,116 +79,17 @@ export function WizardStep1Basics({
         <p className="mt-1.5 text-[11.5px] text-text-4">{t("dashboard:project_id_auto_gen_hint")}</p>
       </div>
 
-      {/* Content Mode */}
+      {/* Content Mode — 营销视频固定，仅展示说明 */}
       <div>
         <FieldLabel>{t("dashboard:content_mode")}</FieldLabel>
-        <div className="flex gap-2.5" role="radiogroup" aria-label={t("dashboard:content_mode")}>
-          <label className={radioCardClass(value.contentMode === "narration")}>
-            <input
-              type="radio"
-              name="contentMode"
-              value="narration"
-              checked={value.contentMode === "narration"}
-              onChange={() => onChange({ ...value, contentMode: "narration" })}
-              className="sr-only"
-            />
-            {t("dashboard:narration_visuals")}
-          </label>
-          <label className={radioCardClass(value.contentMode === "drama")}>
-            <input
-              type="radio"
-              name="contentMode"
-              value="drama"
-              checked={value.contentMode === "drama"}
-              onChange={() => onChange({ ...value, contentMode: "drama" })}
-              className="sr-only"
-            />
-            {t("dashboard:drama_animation")}
-          </label>
-          <label className={radioCardClass(value.contentMode === "marketing")}>
-            <input
-              type="radio"
-              name="contentMode"
-              value="marketing"
-              checked={value.contentMode === "marketing"}
-              onChange={() =>
-                onChange({
-                  ...value,
-                  contentMode: "marketing",
-                  aspectRatio: "9:16",
-                  generationMode: "storyboard",
-                })
-              }
-              className="sr-only"
-            />
-            {t("dashboard:marketing_video")}
-          </label>
+        <div
+          className="rounded-[8px] border border-accent/35 bg-accent-dim px-3 py-2.5 text-[13px] text-text"
+        >
+          {t("dashboard:marketing_video")}
         </div>
         <p className="mt-2 text-[11.5px] leading-[1.55] text-text-3">
-          {value.contentMode === "narration"
-            ? t("dashboard:content_mode_narration_desc")
-            : value.contentMode === "drama"
-              ? t("dashboard:content_mode_drama_desc")
-              : t("dashboard:content_mode_marketing_desc")}
+          {t("dashboard:content_mode_marketing_desc")}
         </p>
-      </div>
-
-      {/* Aspect Ratio */}
-      <div>
-        <FieldLabel>{t("dashboard:aspect_ratio")}</FieldLabel>
-        <div className="flex gap-2.5" role="radiogroup" aria-label={t("dashboard:aspect_ratio")}>
-          <label className={radioCardClass(value.aspectRatio === "9:16")}>
-            <input
-              type="radio"
-              name="aspectRatio"
-              value="9:16"
-              checked={value.aspectRatio === "9:16"}
-              onChange={() => onChange({ ...value, aspectRatio: "9:16" })}
-              className="sr-only"
-            />
-            <span className="inline-flex items-center gap-2">
-              <span
-                aria-hidden
-                className="block h-3 w-[7.5px] rounded-[1.5px] border border-hairline"
-                style={{
-                  background:
-                    value.aspectRatio === "9:16" ? "var(--color-accent-soft)" : "transparent",
-                }}
-              />
-              {t("dashboard:portrait_9_16")}
-            </span>
-          </label>
-          <label className={radioCardClass(value.aspectRatio === "16:9")}>
-            <input
-              type="radio"
-              name="aspectRatio"
-              value="16:9"
-              checked={value.aspectRatio === "16:9"}
-              onChange={() => onChange({ ...value, aspectRatio: "16:9" })}
-              className="sr-only"
-            />
-            <span className="inline-flex items-center gap-2">
-              <span
-                aria-hidden
-                className="block h-[7.5px] w-3 rounded-[1.5px] border border-hairline"
-                style={{
-                  background:
-                    value.aspectRatio === "16:9" ? "var(--color-accent-soft)" : "transparent",
-                }}
-              />
-              {t("dashboard:landscape_16_9")}
-            </span>
-          </label>
-        </div>
-      </div>
-
-      {/* Generation Mode */}
-      <div>
-        <FieldLabel>{t("dashboard:generation_mode")}</FieldLabel>
-        <GenerationModeSelector
-          value={value.generationMode}
-          onChange={(next) => onChange({ ...value, generationMode: next })}
-        />
       </div>
 
       {/* Footer */}

@@ -27,11 +27,13 @@ description: 将小说转换为短视频的端到端工作流编排器。当用�
 1. 提示用户在 Web 端先创建项目，**创建时指定 content_mode=marketing**；session 启动后 cwd 已绑定到对应项目根
 2. 使用 Read 工具读取 `project.json`，确认 `title`、`content_mode`、`generation_mode` 字段（本 session 当前 content_mode 为 `marketing`，创建后不可变更）
 3. 若 `generation_mode` 未在创建时指定，默认 storyboard；可在 Web 端补齐
-4. 请用户将产品简报/广告脚本放入 `source/`
-5. 如果用户选择“爆款复刻”，请用户将爆款参考视频放入 `reference_videos/`（支持 `.mp4` / `.mov` / `.webm`）
+4. 请用户将产品简报/广告脚本放入 `source/`（若只有商品图、无文字简报，可跳过——见阶段 2.3 会从商品图自动生成简报）
+5. 如果用户选择“爆款复刻”：
+   - 将爆款参考视频放入 `reference_videos/`（支持 `.mp4` / `.mov` / `.webm`）
+   - 将商品图（产品图）放入 `product_images/`（支持 `.png` / `.jpg` / `.jpeg` / `.webp`，可多张）
 6. **上传后自动生成项目概述**（synopsis、genre、theme、world_setting）
 
-> 标准项目子目录由 `create_project()` 自动建好：`source/`、`scripts/`、`drafts/`、`characters/`、`scenes/`、`props/`、`storyboards/`、`grids/`、`videos/`、`reference_videos/`、`thumbnails/`、`output/`。
+> 标准项目子目录由 `create_project()` 自动建好：`source/`、`scripts/`、`drafts/`、`characters/`、`scenes/`、`props/`、`storyboards/`、`grids/`、`videos/`、`reference_videos/`、`product_images/`、`thumbnails/`、`output/`。
 
 ### 现有项目
 
@@ -45,18 +47,19 @@ description: 将小说转换为短视频的端到端工作流编排器。当用�
 
 进入工作流后，使用 Read 读取 `project.json`，使用 Glob 检查文件系统。按顺序检查，遇到第一个缺失项即确定当前阶段：
 
-1. characters / scenes / props 中**任一**为空（定义缺失）？ → **阶段 1**
-2. 目标集 source/episode_{N}.txt 不存在？ → **阶段 2**
-3. `reference_videos/` 中存在爆款参考视频，且 `drafts/episode_{N}/step0_viral_analysis.md` 不存在？ → **阶段 2.5**
-4. 目标集 drafts/ 中间文件不存在？ → **阶段 3**
+1. `product_images/` 中存在商品图，且 `drafts/episode_{N}/step0_product_brief.md` 不存在？ → **阶段 2.3**（商品图内容理解；会写出 `source/episode_{N}.txt` 并把产品写入 characters 桶、绑定 `reference_image`）
+2. characters / scenes / props 中**任一**为空（定义缺失）？ → **阶段 1**
+3. 目标集 source/episode_{N}.txt 不存在？ → **阶段 2**
+4. `reference_videos/` 中存在爆款参考视频，且 `drafts/episode_{N}/step0_viral_analysis.md` 不存在？ → **阶段 2.5**
+5. 目标集 drafts/ 中间文件不存在？ → **阶段 3**
    - content_mode == marketing: `drafts/episode_{N}/step1_ad_units.md`
    - generation_mode == reference_video: `drafts/episode_{N}/step1_reference_units.md`
    - 其它 narration: `drafts/episode_{N}/step1_segments.md`
-5. scripts/episode_{N}.json 不存在？ → **阶段 4**
-6. 任一类资产仍有缺 sheet 项（character 缺 character_sheet / scene 缺 scene_sheet / prop 缺 prop_sheet）？ → **阶段 5**（三类并行）
-7. **storyboard / grid 模式**：有场景缺少分镜图？ → **阶段 6**（reference_video 模式跳过）
-8. 有场景/unit 缺少视频？ → **阶段 7**
-9. 全部完成 → 工作流结束，引导用户在 Web 端导出剪映草稿
+6. scripts/episode_{N}.json 不存在？ → **阶段 4**
+7. 任一类资产仍有缺 sheet 项（character 缺 character_sheet / scene 缺 scene_sheet / prop 缺 prop_sheet）？ → **阶段 5**（三类并行）
+8. **storyboard / grid 模式**：有场景缺少分镜图？ → **阶段 6**（reference_video 模式跳过）
+9. 有场景/unit 缺少视频？ → **阶段 7**
+10. 全部完成 → 工作流结束，引导用户在 Web 端导出剪映草稿
 
 **确定目标集数**：如果用户未指定，找到最新的未完成集，或询问用户。
 
@@ -91,6 +94,10 @@ description: 将小说转换为短视频的端到端工作流编排器。当用�
 请分析小说原文，提取角色 / 场景 / 道具信息，写入 project.json，返回摘要。
 ```
 
+> **marketing 注意**：阶段 2.3 已把商品图绑定到各产品（characters 桶）的 `reference_image`。
+> 阶段 1 对已存在的产品必须**合并**而非覆盖——保留其 `reference_image`，只补充缺失的 scenes / props 与产品描述，
+> 避免清掉商品图绑定导致阶段 5 失去以图生图的输入参考。
+
 ---
 
 ## 阶段 2：分集规划
@@ -111,6 +118,29 @@ description: 将小说转换为短视频的端到端工作流编排器。当用�
    python .claude/skills/manage-project/scripts/split_episode.py --source {源文件} --episode {N} --target {目标字数} --anchor "{锚点文本}" --dry-run
    ```
 6. 确认无误后实际执行（去掉 `--dry-run`）
+
+---
+
+## 阶段 2.3：商品图内容理解（可选，爆款复刻用）
+
+**触发**：`product_images/` 下存在 `.png` / `.jpg` / `.jpeg` / `.webp`，但目标集缺少 `drafts/episode_{N}/step0_product_brief.md`
+
+**dispatch `analyze-product-images` subagent**：
+
+```
+项目名称：{project_name}
+项目路径：{project_path}
+集数：{N}
+商品图：{product_images/ 下的图片路径列表；未指定时取全部}
+
+请对商品图做内容理解，产出结构化产品简报，写入 drafts/episode_{N}/step0_product_brief.md，
+同步写 source/episode_{N}.txt，并把每个产品的 reference_image 绑定到对应商品图，返回摘要。
+```
+
+**约束**：
+- 只基于商品图可见信息与项目概述推断，不虚构图中不存在的功能或参数
+- 产品简报会兼作 `source/episode_{N}.txt`（满足阶段 2 的源文件条件），并把产品写入 characters 桶、绑定 `reference_image`，供阶段 5 以图生图渲染产品三视图
+- 完成后，若 scenes / props 仍为空，再走阶段 1 从简报补充提取
 
 ---
 

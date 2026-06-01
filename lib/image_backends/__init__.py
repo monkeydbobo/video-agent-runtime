@@ -21,28 +21,11 @@ __all__ = [
     "get_registered_backends",
     "register_backend",
 ]
-# Backend auto-registration
-from lib.image_backends.gemini import GeminiImageBackend
-from lib.providers import PROVIDER_ARK, PROVIDER_ARK_AGENT_PLAN, PROVIDER_GEMINI
 
-register_backend(PROVIDER_GEMINI, GeminiImageBackend)
-
+# Backend auto-registration — 营销视频 Agent 图片保留 Ark（火山方舟）+ OpenAI。
 from lib.image_backends.ark import ArkImageBackend
+from lib.image_backends.openai import OpenAIImageBackend
+from lib.providers import PROVIDER_ARK, PROVIDER_OPENAI
 
 register_backend(PROVIDER_ARK, ArkImageBackend)
-register_backend(PROVIDER_ARK_AGENT_PLAN, ArkImageBackend)
-
-from lib.image_backends.grok import GrokImageBackend
-from lib.providers import PROVIDER_GROK
-
-register_backend(PROVIDER_GROK, GrokImageBackend)
-
-from lib.image_backends.openai import OpenAIImageBackend
-from lib.providers import PROVIDER_OPENAI
-
 register_backend(PROVIDER_OPENAI, OpenAIImageBackend)
-
-from lib.image_backends.vidu import ViduImageBackend
-from lib.providers import PROVIDER_VIDU
-
-register_backend(PROVIDER_VIDU, ViduImageBackend)

@@ -160,14 +160,14 @@ class TestGetSystemConfig:
         assert set(settings.keys()) == expected_keys
 
     def test_options_contain_backend_lists(self):
-        mock_svc = _make_mock_svc(ready_providers=["gemini-aistudio"])
+        mock_svc = _make_mock_svc(ready_providers=["ark"])
         with TestClient(_make_app_with_mock(mock_svc)) as client:
             res = client.get("/api/v1/system/config")
         options = res.json()["options"]
         assert "video_backends" in options
         assert "image_backends" in options
-        assert "gemini-aistudio/veo-3.1-generate-preview" in options["video_backends"]
-        assert "gemini-aistudio/gemini-3.1-flash-image-preview" in options["image_backends"]
+        assert "ark/doubao-seedance-1-5-pro-251215" in options["video_backends"]
+        assert any(v.startswith("ark/") for v in options["image_backends"])
 
     def test_options_exclude_unconfigured_providers(self):
         mock_svc = _make_mock_svc(ready_providers=[])
@@ -178,12 +178,12 @@ class TestGetSystemConfig:
         assert options["image_backends"] == []
 
     def test_options_include_multiple_ready_providers(self):
-        mock_svc = _make_mock_svc(ready_providers=["gemini-aistudio", "ark"])
+        mock_svc = _make_mock_svc(ready_providers=["openai", "ark"])
         with TestClient(_make_app_with_mock(mock_svc)) as client:
             res = client.get("/api/v1/system/config")
         options = res.json()["options"]
-        assert "gemini-aistudio/veo-3.1-generate-preview" in options["video_backends"]
         assert "ark/doubao-seedance-1-5-pro-251215" in options["video_backends"]
+        assert any(v.startswith("openai/") for v in options["image_backends"])
 
     def test_anthropic_key_masked(self):
         mock_svc = _make_mock_svc(settings={"anthropic_api_key": "sk-ant-test-secret-123456"})

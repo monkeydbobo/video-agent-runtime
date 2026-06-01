@@ -1,10 +1,11 @@
 import { useRef } from "react";
-import { Film, Loader2, Upload, X } from "lucide-react";
+import { Film, ImagePlus, Loader2, Upload, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ACCENT_BTN_CLS, ACCENT_BUTTON_STYLE, GHOST_BTN_LG_CLS } from "@/components/ui/darkroom-tokens";
 
 export interface WizardStep3MarketingReferenceValue {
   referenceVideoFile: File | null;
+  productImageFiles: File[];
 }
 
 interface WizardStep3MarketingReferenceProps {
@@ -17,6 +18,7 @@ interface WizardStep3MarketingReferenceProps {
 }
 
 const ACCEPTED_VIDEO_TYPES = ".mp4,.mov,.webm";
+const ACCEPTED_IMAGE_TYPES = ".png,.jpg,.jpeg,.webp";
 
 export function WizardStep3MarketingReference({
   value,
@@ -28,11 +30,24 @@ export function WizardStep3MarketingReference({
 }: WizardStep3MarketingReferenceProps) {
   const { t } = useTranslation(["common", "dashboard", "templates"]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const handleSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
-    if (file) onChange({ referenceVideoFile: file });
+    if (file) onChange({ ...value, referenceVideoFile: file });
     e.target.value = "";
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []);
+    if (picked.length > 0) {
+      onChange({ ...value, productImageFiles: [...value.productImageFiles, ...picked] });
+    }
+    e.target.value = "";
+  };
+
+  const removeImage = (idx: number) => {
+    onChange({ ...value, productImageFiles: value.productImageFiles.filter((_, i) => i !== idx) });
   };
 
   return (
@@ -95,13 +110,93 @@ export function WizardStep3MarketingReference({
                 </span>
                 <button
                   type="button"
-                  onClick={() => onChange({ referenceVideoFile: null })}
+                  onClick={() => onChange({ ...value, referenceVideoFile: null })}
                   className="focus-ring grid h-6 w-6 place-items-center rounded-md text-text-4 hover:text-text"
                   aria-label={t("common:delete")}
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div
+        className="relative overflow-hidden rounded-2xl p-5"
+        style={{
+          border: "1px solid var(--color-hairline-soft)",
+          background:
+            "radial-gradient(420px 220px at 10% -10%, var(--color-accent-dim), transparent 60%), linear-gradient(180deg, oklch(0.22 0.012 265 / 0.55), oklch(0.18 0.010 265 / 0.45))",
+          boxShadow: "inset 0 1px 0 oklch(1 0 0 / 0.04), 0 10px 30px -16px oklch(0 0 0 / 0.65)",
+        }}
+      >
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept={ACCEPTED_IMAGE_TYPES}
+          multiple
+          onChange={handleImageSelect}
+          className="hidden"
+        />
+        <div className="flex items-start gap-4">
+          <span
+            aria-hidden
+            className="grid h-12 w-12 shrink-0 place-items-center rounded-xl"
+            style={{
+              color: "var(--color-accent-2)",
+              border: "1px solid var(--color-accent-soft)",
+              background: "linear-gradient(135deg, var(--color-accent-dim), oklch(0.76 0.09 295 / 0.05))",
+            }}
+          >
+            <ImagePlus className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-[15px] font-semibold text-text">{t("dashboard:product_image_step_title")}</h3>
+            <p className="mt-1 text-[12px] leading-[1.65] text-text-3">{t("dashboard:product_image_step_desc")}</p>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => imageInputRef.current?.click()}
+                disabled={creating}
+                className="focus-ring inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[11.5px] font-medium transition-colors disabled:opacity-50"
+                style={{
+                  color: "var(--color-text-2)",
+                  border: "1px solid var(--color-hairline)",
+                  background: "oklch(0.22 0.011 265 / 0.55)",
+                }}
+              >
+                <Upload className="h-3.5 w-3.5" />
+                {t("dashboard:upload_product_image")}
+              </button>
+              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-4">PNG / JPG / WEBP</span>
+            </div>
+            {value.productImageFiles.length > 0 && (
+              <ul className="mt-4 space-y-2">
+                {value.productImageFiles.map((f, idx) => (
+                  <li
+                    key={`${f.name}-${idx}`}
+                    className="flex items-center gap-2 rounded-lg px-3 py-2"
+                    style={{
+                      border: "1px solid var(--color-accent-soft)",
+                      background: "var(--color-accent-dim)",
+                    }}
+                  >
+                    <ImagePlus className="h-3.5 w-3.5 shrink-0 text-accent-2" />
+                    <span className="min-w-0 flex-1 truncate text-[12px] text-text-2" title={f.name}>
+                      {f.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeImage(idx)}
+                      className="focus-ring grid h-6 w-6 place-items-center rounded-md text-text-4 hover:text-text"
+                      aria-label={t("common:delete")}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         </div>

@@ -772,6 +772,7 @@ class API {
       storyboards?: { name: string; size: number; url: string }[];
       videos?: { name: string; size: number; url: string }[];
       reference_videos?: { name: string; size: number; url: string }[];
+      product_images?: { name: string; size: number; url: string }[];
       output?: { name: string; size: number; url: string }[];
     };
   }> {
@@ -1623,12 +1624,13 @@ class API {
 
   // ==================== 自定义供应商 API ====================
 
+  // 营销视频 Agent 已移除自定义供应商；保留方法签名以兼容旧引用，返回空集（不发请求）。
   static async listCustomProviders(): Promise<{ providers: CustomProviderInfo[] }> {
-    return this.request("/custom-providers");
+    return Promise.resolve({ providers: [] });
   }
 
   static async listEndpointCatalog(): Promise<{ endpoints: EndpointDescriptor[] }> {
-    return this.request("/custom-providers/endpoints");
+    return Promise.resolve({ endpoints: [] });
   }
 
   static async createCustomProvider(data: CustomProviderCreateRequest): Promise<CustomProviderInfo> {

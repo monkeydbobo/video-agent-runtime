@@ -50,21 +50,21 @@ class _FakeConfigService:
         return dict(self._settings)
 
     async def get_default_video_backend(self) -> tuple[str, str]:
-        return ("gemini-aistudio", "veo-3.1-fast-generate-preview")
+        return ("ark", "doubao-seedance-1-5-pro-251215")
 
     async def get_default_image_backend(self) -> tuple[str, str]:
-        return ("gemini-aistudio", "gemini-3.1-flash-image-preview")
+        return ("ark", "doubao-seedream-5-0-lite-260128")
 
     async def get_provider_config(self, provider: str) -> dict[str, str]:
         return {"api_key": f"key-{provider}"}
 
     async def get_all_provider_configs(self) -> dict[str, dict[str, str]]:
-        return {"gemini-aistudio": {"api_key": "key-aistudio"}}
+        return {"ark": {"api_key": "key-ark"}}
 
     async def get_all_providers_status(self) -> list[ProviderStatus]:
         if self._ready_providers is not None:
             return self._ready_providers
-        return [_make_ready_provider("gemini-aistudio", ["text", "image", "video"])]
+        return [_make_ready_provider("ark", ["text", "image", "video"])]
 
 
 class TestVideoGenerateAudio:
@@ -155,7 +155,7 @@ class TestDefaultBackends:
         try:
             async with factory() as session:
                 result = await resolver._resolve_default_video_backend(fake_svc, session)
-            assert result[0] in ("gemini-aistudio", "gemini-vertex", "ark", "grok")
+            assert result[0] in ("ark", "openai")
         finally:
             await engine.dispose()
 
@@ -175,10 +175,10 @@ class TestDefaultBackends:
         """DB 有显式值时直接返回。"""
         resolver = ConfigResolver.__new__(ConfigResolver)
         fake_svc = _FakeConfigService(
-            settings={"default_image_backend": "grok/grok-2-image"},
+            settings={"default_image_backend": "openai/gpt-image-2"},
         )
         result = await resolver._resolve_default_image_backend(fake_svc, None)
-        assert result == ("grok", "grok-2-image")
+        assert result == ("openai", "gpt-image-2")
 
     async def test_image_backend_auto_resolve(self):
         """DB 无值时走 auto-resolve。"""
@@ -188,7 +188,7 @@ class TestDefaultBackends:
         try:
             async with factory() as session:
                 result = await resolver._resolve_default_image_backend(fake_svc, session)
-            assert result[0] in ("gemini-aistudio", "gemini-vertex", "ark", "grok")
+            assert result[0] in ("ark", "openai")
         finally:
             await engine.dispose()
 
@@ -309,7 +309,7 @@ class TestProviderConfig:
             fake_svc = _FakeConfigService()
             async with factory() as session:
                 result = await resolver._resolve_all_provider_configs(fake_svc, session)
-            assert "gemini-aistudio" in result
+            assert "ark" in result
         finally:
             await engine.dispose()
 
@@ -431,10 +431,10 @@ class TestVideoBackendThreeLevelPriority:
 class TestVideoCapabilities:
     """验证 video_capabilities：第一步模型选择 + 第二步 model 能力查询。"""
 
-    async def test_registry_grok(self):
+    async def test_registry_seedance_2(self):
         resolver = ConfigResolver.__new__(ConfigResolver)
         fake_svc = _FakeConfigService(
-            settings={"default_video_backend": "grok/grok-imagine-video"},
+            settings={"default_video_backend": "ark/doubao-seedance-2-0-260128"},
         )
         factory, engine = await _make_session()
         try:
@@ -444,14 +444,15 @@ class TestVideoCapabilities:
                     caps = await resolver._resolve_video_capabilities(fake_svc, session, "demo")
         finally:
             await engine.dispose()
-        assert caps["provider_id"] == "grok"
-        assert caps["model"] == "grok-imagine-video"
+        assert caps["provider_id"] == "ark"
+        assert caps["model"] == "doubao-seedance-2-0-260128"
         assert caps["source"] == "registry"
-        assert caps["supported_durations"] == list(range(1, 16))
+        assert caps["supported_durations"] == list(range(4, 16))
         assert caps["max_duration"] == 15
-        assert caps["max_reference_images"] == 7
+        # normalize("ark") -> "ark"，查 PROVIDER_MAX_REFS["ark"]
+        assert caps["max_reference_images"] == 9
 
-    async def test_registry_veo(self):
+    async def test_registry_seedance_1_5(self):
         resolver = ConfigResolver.__new__(ConfigResolver)
         fake_svc = _FakeConfigService(settings={})
         factory, engine = await _make_session()
@@ -459,18 +460,16 @@ class TestVideoCapabilities:
             async with factory() as session:
                 with patch("lib.config.resolver.get_project_manager") as mock_pm:
                     mock_pm.return_value.load_project.return_value = {
-                        "video_backend": "gemini-aistudio/veo-3.1-generate-preview",
+                        "video_backend": "ark/doubao-seedance-1-5-pro-251215",
                     }
                     caps = await resolver._resolve_video_capabilities(fake_svc, session, "demo")
         finally:
             await engine.dispose()
-        assert caps["provider_id"] == "gemini-aistudio"
-        assert caps["model"] == "veo-3.1-generate-preview"
+        assert caps["provider_id"] == "ark"
+        assert caps["model"] == "doubao-seedance-1-5-pro-251215"
         assert caps["source"] == "registry"
-        assert caps["supported_durations"] == [4, 6, 8]
-        assert caps["max_duration"] == 8
-        # normalize("gemini-aistudio") -> "gemini"，查 PROVIDER_MAX_REFS["gemini"]
-        assert caps["max_reference_images"] == 3
+        assert caps["supported_durations"] == list(range(4, 13))
+        assert caps["max_duration"] == 12
 
     async def test_reads_project_default_duration_and_modes(self):
         resolver = ConfigResolver.__new__(ConfigResolver)
@@ -480,17 +479,17 @@ class TestVideoCapabilities:
             async with factory() as session:
                 with patch("lib.config.resolver.get_project_manager") as mock_pm:
                     mock_pm.return_value.load_project.return_value = {
-                        "video_backend": "grok/grok-imagine-video",
+                        "video_backend": "ark/doubao-seedance-2-0-260128",
                         "default_duration": 6,
-                        "content_mode": "narration",
-                        "generation_mode": "reference_video",
+                        "content_mode": "marketing",
+                        "generation_mode": "storyboard",
                     }
                     caps = await resolver._resolve_video_capabilities(fake_svc, session, "demo")
         finally:
             await engine.dispose()
         assert caps["default_duration"] == 6
-        assert caps["content_mode"] == "narration"
-        assert caps["generation_mode"] == "reference_video"
+        assert caps["content_mode"] == "marketing"
+        assert caps["generation_mode"] == "storyboard"
 
     async def test_missing_default_duration_is_null(self):
         resolver = ConfigResolver.__new__(ConfigResolver)
@@ -500,7 +499,7 @@ class TestVideoCapabilities:
             async with factory() as session:
                 with patch("lib.config.resolver.get_project_manager") as mock_pm:
                     mock_pm.return_value.load_project.return_value = {
-                        "video_backend": "grok/grok-imagine-video",
+                        "video_backend": "ark/doubao-seedance-2-0-260128",
                     }
                     caps = await resolver._resolve_video_capabilities(fake_svc, session, "demo")
         finally:
@@ -515,7 +514,7 @@ class TestVideoCapabilities:
             async with factory() as session:
                 with patch("lib.config.resolver.get_project_manager") as mock_pm:
                     mock_pm.return_value.load_project.return_value = {
-                        "video_backend": "grok/nonexistent-model",
+                        "video_backend": "ark/nonexistent-model",
                     }
                     with pytest.raises(ValueError, match="model not found"):
                         await resolver._resolve_video_capabilities(fake_svc, session, "demo")
@@ -548,7 +547,7 @@ class TestVideoCapabilities:
             with patch("lib.config.resolver.get_project_manager") as mock_pm:
                 caps = await resolver.video_capabilities_for_project(
                     {
-                        "video_backend": "grok/grok-imagine-video",
+                        "video_backend": "ark/doubao-seedance-2-0-260128",
                         "default_duration": 9,
                     }
                 )
@@ -556,10 +555,10 @@ class TestVideoCapabilities:
                 mock_pm.return_value.load_project.assert_not_called()
         finally:
             await engine.dispose()
-        assert caps["provider_id"] == "grok"
+        assert caps["provider_id"] == "ark"
         assert caps["max_duration"] == 15
         assert caps["default_duration"] == 9
-        assert caps["max_reference_images"] == 7
+        assert caps["max_reference_images"] == 9
 
     async def test_max_reference_images_falls_back_to_default_for_unlisted_provider(self):
         """PROVIDER_MAX_REFS 未覆盖的 provider → resolver 返 DEFAULT_MAX_REFS，不返 None。
@@ -579,49 +578,12 @@ class TestVideoCapabilities:
                     "lib.config.resolver.normalize_provider_id",
                     return_value="___never_registered___",
                 ):
-                    caps = await resolver.video_capabilities_for_project({"video_backend": "grok/grok-imagine-video"})
+                    caps = await resolver.video_capabilities_for_project(
+                        {"video_backend": "ark/doubao-seedance-2-0-260128"}
+                    )
         finally:
             await engine.dispose()
         assert caps["max_reference_images"] == DEFAULT_MAX_REFS
-
-    async def test_custom_provider_reads_db_supported_durations(self):
-        """custom-<id>/<model> 走 DB 分支，返回 source='custom'。"""
-        from lib.db.models.custom_provider import CustomProvider, CustomProviderModel
-
-        resolver = ConfigResolver.__new__(ConfigResolver)
-        fake_svc = _FakeConfigService(settings={})
-        factory, engine = await _make_session()
-        try:
-            async with factory() as session:
-                provider = CustomProvider(
-                    display_name="Custom X",
-                    discovery_format="openai",
-                    base_url="https://example.com",
-                    api_key="xxx",
-                )
-                session.add(provider)
-                await session.flush()
-                model = CustomProviderModel(
-                    provider_id=provider.id,
-                    model_id="my-video-model",
-                    display_name="My Video",
-                    endpoint="newapi-video",
-                    supported_durations="[5, 10]",
-                )
-                session.add(model)
-                await session.flush()
-
-                project_backend = f"custom-{provider.id}/my-video-model"
-                with patch("lib.config.resolver.get_project_manager") as mock_pm:
-                    mock_pm.return_value.load_project.return_value = {
-                        "video_backend": project_backend,
-                    }
-                    caps = await resolver._resolve_video_capabilities(fake_svc, session, "demo")
-        finally:
-            await engine.dispose()
-        assert caps["source"] == "custom"
-        assert caps["supported_durations"] == [5, 10]
-        assert caps["max_duration"] == 10
 
 
 class TestResolveImageBackend:
