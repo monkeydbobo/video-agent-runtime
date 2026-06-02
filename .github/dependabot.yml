@@ -214,13 +214,13 @@ updates:
           - "minor"
           - "patch"
 
-  # GitHub Actions
+  # GitHub Actions: monthly grouped PRs, no semver-major (upgrade actions manually)
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
       day: "monday"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 1
     # github-actions 生态只支持 default-days，不支持 semver 粒度的冷却字段
     cooldown:
       default-days: 5
@@ -229,6 +229,10 @@ updates:
       - "ci"
     commit-message:
       prefix: "chore(ci)"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
     groups:
       actions:
         patterns:
