@@ -8,6 +8,7 @@ MESSAGES: dict[str, str] = {
     "provider_name_ark-agent-plan": "Volcengine Ark Agent Plan",
     "provider_name_grok": "Grok",
     "provider_name_openai": "OpenAI",
+    "provider_name_atlascloud": "Atlas Cloud",
     "provider_name_vidu": "Vidu",
     # Provider descriptions
     "provider_desc_gemini-aistudio": "Google AI Studio cung cấp các mô hình Gemini hỗ trợ tạo ảnh và video, phù hợp cho việc dựng prototype nhanh và dự án cá nhân.",
@@ -16,6 +17,7 @@ MESSAGES: dict[str, str] = {
     "provider_desc_ark-agent-plan": "Gói Volcengine Ark Agent Plan tổng hợp Doubao và nhiều mô hình lớn chủ lưu, bao gồm văn bản, ảnh và video.",
     "provider_desc_grok": "Các mô hình Grok của xAI hỗ trợ tạo video và tạo ảnh.",
     "provider_desc_openai": "Nền tảng OpenAI hỗ trợ văn bản GPT-5.4, GPT Image và tạo video Sora.",
+    "provider_desc_atlascloud": "Nền tảng suy luận thống nhất Atlas Cloud với GPT Image 2 tạo ảnh từ văn bản và chỉnh sửa ảnh, tính phí theo ảnh.",
     "provider_desc_vidu": "Nền tảng Vidu của Shengshu hỗ trợ tạo video từ văn bản, từ ảnh, khung đầu–cuối, video tham chiếu và ảnh tham chiếu. Chỉ hỗ trợ ảnh và video.",
     # Agent preset notes (lib/agent_provider_catalog.py)
     "preset_notes_deepseek": "Endpoint Anthropic-compat chính thức của DeepSeek; cần API key sk-.",

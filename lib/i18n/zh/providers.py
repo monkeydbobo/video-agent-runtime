@@ -8,6 +8,7 @@ MESSAGES: dict[str, str] = {
     "provider_name_ark-agent-plan": "火山方舟 Agent Plan",
     "provider_name_grok": "Grok",
     "provider_name_openai": "OpenAI",
+    "provider_name_atlascloud": "Atlas Cloud",
     "provider_name_vidu": "Vidu",
     # Provider descriptions
     "provider_desc_gemini-aistudio": "Google AI Studio 提供 Gemini 系列模型，支持图片和视频生成，适合快速原型和个人项目。",
@@ -16,6 +17,7 @@ MESSAGES: dict[str, str] = {
     "provider_desc_ark-agent-plan": "火山方舟 Agent Plan 套餐，聚合豆包及多家主流大模型，覆盖文本、图片与视频生成。",
     "provider_desc_grok": "xAI Grok 模型，支持视频和图片生成。",
     "provider_desc_openai": "OpenAI 官方平台，支持 GPT-5.4 文本、GPT Image 图片和 Sora 视频生成。",
+    "provider_desc_atlascloud": "Atlas Cloud 统一推理平台，提供 GPT Image 2 文生图与图生图，按张计费。",
     "provider_desc_vidu": "生数科技 Vidu 视频生成平台，支持文生视频、图生视频、首尾帧、参考生视频与参考生图，仅图片与视频能力。",
     # Agent preset notes (lib/agent_provider_catalog.py)
     "preset_notes_deepseek": "DeepSeek 官方 Anthropic 兼容端点，需 sk- 开头的 API Key",

@@ -37,7 +37,7 @@ class ProviderMeta:
 
 # 营销视频 Agent 收敛后的供应商注册表：
 # - 文本 / 视频：仅火山方舟 Ark（豆包 Seed / Seedream / Seedance）
-# - 图片：火山方舟 Ark + OpenAI（GPT Image）
+# - 图片：火山方舟 Ark + OpenAI（GPT Image）+ Atlas Cloud（GPT Image 2 中转）
 # 其它历史供应商（Gemini / Grok / Vidu / Ark Agent Plan）已移除。
 PROVIDER_REGISTRY: dict[str, ProviderMeta] = {
     "ark": ProviderMeta(
@@ -145,5 +145,22 @@ PROVIDER_REGISTRY: dict[str, ProviderMeta] = {
                 resolutions=["512px", "1K", "2K"],
             ),
         },
+    ),
+    "atlascloud": ProviderMeta(
+        display_name="Atlas Cloud",
+        description="Atlas Cloud 统一推理平台，提供 GPT Image 2 文生图与图生图能力，按张计费。",
+        required_keys=["api_key"],
+        optional_keys=["base_url", "image_max_workers"],
+        secret_keys=["api_key"],
+        models={
+            "gpt-image-2": ModelInfo(
+                display_name="GPT Image 2 (Atlas Cloud)",
+                media_type="image",
+                capabilities=["text_to_image", "image_to_image"],
+                default=True,
+                resolutions=["512px", "1K", "2K"],
+            ),
+        },
+        default_base_url="https://api.atlascloud.ai/api/v1",
     ),
 }

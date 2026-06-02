@@ -7,8 +7,9 @@
 
 from __future__ import annotations
 
+from lib.atlascloud_shared import ATLASCLOUD_IMAGE_FLAT_COST_USD
 from lib.openai_shared import OPENAI_IMAGE_SIZE_MAP
-from lib.providers import PROVIDER_ANTHROPIC, PROVIDER_ARK, PROVIDER_OPENAI, CallType
+from lib.providers import PROVIDER_ANTHROPIC, PROVIDER_ARK, PROVIDER_ATLASCLOUD, PROVIDER_OPENAI, CallType
 
 
 class CostCalculator:
@@ -366,6 +367,11 @@ class CostCalculator:
         per_second = self.GROK_VIDEO_COST.get(model, self.GROK_VIDEO_COST[self.DEFAULT_GROK_MODEL])
         return duration_seconds * per_second, "USD"
 
+    def calculate_atlascloud_image_cost(self, *, model: str | None = None) -> tuple[float, str]:
+        """Atlas Cloud GPT Image 2 按张计费（flat USD）。"""
+        _ = model  # 当前仅 gpt-image-2，保留参数以兼容统一入口
+        return ATLASCLOUD_IMAGE_FLAT_COST_USD, "USD"
+
     def calculate_openai_image_cost(
         self,
         *,
@@ -510,6 +516,8 @@ class CostCalculator:
                     aspect_ratio=aspect_ratio,
                     size=size,
                 )
+            if provider == PROVIDER_ATLASCLOUD:
+                return self.calculate_atlascloud_image_cost(model=model)
             return self.calculate_image_cost(resolution or "1K", model=model), "USD"
 
         if call_type == "video":
