@@ -342,6 +342,9 @@ Agent **不应**直接裸写 `project.json`（沙箱内也受路径约束）；�
 
 ## 8. 延伸阅读
 
+- Cybercut Agentic 技术方案：[cybercut-agentic-technical-proposal.md](./cybercut-agentic-technical-proposal.md)
+- 模块职责拆分（通俗版）：[module-architecture.md](./module-architecture.md)
+- 完整交互链路（创建 → Agent → 轮询/SSE → 成片）：[full-interaction-flow.md](./full-interaction-flow.md)
 - 端到端 API 分层、115 个接口与前后端协同：[end-to-end-architecture.md](./end-to-end-architecture.md)
 - Agent Runtime 迁移与事件模型：[agent-runtime-migration-design.md](./agent-runtime-migration-design.md)
 - 术语与架构决策：`CONTEXT.md`、`docs/adr/`

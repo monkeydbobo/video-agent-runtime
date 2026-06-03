@@ -521,6 +521,9 @@ Agent 写盘应经 **ProjectManager / SDK 工具**，避免裸写越界路径。
 
 | 文档 | 内容 |
 |------|------|
+| [cybercut-agentic-technical-proposal.md](./cybercut-agentic-technical-proposal.md) | Cybercut 独立产品 Agentic 方案（API/Worker 拆分、KFS、模式 IV 合成） |
+| [module-architecture.md](./module-architecture.md) | **按模块**拆分职责（双入口单队列、Worker、MCP、FS/DB） |
+| [full-interaction-flow.md](./full-interaction-flow.md) | 创建项目 → Copilot → 任务轮询 / 项目事件 → 成片（用户时间线） |
 | [project-data-structure.md](./project-data-structure.md) | 项目目录、`project.json` / script、episode 与 unit 语义 |
 | [agent-runtime-migration-design.md](./agent-runtime-migration-design.md) | Agent 迁移、Turn/SSE、与内部平台对接 |
 | [getting-started.md](../getting-started.md) | 安装与启动 |
