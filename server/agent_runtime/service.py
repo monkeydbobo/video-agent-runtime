@@ -143,7 +143,16 @@ class AssistantService:
             return sessions
 
         summary_map = {s.session_id: s.summary for s in sdk_sessions}
-        return [SessionMeta(**{**s.model_dump(), "title": summary_map.get(s.id, s.title)}) for s in sessions]
+        return [
+            SessionMeta(
+                **{
+                    **s.model_dump(),
+                    "sandbox_id": s.sandbox_id,
+                    "title": summary_map.get(s.id, s.title),
+                }
+            )
+            for s in sessions
+        ]
 
     async def get_session(self, session_id: str) -> SessionMeta | None:
         """Get session by ID."""
@@ -151,22 +160,32 @@ class AssistantService:
         if meta and session_id in self.session_manager.sessions:
             # Update status from live session
             managed = self.session_manager.sessions[session_id]
-            meta = SessionMeta(**{**meta.model_dump(), "status": managed.status})
+            meta = SessionMeta(
+                **{
+                    **meta.model_dump(),
+                    "sandbox_id": meta.sandbox_id,
+                    "status": managed.status,
+                }
+            )
         return meta
 
     async def delete_session(self, session_id: str) -> bool:
         """Delete session and cleanup."""
+        meta = await self.meta_store.get(session_id)
         if session_id in self.session_manager.sessions:
             await self.session_manager.close_session(
                 session_id,
                 reason="session deleted",
             )
+        await self.session_manager.delete_remote_sandbox(
+            session_id,
+            sandbox_id=meta.sandbox_id if meta else None,
+        )
 
         if self._session_store is not None and delete_session_via_store is not None:
             # SDK derives project_key from `directory`; without it the key is
             # computed from server cwd and never matches inserted rows, so the
             # delete becomes a silent no-op. Resolve project cwd from meta.
-            meta = await self.meta_store.get(session_id)
             project_cwd = str(self.projects_root / meta.project_name) if meta else None
             try:
                 await delete_session_via_store(self._session_store, session_id, directory=project_cwd)  # type: ignore[arg-type]

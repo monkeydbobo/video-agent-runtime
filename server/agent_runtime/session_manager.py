@@ -19,7 +19,9 @@ from lib.db.base import DEFAULT_USER_ID
 from lib.i18n import DEFAULT_LOCALE
 from lib.logging_config import resolve_log_dir
 from server.agent_runtime.agent_access_policy import AgentAccessPolicy
+from server.agent_runtime.backend import agent_runtime_backend
 from server.agent_runtime.entry_pipeline import SessionEntryPipeline
+from server.agent_runtime.e2b_workspace import E2BWorkspaceManager
 from server.agent_runtime.event_log import (
     REPLAYED_USER_ECHO_KEY,
     EventLogStore,
@@ -297,6 +299,12 @@ class SessionManager:
             else (self.project_root / "projects").resolve()
         )
         self.meta_store = meta_store
+        self._execution_backend = agent_runtime_backend()
+        self._e2b_workspaces = (
+            E2BWorkspaceManager(projects_root=self.projects_root)
+            if self._execution_backend == "e2b"
+            else None
+        )
         self.sessions: dict[str, ManagedSession] = {}
         self._disconnecting: set[str] = set()
         self._session_actor_shutdown_timeout: float = 15.0  # total budget for send_disconnect + cancel fallback
@@ -340,7 +348,15 @@ class SessionManager:
             resolve_project_cwd=self._resolve_project_cwd,
             session_factory_provider=lambda: getattr(self, "_session_factory", None),
             user_id_provider=lambda: getattr(self, "_user_id", DEFAULT_USER_ID),
+            execution_backend=self._execution_backend,
+            e2b_workspaces=self._e2b_workspaces,
+            sandbox_id_provider=self._get_persisted_sandbox_id,
+            sandbox_id_updater=self.meta_store.update_sandbox_id,
         )
+
+    async def _get_persisted_sandbox_id(self, session_id: str) -> str | None:
+        meta = await self.meta_store.get(session_id)
+        return meta.sandbox_id if meta else None
 
     def configure_sandbox_runtime(self, *, in_docker: bool, sandbox_enabled: bool) -> None:
         """startup 期注入平台运行时事实（Docker 嵌套、内核沙箱可用性）。
@@ -384,6 +400,7 @@ class SessionManager:
         self,
         project_name: str,
         resume_id: str | None = None,
+        runtime_session_key: str | None = None,
         can_use_tool: Callable[[str, dict[str, Any], Any], Any] | None = None,
         locale: str = DEFAULT_LOCALE,
         stderr: Callable[[str], None] | None = None,
@@ -393,6 +410,7 @@ class SessionManager:
         return await self._options_assembler.build(
             project_name,
             resume_id=resume_id,
+            runtime_session_key=runtime_session_key,
             can_use_tool=can_use_tool,
             locale=locale,
             stderr=stderr,
@@ -537,13 +555,19 @@ class SessionManager:
             stderr_lines.append(line)
             logger.warning("claude_agent_sdk stderr: %s", line)
 
-        options = await self._build_options(
-            project_name,
-            resume_id=None,
-            can_use_tool=await self._build_can_use_tool_callback(temp_id, managed_ref),
-            locale=locale,
-            stderr=_collect_stderr,
-        )
+        try:
+            options = await self._build_options(
+                project_name,
+                resume_id=None,
+                runtime_session_key=temp_id,
+                can_use_tool=await self._build_can_use_tool_callback(temp_id, managed_ref),
+                locale=locale,
+                stderr=_collect_stderr,
+            )
+        except Exception:
+            if self._e2b_workspaces is not None:
+                await self._e2b_workspaces.kill(temp_id)
+            raise
         assistant_model = resolve_configured_assistant_model(getattr(options, "env", None))
 
         actor = SessionActor(
@@ -570,6 +594,8 @@ class SessionManager:
         except Exception as exc:
             logger.exception("新会话 actor 启动失败 temp_id=%s", temp_id)
             self.sessions.pop(temp_id, None)
+            if self._e2b_workspaces is not None:
+                await self._e2b_workspaces.kill(temp_id)
             raise AgentStartupError(str(exc), sdk_stderr="\n".join(stderr_lines)) from exc
 
         # Register done callback BEFORE spawning processor to avoid a race
@@ -594,6 +620,8 @@ class SessionManager:
             self.sessions.pop(temp_id, None)
             # sdk_session_id 就绪后 key swap 已把会话挂到正式 id 下，两个键都清。
             self.sessions.pop(managed.session_id, None)
+            if self._e2b_workspaces is not None:
+                await self._e2b_workspaces.kill(temp_id)
             try:
                 await managed.send_disconnect()
             except Exception:
@@ -798,6 +826,7 @@ class SessionManager:
             options = await self._build_options(
                 meta.project_name,
                 meta.id,  # SessionMeta.id 就是 sdk_session_id
+                runtime_session_key=meta.id,
                 can_use_tool=await self._build_can_use_tool_callback(session_id, managed_ref),
                 locale=locale,
                 stderr=_collect_stderr,
@@ -831,6 +860,8 @@ class SessionManager:
             except Exception as exc:
                 logger.exception("恢复会话 actor 启动失败 session_id=%s", session_id)
                 self.sessions.pop(session_id, None)
+                if self._e2b_workspaces is not None:
+                    await self._e2b_workspaces.pause(session_id)
                 raise AgentStartupError(str(exc), sdk_stderr="\n".join(stderr_lines)) from exc
 
             # done_callback BEFORE processor spawn (avoids race where actor
@@ -1156,6 +1187,8 @@ class SessionManager:
                     with contextlib.suppress(BaseException):
                         await self.meta_store.update_status(managed.resolved_sdk_id, managed.status)
         finally:
+            if self._e2b_workspaces is not None:
+                await self._e2b_workspaces.pause(session_id)
             self.sessions.pop(session_id, None)
             self._connect_locks.pop(session_id, None)
             self._disconnecting.discard(session_id)
@@ -1349,6 +1382,16 @@ class SessionManager:
                     input_data,
                 )
 
+            if self._execution_backend == "e2b" and tool_name in {
+                *self.access_policy.BASH_TOOLS,
+                "Write",
+                "Edit",
+            }:
+                if PermissionResultDeny is not None:
+                    return PermissionResultDeny(
+                        message=f"E2B 模式禁止本地工具 {tool_name}；命令与写入请改用 mcp__e2b__* 工具。"
+                    )
+
             # Windows 回退：sandbox 关闭时 Bash 系列不在 allowed_tools，
             # 落到这里走 AgentAccessPolicy 的前缀白名单。
             if not self.access_policy.sandbox_enabled and tool_name == "Bash":
@@ -1397,6 +1440,10 @@ class SessionManager:
 
         # Only create DB record for new sessions (no existing meta)
         if not managed.sdk_id_event.is_set():
+            old_id = managed.session_id
+            sandbox_id = None
+            if self._e2b_workspaces is not None:
+                sandbox_id = await self._e2b_workspaces.bind_session(old_id, sdk_id)
             # Run DB create and SDK tag in parallel (tag is independent file I/O)
             tag_coro = None
             if tag_session is not None:
@@ -1409,7 +1456,7 @@ class SessionManager:
 
                 tag_coro = _tag()
             await asyncio.gather(
-                self.meta_store.create(managed.project_name, sdk_id),
+                self.meta_store.create(managed.project_name, sdk_id, sandbox_id=sandbox_id),
                 *([] if tag_coro is None else [tag_coro]),
             )
             await self.meta_store.update_status(sdk_id, "running")
@@ -1436,7 +1483,6 @@ class SessionManager:
             # BEFORE signaling the event. This prevents _finalize_turn from
             # using the stale temp_id if it runs before send_new_session
             # completes its own key swap.
-            old_id = managed.session_id
             if old_id != sdk_id and old_id in self.sessions:
                 del self.sessions[old_id]
                 managed.session_id = sdk_id
@@ -1568,8 +1614,17 @@ class SessionManager:
 
         sessions = list(self.sessions.values())
         if not sessions:
+            if self._e2b_workspaces is not None:
+                await self._e2b_workspaces.shutdown()
             return
         await asyncio.gather(
             *[self._evict_one(s) for s in sessions],
             return_exceptions=True,
         )
+        if self._e2b_workspaces is not None:
+            await self._e2b_workspaces.shutdown()
+
+    async def delete_remote_sandbox(self, session_id: str, *, sandbox_id: str | None = None) -> None:
+        """Delete the E2B workspace associated with a permanently deleted session."""
+        if self._e2b_workspaces is not None:
+            await self._e2b_workspaces.kill(session_id, sandbox_id=sandbox_id)

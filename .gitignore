@@ -82,6 +82,8 @@ coverage/
 
 # File locks (project_manager 原子写产物)
 **/*.lock
+!uv.lock
+!frontend/pnpm-lock.yaml
 
 # Docker runtime data
 claude_data/

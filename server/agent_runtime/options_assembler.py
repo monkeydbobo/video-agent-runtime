@@ -26,6 +26,8 @@ from lib.db.base import DEFAULT_USER_ID
 from lib.db.engine import async_session_factory as default_async_session_factory
 from lib.i18n import DEFAULT_LOCALE, LOCALE_LANGUAGE_MAP
 from server.agent_runtime.agent_access_policy import AgentAccessPolicy
+from server.agent_runtime.backend import AgentBackend
+from server.agent_runtime.e2b_workspace import REMOTE_PROJECT_ROOT, E2BWorkspaceManager
 from server.agent_runtime.sdk_tools import build_arcreel_mcp_server
 
 logger = logging.getLogger(__name__)
@@ -99,6 +101,10 @@ class OptionsAssembler:
         provider_env_loader: Callable[[], Awaitable[dict[str, str]]] | None = None,
         session_factory_provider: Callable[[], Any] | None = None,
         user_id_provider: Callable[[], str] | None = None,
+        execution_backend: AgentBackend = "local",
+        e2b_workspaces: E2BWorkspaceManager | None = None,
+        sandbox_id_provider: Callable[[str], Awaitable[str | None]] | None = None,
+        sandbox_id_updater: Callable[[str, str | None], Awaitable[bool]] | None = None,
     ) -> None:
         self.projects_root = Path(projects_root)
         self._allowed_tools = list(allowed_tools)
@@ -109,6 +115,10 @@ class OptionsAssembler:
         self._provider_env_loader = provider_env_loader
         self._session_factory_provider = session_factory_provider or (lambda: None)
         self._user_id_provider = user_id_provider or (lambda: DEFAULT_USER_ID)
+        self._execution_backend = execution_backend
+        self._e2b_workspaces = e2b_workspaces
+        self._sandbox_id_provider = sandbox_id_provider
+        self._sandbox_id_updater = sandbox_id_updater
         # session store 单例缓存：每个 assembler 一份，避免每次 build 都新建 store。
         self._cached_session_store: DbSessionStore | None = None
         self._session_store_resolved = False
@@ -139,13 +149,28 @@ class OptionsAssembler:
             f"- **Prompt 使用{lang}**：图片生成/视频生成使用的 prompt 应使用{lang}编写"
         )
 
-        project_context = self._build_project_context(project_name)
+        project_context = self._build_project_context(
+            project_name,
+            workspace_path=str(REMOTE_PROJECT_ROOT) if self._execution_backend == "e2b" else None,
+        )
         if project_context:
             parts.append(project_context)
 
+        if self._execution_backend == "e2b":
+            parts.append(
+                """
+## E2B 远程沙盒
+
+- 所有命令必须调用 `mcp__e2b__bash`，禁止尝试本地 Bash。
+- 文件操作使用 `mcp__e2b__read_file`、`mcp__e2b__write_file`、`mcp__e2b__list_files`、`mcp__e2b__grep`。
+- 工作目录固定为 `/home/user/project`；E2B 沙盒无外网，不能访问 Railway 文件系统或密钥。
+- JSON/Markdown/TXT/CSV/HTML 修改会由工具安全同步回当前 ArcReel 项目；应用源码不会回写。
+""".strip()
+            )
+
         return "\n".join(parts)
 
-    def _build_project_context(self, project_name: str) -> str:
+    def _build_project_context(self, project_name: str, *, workspace_path: str | None = None) -> str:
         """Build session-invariant project context for the system prompt.
 
         Holds only facts that cannot change within a session: project identity,
@@ -162,7 +187,7 @@ class OptionsAssembler:
             "## 当前项目上下文",
             "",
             f"- 项目标识：{project_name}",
-            f"- 项目目录（即当前工作目录 cwd）：{project_cwd.as_posix()}",
+            f"- 项目目录（即当前工作目录 cwd）：{workspace_path or project_cwd.as_posix()}",
             "- 项目元数据（标题、风格、概述等）存于 project.json，需要时读取。",
             "- Bash 命令必须写在单行，禁止使用 `\\` 换行，JSON 参数使用紧凑格式。",
         ]
@@ -195,6 +220,7 @@ class OptionsAssembler:
         self,
         project_name: str,
         resume_id: str | None = None,
+        runtime_session_key: str | None = None,
         can_use_tool: Callable[[str, dict[str, Any], Any], Any] | None = None,
         locale: str = DEFAULT_LOCALE,
         stderr: Callable[[str], None] | None = None,
@@ -260,6 +286,13 @@ class OptionsAssembler:
         # Windows 回退：sandbox 关闭时 Bash 系列被剥离出 allowed_tools，
         # 让 _can_use_tool 接管 prefix 白名单匹配。
         allowed_tools = policy.filter_allowed_tools(self._allowed_tools)
+        if self._execution_backend == "e2b":
+            # 命令与写操作只能在 E2B 中执行。保留受 hook 围栏保护的宿主机只读
+            # 工具，以兼容 SDK 对项目 profile/skill 的读取。
+            local_mutation_tools = {*policy.BASH_TOOLS, "Write", "Edit"}
+            allowed_tools = [name for name in allowed_tools if name not in local_mutation_tools]
+            allowed_tools.append("mcp__e2b__*")
+            sandbox_typed = {"enabled": False}
         # 内置 ArcReel SDK MCP server — handler 跑在主进程，绕过 sandbox。
         # 通配符让后续新增 tool 不必同步改 allowed_tools。
         allowed_tools.append("mcp__arcreel__*")
@@ -268,6 +301,29 @@ class OptionsAssembler:
             project_name=project_name,
             projects_root=self.projects_root,
         )
+        mcp_servers: dict[str, Any] = {"arcreel": arcreel_server}
+        if self._e2b_workspaces is not None:
+            session_key = runtime_session_key or resume_id
+            if not session_key:
+                raise RuntimeError("E2B runtime session key is required")
+            existing_sandbox_id = None
+            if resume_id and self._sandbox_id_provider is not None:
+                existing_sandbox_id = await self._sandbox_id_provider(resume_id)
+            sandbox = await self._e2b_workspaces.prepare(
+                session_key,
+                project_name,
+                sandbox_id=existing_sandbox_id,
+            )
+            if (
+                resume_id
+                and sandbox.sandbox_id != existing_sandbox_id
+                and self._sandbox_id_updater is not None
+            ):
+                await self._sandbox_id_updater(resume_id, sandbox.sandbox_id)
+            mcp_servers["e2b"] = self._e2b_workspaces.build_mcp_server(
+                session_key=session_key,
+                project_name=project_name,
+            )
 
         return ClaudeAgentOptions(
             cwd=str(project_cwd),
@@ -283,7 +339,7 @@ class OptionsAssembler:
             resume=resume_id,
             can_use_tool=can_use_tool,
             hooks=hooks,  # type: ignore[arg-type]
-            mcp_servers={"arcreel": arcreel_server},
+            mcp_servers=mcp_servers,
             session_store=self.build_session_store(),  # type: ignore[arg-type]
             session_store_flush=session_store_flush_mode(),
             sandbox=sandbox_typed,  # type: ignore[arg-type]
