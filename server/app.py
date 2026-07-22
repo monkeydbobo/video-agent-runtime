@@ -24,7 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from starlette.datastructures import MutableHeaders
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 from starlette.types import Message, Receive, Scope, Send
 
 from lib import PROJECT_ROOT
@@ -36,6 +36,7 @@ from lib.config.env_keys import PROVIDER_SECRET_KEYS
 from lib.db import async_session_factory, close_db, init_db
 from lib.generation_worker import GenerationWorker
 from lib.httpx_shared import shutdown_http_client, startup_http_client
+from lib.i18n import _, get_locale
 from lib.logging_config import attach_file_handler, migrate_legacy_log_dir, setup_logging
 from lib.project_migrations import cleanup_stale_backups, run_project_migrations
 from lib.source_loader.migration import migrate_project_source_encoding
@@ -223,6 +224,21 @@ def check_sandbox_available() -> bool:
     return False
 
 
+def agent_runtime_enabled() -> bool:
+    """Return whether the Claude Agent runtime is enabled for this deployment.
+
+    The default is deliberately enabled: supported platforms must not silently
+    fall back to unsandboxed Agent tools. Railway does not grant the Linux
+    namespace permissions required by bubblewrap, so its managed containers
+    default to core-only mode. ``ARCREEL_AGENT_RUNTIME_ENABLED=true`` remains
+    an explicit opt-in and still requires a working sandbox.
+    """
+    value = os.environ.get("ARCREEL_AGENT_RUNTIME_ENABLED", "").strip().lower()
+    if value:
+        return value not in {"false", "0", "no", "off"}
+    return not any(os.environ.get(key) for key in ("RAILWAY_ENVIRONMENT", "RAILWAY_PROJECT_ID", "RAILWAY_SERVICE_ID"))
+
+
 _DOCKERENV_PATH = Path("/.dockerenv")
 _CGROUP_PATH = Path("/proc/1/cgroup")
 
@@ -317,7 +333,11 @@ async def lifespan(app: FastAPI):
     # Startup
     # 安全红线检测：先父进程 env 净化，再 sandbox 工具可用性，再 docker 检测
     assert_no_provider_secrets_in_environ()
-    sandbox_enabled = check_sandbox_available()
+    runtime_enabled = agent_runtime_enabled()
+    # A platform without bwrap must never run the Agent SDK without its
+    # sandbox. The explicit core-only mode starts the rest of ArcReel and
+    # blocks all Agent execution endpoints instead of weakening isolation.
+    sandbox_enabled = check_sandbox_available() if runtime_enabled else False
     # detect_docker_environment 仅在 sandbox 可用平台有意义（Linux 路径探测）；
     # Windows 回退时跳过，避免无意义的文件系统调用。
     is_docker = detect_docker_environment() if sandbox_enabled else False
@@ -325,6 +345,12 @@ async def lifespan(app: FastAPI):
 
     app.state.in_docker = is_docker
     app.state.sandbox_enabled = sandbox_enabled
+    app.state.agent_runtime_enabled = runtime_enabled
+    if not runtime_enabled:
+        logger.warning(
+            "Agent runtime disabled by ARCREEL_AGENT_RUNTIME_ENABLED=false; "
+            "Agent endpoints will return 503 and no unsandboxed Agent process can start"
+        )
 
     # 日志文件持久化：先一次性平移旧 app_data_dir()/logs，再挂 file handler。
     # 顺序很重要——file handler 会 mkdir 新目录，提前挂会让 migrate 的 rename
@@ -408,9 +434,12 @@ async def lifespan(app: FastAPI):
     # 启动共享 httpx 客户端（用于版本检查等外部 API 调用）
     await startup_http_client()
 
-    # Initialize async services
-    await assistant.assistant_service.startup(in_docker=is_docker, sandbox_enabled=sandbox_enabled)
-    assistant.assistant_service.session_manager.start_patrol()
+    # Initialize the Agent runtime only when its required sandbox passed the
+    # startup probe. Core-only deployments must not create an SDK session
+    # manager that could execute tools without bwrap isolation.
+    if runtime_enabled:
+        await assistant.assistant_service.startup(in_docker=is_docker, sandbox_enabled=sandbox_enabled)
+        assistant.assistant_service.session_manager.start_patrol()
 
     logger.info("启动 GenerationWorker...")
     worker = create_generation_worker()
@@ -521,6 +550,20 @@ _QUIET_SLOW_THRESHOLD_MS = 500.0
 
 
 @app.middleware("http")
+async def agent_runtime_availability_middleware(request: Request, call_next):
+    """Reject Agent execution when the deployment intentionally runs core-only."""
+    path = request.url.path
+    is_project_assistant = path.startswith("/api/v1/projects/") and "/assistant/" in path
+    is_sync_agent_chat = path == "/api/v1/agent/chat"
+    if (is_project_assistant or is_sync_agent_chat) and not getattr(app.state, "agent_runtime_enabled", True):
+        return JSONResponse(
+            status_code=503,
+            content={"detail": _("agent_runtime_unavailable", locale=get_locale(request))},
+        )
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def request_logging_middleware(request: Request, call_next):
     start = time.perf_counter()
     path = request.url.path
@@ -591,7 +634,12 @@ def create_generation_worker() -> GenerationWorker:
 @app.get("/health")
 async def health_check():
     """健康检查"""
-    return {"status": "ok", "message": "视频项目管理 WebUI 运行正常"}
+    runtime_enabled = getattr(app.state, "agent_runtime_enabled", agent_runtime_enabled())
+    return {
+        "status": "ok",
+        "message": "视频项目管理 WebUI 运行正常",
+        "agent_runtime": "enabled" if runtime_enabled else "disabled",
+    }
 
 
 @app.get("/skill.md", include_in_schema=False)

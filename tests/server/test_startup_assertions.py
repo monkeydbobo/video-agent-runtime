@@ -12,6 +12,7 @@ import pytest
 from lib.config.env_keys import PROVIDER_SECRET_KEYS
 from server.app import (
     _log_profile_sync_outcome,
+    agent_runtime_enabled,
     assert_no_provider_secrets_in_environ,
     check_sandbox_available,
     detect_docker_environment,
@@ -70,6 +71,35 @@ def test_empty_string_value_not_treated_as_leak(monkeypatch: pytest.MonkeyPatch)
     _clear_secret_envs(monkeypatch)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "")
     assert_no_provider_secrets_in_environ()  # 空值不 raise
+
+
+@pytest.mark.parametrize("value", ["false", "0", "no", "off", "FALSE"])
+def test_agent_runtime_can_only_be_disabled_explicitly(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+    monkeypatch.setenv("ARCREEL_AGENT_RUNTIME_ENABLED", value)
+    assert agent_runtime_enabled() is False
+
+
+def test_agent_runtime_is_enabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("ARCREEL_AGENT_RUNTIME_ENABLED", raising=False)
+    monkeypatch.delenv("RAILWAY_ENVIRONMENT", raising=False)
+    monkeypatch.delenv("RAILWAY_PROJECT_ID", raising=False)
+    monkeypatch.delenv("RAILWAY_SERVICE_ID", raising=False)
+    assert agent_runtime_enabled() is True
+
+
+@pytest.mark.parametrize("railway_marker", ["RAILWAY_ENVIRONMENT", "RAILWAY_PROJECT_ID", "RAILWAY_SERVICE_ID"])
+def test_agent_runtime_is_safely_disabled_on_railway_when_not_explicitly_enabled(
+    monkeypatch: pytest.MonkeyPatch, railway_marker: str
+) -> None:
+    monkeypatch.delenv("ARCREEL_AGENT_RUNTIME_ENABLED", raising=False)
+    monkeypatch.setenv(railway_marker, "railway-value")
+    assert agent_runtime_enabled() is False
+
+
+def test_explicit_agent_enablement_on_railway_still_requires_sandbox(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RAILWAY_ENVIRONMENT", "production")
+    monkeypatch.setenv("ARCREEL_AGENT_RUNTIME_ENABLED", "true")
+    assert agent_runtime_enabled() is True
 
 
 def test_sandbox_available_macos(monkeypatch: pytest.MonkeyPatch) -> None:
