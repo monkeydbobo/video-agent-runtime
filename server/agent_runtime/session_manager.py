@@ -27,6 +27,8 @@ from lib.db.base import DEFAULT_USER_ID
 from lib.db.engine import async_session_factory as default_async_session_factory
 from lib.i18n import LOCALE_LANGUAGE_MAP
 from lib.logging_config import resolve_log_dir
+from server.agent_runtime.backend import agent_runtime_backend
+from server.agent_runtime.e2b_workspace import REMOTE_PROJECT_ROOT, E2BWorkspaceManager
 from server.agent_runtime.message_utils import extract_plain_user_content
 from server.agent_runtime.models import SessionMeta, SessionStatus
 from server.agent_runtime.sdk_tools import build_arcreel_mcp_server
@@ -423,6 +425,10 @@ class SessionManager:
             else (self.project_root / "projects").resolve()
         )
         self.meta_store = meta_store
+        self._execution_backend = agent_runtime_backend()
+        self._e2b_workspaces = (
+            E2BWorkspaceManager(projects_root=self.projects_root) if self._execution_backend == "e2b" else None
+        )
         self.sessions: dict[str, ManagedSession] = {}
         self._disconnecting: set[str] = set()
         self._session_actor_shutdown_timeout: float = 15.0  # total budget for send_disconnect + cancel fallback
@@ -539,13 +545,28 @@ class SessionManager:
             f"- **Prompt 使用{lang}**：图片生成/视频生成使用的 prompt 应使用{lang}编写"
         )
 
-        project_context = self._build_project_context(project_name)
+        project_context = self._build_project_context(
+            project_name,
+            workspace_path=str(REMOTE_PROJECT_ROOT) if self._execution_backend == "e2b" else None,
+        )
         if project_context:
             parts.append(project_context)
 
+        if self._execution_backend == "e2b":
+            parts.append(
+                """
+## E2B 远程沙盒
+
+- 所有命令必须调用 `mcp__e2b__bash`，禁止尝试本地 Bash。
+- 文件操作使用 `mcp__e2b__read_file`、`mcp__e2b__write_file`、`mcp__e2b__list_files`、`mcp__e2b__grep`。
+- 工作目录固定为 `/home/user/project`；E2B 沙盒无外网，不能访问 Railway 文件系统或密钥。
+- JSON/Markdown/TXT/CSV/HTML 修改会由工具安全同步回当前 ArcReel 项目；应用源码不会回写。
+""".strip()
+            )
+
         return "\n".join(parts)
 
-    def _build_project_context(self, project_name: str) -> str:
+    def _build_project_context(self, project_name: str, *, workspace_path: str | None = None) -> str:
         """Build project-specific context from project.json metadata."""
         try:
             project_cwd = self._resolve_project_cwd(project_name)
@@ -583,7 +604,8 @@ class SessionManager:
             parts.append(f"- 视觉风格：{style}")
         if style_desc := config.get("style_description"):
             parts.append(f"- 风格描述：{style_desc}")
-        parts.append(f"- 项目目录（即当前工作目录 cwd）：{project_cwd}")
+        effective_cwd = workspace_path or str(project_cwd)
+        parts.append(f"- 项目目录（即当前工作目录 cwd）：{effective_cwd}")
         parts.append(
             "- Read/Edit/Write 等工具的 file_path 参数必须使用绝对路径，不要使用相对路径，也不要把项目标题当成目录名。"
         )
@@ -663,6 +685,7 @@ class SessionManager:
         self,
         project_name: str,
         resume_id: str | None = None,
+        runtime_session_key: str | None = None,
         can_use_tool: Callable[[str, dict[str, Any], Any], Any] | None = None,
         locale: str = "zh",
         stderr: Callable[[str], None] | None = None,
@@ -728,7 +751,17 @@ class SessionManager:
         # Windows 回退：sandbox 关闭时把 Bash 系列从 allowed_tools 剥离，
         # 让 _can_use_tool 接管 prefix 白名单匹配（_WINDOWS_BASH_PREFIX_WHITELIST）。
         allowed_tools = list(self.DEFAULT_ALLOWED_TOOLS)
-        if not self._sandbox_enabled:
+        if self._execution_backend == "e2b":
+            # E2B replaces host-side command execution and mutation, not Claude's
+            # orchestration or project-bound read-only tools.  Task only creates
+            # SDK subagents; Read/Glob/Grep remain protected by the same
+            # PreToolUse project fence as local mode.  Keeping them is important
+            # because the materialized agent profiles explicitly use those tools.
+            local_mutation_tools = {*self._BASH_TOOLS, *self._WRITE_TOOLS}
+            allowed_tools = [tool_name for tool_name in allowed_tools if tool_name not in local_mutation_tools]
+            allowed_tools.append("mcp__e2b__*")
+            sandbox_typed = {"enabled": False}
+        elif not self._sandbox_enabled:
             bash_tools = set(self._BASH_TOOLS)
             allowed_tools = [t for t in allowed_tools if t not in bash_tools]
         # 内置 ArcReel SDK MCP server — handler 跑在主进程，绕过 sandbox。
@@ -739,6 +772,27 @@ class SessionManager:
             project_name=project_name,
             projects_root=self.projects_root,
         )
+
+        mcp_servers: dict[str, Any] = {"arcreel": arcreel_server}
+        if self._e2b_workspaces is not None:
+            session_key = runtime_session_key or resume_id
+            if not session_key:
+                raise RuntimeError("E2B runtime session key is required")
+            existing_sandbox_id: str | None = None
+            if resume_id:
+                meta = await self.meta_store.get(resume_id)
+                existing_sandbox_id = meta.sandbox_id if meta else None
+            e2b_sandbox = await self._e2b_workspaces.prepare(
+                session_key,
+                project_name,
+                sandbox_id=existing_sandbox_id,
+            )
+            if resume_id and e2b_sandbox.sandbox_id != existing_sandbox_id:
+                await self.meta_store.update_sandbox_id(resume_id, e2b_sandbox.sandbox_id)
+            mcp_servers["e2b"] = self._e2b_workspaces.build_mcp_server(
+                session_key=session_key,
+                project_name=project_name,
+            )
 
         return ClaudeAgentOptions(
             cwd=str(project_cwd),
@@ -754,7 +808,7 @@ class SessionManager:
             resume=resume_id,
             can_use_tool=can_use_tool,
             hooks=hooks,  # type: ignore[arg-type]
-            mcp_servers={"arcreel": arcreel_server},
+            mcp_servers=mcp_servers,
             session_store=self._build_session_store(),  # type: ignore[arg-type]
             session_store_flush=session_store_flush_mode(),
             sandbox=sandbox_typed,  # type: ignore[arg-type]
@@ -1270,13 +1324,19 @@ class SessionManager:
             stderr_lines.append(line)
             logger.warning("claude_agent_sdk stderr: %s", line)
 
-        options = await self._build_options(
-            project_name,
-            resume_id=None,
-            can_use_tool=await self._build_can_use_tool_callback(temp_id, managed_ref),
-            locale=locale,
-            stderr=_collect_stderr,
-        )
+        try:
+            options = await self._build_options(
+                project_name,
+                resume_id=None,
+                runtime_session_key=temp_id,
+                can_use_tool=await self._build_can_use_tool_callback(temp_id, managed_ref),
+                locale=locale,
+                stderr=_collect_stderr,
+            )
+        except Exception:
+            if self._e2b_workspaces is not None:
+                await self._e2b_workspaces.kill(temp_id)
+            raise
         assistant_model = self._resolve_configured_assistant_model(getattr(options, "env", None))
 
         actor = SessionActor(
@@ -1300,6 +1360,8 @@ class SessionManager:
         except Exception as exc:
             logger.exception("新会话 actor 启动失败 temp_id=%s", temp_id)
             self.sessions.pop(temp_id, None)
+            if self._e2b_workspaces is not None:
+                await self._e2b_workspaces.kill(temp_id)
             raise AgentStartupError(str(exc), sdk_stderr="\n".join(stderr_lines)) from exc
 
         # Register done callback BEFORE spawning processor to avoid a race
@@ -1322,6 +1384,8 @@ class SessionManager:
             in case it is stuck elsewhere.
             """
             self.sessions.pop(temp_id, None)
+            if self._e2b_workspaces is not None:
+                await self._e2b_workspaces.kill(temp_id)
             try:
                 await managed.send_disconnect()
             except Exception:
@@ -1488,6 +1552,7 @@ class SessionManager:
             options = await self._build_options(
                 meta.project_name,
                 meta.id,  # SessionMeta.id 就是 sdk_session_id
+                runtime_session_key=meta.id,
                 can_use_tool=await self._build_can_use_tool_callback(session_id, managed_ref),
                 stderr=_collect_stderr,
             )
@@ -1955,6 +2020,8 @@ class SessionManager:
                     with contextlib.suppress(BaseException):
                         await self.meta_store.update_status(managed.resolved_sdk_id, managed.status)
         finally:
+            if self._e2b_workspaces is not None:
+                await self._e2b_workspaces.pause(session_id)
             self.sessions.pop(session_id, None)
             self._connect_locks.pop(session_id, None)
             self._disconnecting.discard(session_id)
@@ -2368,6 +2435,12 @@ class SessionManager:
                     input_data,
                 )
 
+            if self._execution_backend == "e2b" and tool_name in {*self._BASH_TOOLS, *self._WRITE_TOOLS}:
+                if PermissionResultDeny is not None:
+                    return PermissionResultDeny(
+                        message=f"E2B 模式禁止本地工具 {tool_name}；命令与写入请改用 mcp__e2b__* 工具。"
+                    )
+
             # Windows 回退：sandbox 关闭时 Bash 系列不在 allowed_tools，
             # 落到这里走 _WINDOWS_BASH_PREFIX_WHITELIST 代码白名单。
             if not self._sandbox_enabled and tool_name == "Bash":
@@ -2536,6 +2609,10 @@ class SessionManager:
 
         # Only create DB record for new sessions (no existing meta)
         if not managed.sdk_id_event.is_set():
+            old_id = managed.session_id
+            sandbox_id = None
+            if self._e2b_workspaces is not None:
+                sandbox_id = await self._e2b_workspaces.bind_session(old_id, sdk_id)
             # Run DB create and SDK tag in parallel (tag is independent file I/O)
             tag_coro = None
             if tag_session is not None:
@@ -2548,7 +2625,7 @@ class SessionManager:
 
                 tag_coro = _tag()
             await asyncio.gather(
-                self.meta_store.create(managed.project_name, sdk_id),
+                self.meta_store.create(managed.project_name, sdk_id, sandbox_id=sandbox_id),
                 *([] if tag_coro is None else [tag_coro]),
             )
             await self.meta_store.update_status(sdk_id, "running")
@@ -2556,7 +2633,6 @@ class SessionManager:
             # BEFORE signaling the event. This prevents _finalize_turn from
             # using the stale temp_id if it runs before send_new_session
             # completes its own key swap.
-            old_id = managed.session_id
             if old_id != sdk_id and old_id in self.sessions:
                 del self.sessions[old_id]
                 managed.session_id = sdk_id
@@ -2724,8 +2800,17 @@ class SessionManager:
 
         sessions = list(self.sessions.values())
         if not sessions:
+            if self._e2b_workspaces is not None:
+                await self._e2b_workspaces.shutdown()
             return
         await asyncio.gather(
             *[self._evict_one(s) for s in sessions],
             return_exceptions=True,
         )
+        if self._e2b_workspaces is not None:
+            await self._e2b_workspaces.shutdown()
+
+    async def delete_remote_sandbox(self, session_id: str, *, sandbox_id: str | None = None) -> None:
+        """Permanently delete the E2B workspace when the user deletes a session."""
+        if self._e2b_workspaces is not None:
+            await self._e2b_workspaces.kill(session_id, sandbox_id=sandbox_id)

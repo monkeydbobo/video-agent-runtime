@@ -29,6 +29,7 @@ from server.agent_runtime.sdk_tools.enqueue_videos import (
     generate_video_scene_tool,
     generate_video_selected_tool,
 )
+from server.agent_runtime.sdk_tools.project_operations import compose_video_tool, update_project_assets_tool
 from server.agent_runtime.sdk_tools.text_generation import (
     generate_episode_script_tool,
     get_video_capabilities_tool,
@@ -218,6 +219,40 @@ async def test_generate_assets_names_without_type(fake_ctx: ToolContext) -> None
     tool_obj = generate_assets_tool(fake_ctx)
     out = await _call(tool_obj, {"names": ["张三"]})
     assert out.get("is_error") is True
+
+
+async def test_update_project_assets_adds_new_and_skips_existing(fake_ctx: ToolContext) -> None:
+    tool_obj = update_project_assets_tool(fake_ctx)
+    out = await _call(
+        tool_obj,
+        {
+            "characters": {
+                "张三": {"description": "不应覆盖"},
+                "王五": {"description": "白衣青年", "voice_style": "沉稳"},
+            },
+            "props": {"玉佩": {"description": "温润白玉"}},
+        },
+    )
+
+    assert out.get("is_error") is not True
+    assert fake_ctx.pm.project_payload["characters"]["张三"]["description"] == "主角"
+    assert fake_ctx.pm.project_payload["characters"]["王五"]["voice_style"] == "沉稳"
+    assert fake_ctx.pm.project_payload["props"]["玉佩"]["description"] == "温润白玉"
+    assert "跳过同名 1" in out["content"][0]["text"]
+
+
+async def test_update_project_assets_rejects_empty_description(fake_ctx: ToolContext) -> None:
+    tool_obj = update_project_assets_tool(fake_ctx)
+    out = await _call(tool_obj, {"scenes": {"村庄": {"description": " "}}})
+    assert out.get("is_error") is True
+    assert "description" in out["content"][0]["text"]
+
+
+async def test_compose_video_rejects_path_escape_before_spawning(fake_ctx: ToolContext) -> None:
+    tool_obj = compose_video_tool(fake_ctx)
+    out = await _call(tool_obj, {"script": "../episode_1.json"})
+    assert out.get("is_error") is True
+    assert "路径分隔符" in out["content"][0]["text"]
 
 
 # ---------------------------------------------------------------------------

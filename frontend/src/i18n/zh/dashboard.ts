@@ -1107,6 +1107,8 @@ export default {
   'tool_name_get_video_capabilities': '查询视频模型能力',
   'tool_name_analyze_viral_reference': '分析爆款参考视频',
   'tool_name_analyze_product_images': '分析商品图生成产品简报',
+  'tool_name_update_project_assets': '更新项目资产定义',
+  'tool_name_compose_video': '合成单集视频',
   // Skill display names (single source of truth: agent_runtime_profile/.claude/skills/*/SKILL.md
   // 中 user-invocable: true 的 skill；tests/test_frontend_skill_i18n.py 校验三语齐全)
   'skill_name_manga_workflow': '视频工作流',

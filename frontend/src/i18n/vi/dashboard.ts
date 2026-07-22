@@ -1208,6 +1208,8 @@ export default {
   'tool_name_get_video_capabilities': 'Truy vấn năng lực mô hình video',
   'tool_name_analyze_viral_reference': 'Phân tích video tham chiếu viral',
   'tool_name_analyze_product_images': 'Phân tích ảnh sản phẩm thành brief',
+  'tool_name_update_project_assets': 'Cập nhật định nghĩa tài sản dự án',
+  'tool_name_compose_video': 'Ghép video tập',
   // Skill display names (single source of truth: user-invocable SKILL.md
   // dưới agent_runtime_profile/.claude/skills/; tests/test_frontend_skill_i18n.py kiểm tra đồng bộ)
   'skill_name_manga_workflow': 'Quy trình video',

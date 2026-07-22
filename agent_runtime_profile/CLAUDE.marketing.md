@@ -24,8 +24,8 @@
 
 ### 工具调用
 
-- **业务入队 / 文本生成 / 能力查询**：统一走 `mcp__arcreel__*` 系列 SDK in-process MCP tool（角色/场景/道具/分镜/视频/宫格/集脚本/规范化剧本/视频能力查询）。它们跑在 server 主进程，不受 sandbox 网络白名单约束，agent 直接以 tool 形式调用。
-- **Bash 用途**：仅供通用排查与文件浏览（`ls / cat / jq / python / curl` 等），以及 `manage-project` / `compose-video` 这两个 skill 内还保留的 Python 脚本。
+- **业务操作**：统一走 `mcp__arcreel__*` 系列项目绑定工具（资产定义、生成入队、文本生成、能力查询、视频合成）。它们只暴露受约束参数，不开放任意宿主机命令。
+- **Bash 用途**：仅供通用排查、文本处理以及 `manage-project` 的分集切分脚本；远程部署时由 `mcp__e2b__bash` 在隔离沙盒中执行。
 - **敏感文件保护**：`.env` / `vertex_keys/` / `.system_config.json*` / `.arcreel.db*` / `.claude/settings.json` 由 sandbox profile（`filesystem.denyRead`）内核级拒绝读取，并由 PreToolUse 文件访问 hook 双重防御；代码文件（.py/.js/.ts/.tsx/.sh/.yaml/.yml/.toml）受运行时 hook 阻止写入。
 
 ### 路径规范

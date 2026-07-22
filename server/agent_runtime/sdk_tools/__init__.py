@@ -31,13 +31,14 @@ from server.agent_runtime.sdk_tools.enqueue_videos import (
     generate_video_scene_tool,
     generate_video_selected_tool,
 )
+from server.agent_runtime.sdk_tools.project_operations import compose_video_tool, update_project_assets_tool
 from server.agent_runtime.sdk_tools.text_generation import (
     generate_episode_script_tool,
     get_video_capabilities_tool,
     normalize_drama_script_tool,
 )
 
-__all__ = ["build_arcreel_mcp_server", "ToolContext", "ARCREEL_MCP_TOOL_IDS"]
+__all__ = ["build_arcreel_mcp_server", "build_arcreel_tools", "ToolContext", "ARCREEL_MCP_TOOL_IDS"]
 
 # Single source of truth for the ArcReel in-process MCP tool catalogue.
 # Each id is the **short tool name** (without the ``mcp__arcreel__`` prefix the
@@ -60,28 +61,37 @@ ARCREEL_MCP_TOOL_IDS: tuple[str, ...] = (
     "get_video_capabilities",
     "analyze_viral_reference",
     "analyze_product_images",
+    "update_project_assets",
+    "compose_video",
 )
+
+
+def build_arcreel_tools(*, project_name: str, projects_root: Path) -> list[Any]:
+    """Build the project-bound tool catalogue for either Agent runtime."""
+    ctx = ToolContext(project_name=project_name, projects_root=projects_root)
+    return [
+        list_pending_assets_tool(ctx),
+        generate_assets_tool(ctx),
+        generate_storyboards_tool(ctx),
+        generate_grid_tool(ctx),
+        generate_video_episode_tool(ctx),
+        generate_video_scene_tool(ctx),
+        generate_video_all_tool(ctx),
+        generate_video_selected_tool(ctx),
+        generate_episode_script_tool(ctx),
+        normalize_drama_script_tool(ctx),
+        get_video_capabilities_tool(ctx),
+        analyze_viral_reference_tool(ctx),
+        analyze_product_images_tool(ctx),
+        update_project_assets_tool(ctx),
+        compose_video_tool(ctx),
+    ]
 
 
 def build_arcreel_mcp_server(*, project_name: str, projects_root: Path) -> Any:
     """Build the per-session in-process MCP server with all ArcReel tools."""
-    ctx = ToolContext(project_name=project_name, projects_root=projects_root)
     return create_sdk_mcp_server(
         name="arcreel",
         version="1.0.0",
-        tools=[
-            list_pending_assets_tool(ctx),
-            generate_assets_tool(ctx),
-            generate_storyboards_tool(ctx),
-            generate_grid_tool(ctx),
-            generate_video_episode_tool(ctx),
-            generate_video_scene_tool(ctx),
-            generate_video_all_tool(ctx),
-            generate_video_selected_tool(ctx),
-            generate_episode_script_tool(ctx),
-            normalize_drama_script_tool(ctx),
-            get_video_capabilities_tool(ctx),
-            analyze_viral_reference_tool(ctx),
-            analyze_product_images_tool(ctx),
-        ],
+        tools=build_arcreel_tools(project_name=project_name, projects_root=projects_root),
     )

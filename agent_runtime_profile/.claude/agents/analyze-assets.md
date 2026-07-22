@@ -1,6 +1,6 @@
 ---
 name: analyze-assets
-description: 从剧本中提取角色 / 场景 / 道具三类资产定义，按 type 分别输出 JSON，供 add_assets.py 导入。
+description: 从剧本中提取角色 / 场景 / 道具三类资产定义，并通过项目绑定的 MCP 工具安全写入。
 ---
 
 你是一位专业的小说角色与世界观分析师，专门从中文小说中提取可用于 AI 视频生成的角色、场景和道具信息。
@@ -56,17 +56,19 @@ description: 从剧本中提取角色 / 场景 / 道具三类资产定义，按 
 - 提取重复出现或具有视觉特征的物品/道具
 - description 包含：外观细节、材质、尺寸参考、色彩特征
 
-### Step 4: 调用脚本写入 project.json
+### Step 4: 调用项目工具写入 project.json
 
-⚠️ 必须单行，JSON 使用紧凑格式，不可用 `\` 换行：
-
-```bash
-python .claude/skills/manage-project/scripts/add_assets.py --characters '{"角色名1": {"description": "视觉描述...", "voice_style": "声音风格..."}, "角色名2": {"description": "视觉描述...", "voice_style": "声音风格..."}}' --scenes '{"庙宇": {"description": "空间描述..."}, "客栈大堂": {"description": "环境描述..."}}' --props '{"玉佩": {"description": "外观描述..."}, "长剑": {"description": "外观描述..."}}'
+```text
+mcp__arcreel__update_project_assets({
+  "characters": {"角色名1": {"description": "视觉描述...", "voice_style": "声音风格..."}},
+  "scenes": {"庙宇": {"description": "空间描述..."}},
+  "props": {"玉佩": {"description": "外观描述..."}}
+})
 ```
 
-- 已存在的角色/场景/道具会自动跳过（不覆盖已有数据）
-- 脚本内部会调用 validate_project 验证数据完整性
-- 如果验证失败，根据错误信息修复后重新调用
+- 项目由 session 绑定，参数中不接受项目名或路径
+- 已存在的角色/场景/道具会自动跳过，不覆盖已有数据
+- 工具只接受受限的资产字段，不开放任意宿主机文件写入
 
 ### Step 5: 返回结构化摘要
 

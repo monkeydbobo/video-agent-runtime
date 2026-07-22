@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from lib.config.env_keys import PROVIDER_SECRET_KEYS
+from server.agent_runtime.backend import agent_runtime_backend
 from server.app import (
     _log_profile_sync_outcome,
     agent_runtime_enabled,
@@ -80,6 +81,7 @@ def test_agent_runtime_can_only_be_disabled_explicitly(monkeypatch: pytest.Monke
 
 
 def test_agent_runtime_is_enabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("ARCREEL_AGENT_BACKEND", raising=False)
     monkeypatch.delenv("ARCREEL_AGENT_RUNTIME_ENABLED", raising=False)
     monkeypatch.delenv("RAILWAY_ENVIRONMENT", raising=False)
     monkeypatch.delenv("RAILWAY_PROJECT_ID", raising=False)
@@ -88,18 +90,27 @@ def test_agent_runtime_is_enabled_by_default(monkeypatch: pytest.MonkeyPatch) ->
 
 
 @pytest.mark.parametrize("railway_marker", ["RAILWAY_ENVIRONMENT", "RAILWAY_PROJECT_ID", "RAILWAY_SERVICE_ID"])
-def test_agent_runtime_is_safely_disabled_on_railway_when_not_explicitly_enabled(
+def test_agent_runtime_uses_e2b_sandbox_on_railway_by_default(
     monkeypatch: pytest.MonkeyPatch, railway_marker: str
 ) -> None:
+    monkeypatch.delenv("ARCREEL_AGENT_BACKEND", raising=False)
     monkeypatch.delenv("ARCREEL_AGENT_RUNTIME_ENABLED", raising=False)
     monkeypatch.setenv(railway_marker, "railway-value")
-    assert agent_runtime_enabled() is False
+    assert agent_runtime_enabled() is True
+    assert agent_runtime_backend() == "e2b"
 
 
 def test_explicit_agent_enablement_on_railway_still_requires_sandbox(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("RAILWAY_ENVIRONMENT", "production")
-    monkeypatch.setenv("ARCREEL_AGENT_RUNTIME_ENABLED", "true")
+    monkeypatch.setenv("ARCREEL_AGENT_BACKEND", "local")
     assert agent_runtime_enabled() is True
+    assert agent_runtime_backend() == "local"
+
+
+def test_agent_backend_can_be_disabled_explicitly(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ARCREEL_AGENT_BACKEND", "disabled")
+    assert agent_runtime_enabled() is False
+    assert agent_runtime_backend() == "disabled"
 
 
 def test_sandbox_available_macos(monkeypatch: pytest.MonkeyPatch) -> None:

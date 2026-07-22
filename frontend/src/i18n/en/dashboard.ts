@@ -1106,6 +1106,8 @@ export default {
   'tool_name_get_video_capabilities': 'Query video model capabilities',
   'tool_name_analyze_viral_reference': 'Analyze viral reference video',
   'tool_name_analyze_product_images': 'Analyze product images into a brief',
+  'tool_name_update_project_assets': 'Update project asset definitions',
+  'tool_name_compose_video': 'Compose episode video',
   // Skill display names (single source of truth: user-invocable SKILL.md files
   // under agent_runtime_profile/.claude/skills/; tests/test_frontend_skill_i18n.py enforces parity)
   'skill_name_manga_workflow': 'Video workflow',

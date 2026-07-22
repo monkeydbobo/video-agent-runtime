@@ -39,6 +39,7 @@ from lib.i18n import _, get_locale
 from lib.logging_config import attach_file_handler, migrate_legacy_log_dir, setup_logging
 from lib.project_migrations import cleanup_stale_backups, run_project_migrations
 from lib.source_loader.migration import migrate_project_source_encoding
+from server.agent_runtime.backend import agent_runtime_backend
 from server.auth import ensure_auth_password
 from server.routers import (
     agent_chat,
@@ -219,18 +220,8 @@ def check_sandbox_available() -> bool:
 
 
 def agent_runtime_enabled() -> bool:
-    """Return whether the Claude Agent runtime is enabled for this deployment.
-
-    The default is deliberately enabled: supported platforms must not silently
-    fall back to unsandboxed Agent tools. Railway does not grant the Linux
-    namespace permissions required by bubblewrap, so its managed containers
-    default to core-only mode. ``ARCREEL_AGENT_RUNTIME_ENABLED=true`` remains
-    an explicit opt-in and still requires a working sandbox.
-    """
-    value = os.environ.get("ARCREEL_AGENT_RUNTIME_ENABLED", "").strip().lower()
-    if value:
-        return value not in {"false", "0", "no", "off"}
-    return not any(os.environ.get(key) for key in ("RAILWAY_ENVIRONMENT", "RAILWAY_PROJECT_ID", "RAILWAY_SERVICE_ID"))
+    """Return whether either secure Agent backend is enabled."""
+    return agent_runtime_backend() != "disabled"
 
 
 _DOCKERENV_PATH = Path("/.dockerenv")
@@ -327,11 +318,12 @@ async def lifespan(app: FastAPI):
     # Startup
     # 安全红线检测：先父进程 env 净化，再 sandbox 工具可用性，再 docker 检测
     assert_no_provider_secrets_in_environ()
-    runtime_enabled = agent_runtime_enabled()
+    backend = agent_runtime_backend()
+    runtime_enabled = backend != "disabled"
     # A platform without bwrap must never run the Agent SDK without its
     # sandbox. The explicit core-only mode starts the rest of ArcReel and
     # blocks all Agent execution endpoints instead of weakening isolation.
-    sandbox_enabled = check_sandbox_available() if runtime_enabled else False
+    sandbox_enabled = check_sandbox_available() if backend == "local" else False
     # detect_docker_environment 仅在 sandbox 可用平台有意义（Linux 路径探测）；
     # Windows 回退时跳过，避免无意义的文件系统调用。
     is_docker = detect_docker_environment() if sandbox_enabled else False
@@ -340,9 +332,10 @@ async def lifespan(app: FastAPI):
     app.state.in_docker = is_docker
     app.state.sandbox_enabled = sandbox_enabled
     app.state.agent_runtime_enabled = runtime_enabled
+    app.state.agent_runtime_backend = backend
     if not runtime_enabled:
         logger.warning(
-            "Agent runtime disabled by ARCREEL_AGENT_RUNTIME_ENABLED=false; "
+            "Agent runtime disabled by ARCREEL_AGENT_BACKEND=disabled; "
             "Agent endpoints will return 503 and no unsandboxed Agent process can start"
         )
 
@@ -598,10 +591,14 @@ def create_generation_worker() -> GenerationWorker:
 async def health_check():
     """健康检查"""
     runtime_enabled = getattr(app.state, "agent_runtime_enabled", agent_runtime_enabled())
+    backend = getattr(app.state, "agent_runtime_backend", agent_runtime_backend())
+    sandbox_configured = backend != "e2b" or bool(os.environ.get("E2B_API_KEY", "").strip())
     return {
         "status": "ok",
         "message": "视频项目管理 WebUI 运行正常",
         "agent_runtime": "enabled" if runtime_enabled else "disabled",
+        "agent_runtime_backend": backend,
+        "agent_sandbox": "configured" if sandbox_configured else "missing_api_key",
     }
 
 

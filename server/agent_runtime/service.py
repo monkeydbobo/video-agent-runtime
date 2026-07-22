@@ -35,6 +35,8 @@ from lib.agent_profile import agent_profile_dir
 from lib.app_data_dir import app_data_dir
 from lib.profile_manifest import VALID_CONTENT_MODES
 from lib.project_manager import ProjectManager
+from server.agent_runtime.backend import agent_runtime_backend
+from server.agent_runtime.managed_session_manager import ManagedAgentsSessionManager
 from server.agent_runtime.message_utils import extract_plain_user_content
 from server.agent_runtime.models import SessionMeta, SessionStatus
 from server.agent_runtime.sdk_transcript_adapter import SdkTranscriptAdapter
@@ -56,7 +58,8 @@ class AssistantService:
 
         self.pm = ProjectManager(self.projects_root)
         self.meta_store = SessionMetaStore()
-        self.session_manager = SessionManager(
+        manager_class = ManagedAgentsSessionManager if agent_runtime_backend() == "managed" else SessionManager
+        self.session_manager = manager_class(
             project_root=self.project_root,
             data_dir=self.data_dir,
             meta_store=self.meta_store,
@@ -87,6 +90,8 @@ class AssistantService:
                 return
             self.session_manager._in_docker = bool(in_docker)
             self.session_manager._sandbox_enabled = bool(sandbox_enabled)
+            if isinstance(self.session_manager, ManagedAgentsSessionManager):
+                await self.session_manager.startup()
             await self._interrupt_stale_running_sessions()
             self._startup_done = True
 
@@ -111,6 +116,8 @@ class AssistantService:
         """List sessions, injecting SDK summary as title when available."""
         sessions = await self.meta_store.list(project_name=project_name, status=status, limit=limit, offset=offset)
         if not sessions or not project_name:
+            return sessions
+        if isinstance(self.session_manager, ManagedAgentsSessionManager):
             return sessions
 
         project_cwd = str(self.projects_root / project_name)
@@ -137,7 +144,16 @@ class AssistantService:
             return sessions
 
         summary_map = {s.session_id: s.summary for s in sdk_sessions}
-        return [SessionMeta(**{**s.model_dump(), "title": summary_map.get(s.id, s.title)}) for s in sessions]
+        return [
+            SessionMeta(
+                **{
+                    **s.model_dump(),
+                    "sandbox_id": s.sandbox_id,
+                    "title": summary_map.get(s.id, s.title),
+                }
+            )
+            for s in sessions
+        ]
 
     async def get_session(self, session_id: str) -> SessionMeta | None:
         """Get session by ID."""
@@ -145,22 +161,31 @@ class AssistantService:
         if meta and session_id in self.session_manager.sessions:
             # Update status from live session
             managed = self.session_manager.sessions[session_id]
-            meta = SessionMeta(**{**meta.model_dump(), "status": managed.status})
+            meta = SessionMeta(**{**meta.model_dump(), "sandbox_id": meta.sandbox_id, "status": managed.status})
         return meta
 
     async def delete_session(self, session_id: str) -> bool:
         """Delete session and cleanup."""
+        meta = await self.meta_store.get(session_id)
         if session_id in self.session_manager.sessions:
             await self.session_manager.close_session(
                 session_id,
                 reason="session deleted",
             )
+        if isinstance(self.session_manager, SessionManager):
+            await self.session_manager.delete_remote_sandbox(
+                session_id,
+                sandbox_id=meta.sandbox_id if meta else None,
+            )
+
+        if isinstance(self.session_manager, ManagedAgentsSessionManager):
+            self._snapshot_cache.pop(session_id, None)
+            return await self.meta_store.delete(session_id)
 
         if self._session_store is not None and delete_session_via_store is not None:
             # SDK derives project_key from `directory`; without it the key is
             # computed from server cwd and never matches inserted rows, so the
             # delete becomes a silent no-op. Resolve project cwd from meta.
-            meta = await self.meta_store.get(session_id)
             project_cwd = str(self.projects_root / meta.project_name) if meta else None
             try:
                 await delete_session_via_store(self._session_store, session_id, directory=project_cwd)  # type: ignore[arg-type]
@@ -623,7 +648,10 @@ class AssistantService:
     ) -> AssistantStreamProjector:
         """Build projector state from transcript history + in-memory buffer."""
         project_cwd = self._resolve_project_cwd_safe(meta.project_name)
-        history_messages = await self.transcript_adapter.read_raw_messages(meta.id, project_cwd)
+        if isinstance(self.session_manager, ManagedAgentsSessionManager):
+            history_messages = await self.session_manager.get_history_messages(meta.id)
+        else:
+            history_messages = await self.transcript_adapter.read_raw_messages(meta.id, project_cwd)
         projector = AssistantStreamProjector(initial_messages=history_messages)
 
         # UUID set for primary dedup

@@ -13,32 +13,26 @@ description: 把已生成的视频片段按剧本顺序拼接为单集成片，�
 - **单集拼接** — 一次只处理一份剧本文件，不支持多集合并
 - **不实现片头片尾 / BGM 音量调节** — 这些需求请走 Web 端剪映草稿导出
 
-## CLI 用法
+## MCP 用法
 
-脚本必须在含 `project.json` 的项目 cwd 内运行，并使用**相对项目根 cwd** 的剧本文件名：
+合成固定通过项目绑定的 ArcReel MCP 执行。工具在 Railway 内调用固定的合成脚本与 ffmpeg，
+不会把媒体文件复制进 E2B，也不开放任意宿主机命令：
 
-```bash
-# 最简形式：按剧本顺序拼接 + 自动转场（按 transition_to_next）
-python .claude/skills/compose-video/scripts/compose_video.py scripts/episode_1.json
-
-# 混入 BGM（音乐文件相对项目根 cwd 或绝对路径）
-python .claude/skills/compose-video/scripts/compose_video.py scripts/episode_1.json --music background_music.mp3
-
-# 关闭转场（一律 cut 拼接，可用于规避 xfade 编码不一致问题）
-python .claude/skills/compose-video/scripts/compose_video.py scripts/episode_1.json --no-transitions
-
-# 自定义输出文件名（输出固定落在 output/ 下）
-python .claude/skills/compose-video/scripts/compose_video.py scripts/episode_1.json --output episode_1_final.mp4
+```text
+mcp__arcreel__compose_video({"script": "episode_1.json"})
+mcp__arcreel__compose_video({"script": "episode_1.json", "music": "background_music.mp3"})
+mcp__arcreel__compose_video({"script": "episode_1.json", "use_transitions": false})
+mcp__arcreel__compose_video({"script": "episode_1.json", "output": "episode_1_final.mp4"})
 ```
 
 完整参数：
 
 | 参数 | 类型 | 说明 |
 |---|---|---|
-| `script` | 位置参数（必填） | 剧本文件名（相对项目 cwd） |
+| `script` | 字符串（必填） | `scripts/` 下的纯文件名，例如 `episode_1.json` |
 | `--output OUTPUT` | 可选 | 输出文件名；缺省按剧本 `novel.chapter` 字段生成。无论何种取值，最终都落在 `output/` 子目录内 |
-| `--music MUSIC` | 可选 | BGM 文件路径（相对项目 cwd 或绝对路径），但**必须解析后位于项目目录内** |
-| `--no-transitions` | flag | 全部用 cut 直接拼接，忽略剧本里的 `transition_to_next` |
+| `music` | 可选 | 当前项目内的相对音频路径，不接受绝对路径 |
+| `use_transitions` | 布尔值 | `false` 时全部用 cut 直接拼接 |
 
 ## 工作流程
 
@@ -60,10 +54,9 @@ python .claude/skills/compose-video/scripts/compose_video.py scripts/episode_1.j
 
 ## 前置检查
 
-- [ ] 当前 cwd 是项目根（含 `project.json`）
 - [ ] 剧本 content_mode 为 drama（顶层有 `scenes[]`）
 - [ ] 每个场景的 `generated_assets.video_clip` 都已生成
-- [ ] `ffmpeg` / `ffprobe` 都在 PATH（脚本会预检）
+- [ ] Railway 生产镜像包含 `ffmpeg` / `ffprobe`（工具会预检）
 - [ ] BGM 文件存在（如指定 `--music`）
 
 ## 限制 / 缺失能力

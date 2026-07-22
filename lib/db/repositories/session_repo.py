@@ -17,6 +17,7 @@ def _row_to_dict(row: AgentSession) -> dict[str, Any]:
     return {
         "id": row.id,
         "sdk_session_id": row.sdk_session_id,
+        "sandbox_id": row.sandbox_id,
         "project_name": row.project_name,
         "title": row.title or "",
         "status": row.status,
@@ -27,12 +28,18 @@ def _row_to_dict(row: AgentSession) -> dict[str, Any]:
 
 class SessionRepository(BaseRepository):
     async def create(
-        self, project_name: str, sdk_session_id: str, title: str = "", user_id: str = DEFAULT_USER_ID
+        self,
+        project_name: str,
+        sdk_session_id: str,
+        title: str = "",
+        user_id: str = DEFAULT_USER_ID,
+        sandbox_id: str | None = None,
     ) -> dict[str, Any]:
         now = utc_now()
         row = AgentSession(
             id=uuid.uuid4().hex,
             sdk_session_id=sdk_session_id,
+            sandbox_id=sandbox_id,
             project_name=project_name,
             title=title,
             status="idle",
@@ -76,6 +83,15 @@ class SessionRepository(BaseRepository):
         now = utc_now()
         result = await self.session.execute(
             update(AgentSession).where(AgentSession.sdk_session_id == session_id).values(status=status, updated_at=now)
+        )
+        await self.session.commit()
+        return rowcount(result) > 0
+
+    async def update_sandbox_id(self, session_id: str, sandbox_id: str | None) -> bool:
+        result = await self.session.execute(
+            update(AgentSession)
+            .where(AgentSession.sdk_session_id == session_id)
+            .values(sandbox_id=sandbox_id, updated_at=utc_now())
         )
         await self.session.commit()
         return rowcount(result) > 0

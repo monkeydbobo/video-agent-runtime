@@ -14,7 +14,7 @@ user-invocable: false
 |------|------|--------|
 | `peek_split_point.py` | 探测目标字数附近的上下文和自然断点 | 主 agent（阶段 2） |
 | `split_episode.py` | 执行分集切分，生成 episode_N.txt + _remaining.txt | 主 agent（阶段 2） |
-| `add_assets.py` | 批量添加角色/场景/道具到 project.json | subagent |
+| `mcp__arcreel__update_project_assets` | 批量添加角色/场景/道具到 project.json | subagent |
 | `mcp__arcreel__get_video_capabilities`（SDK tool） | 查当前项目视频模型能力（model 粒度，所有生成模式通用） | **subagent**（执行任务时自行查询） |
 
 ## 分集切分工作流
@@ -64,13 +64,17 @@ python .claude/skills/manage-project/scripts/split_episode.py --source {源文�
 
 ## 角色/场景/道具批量写入
 
-从项目目录内执行，自动检测项目名称：
+项目由 session 自动绑定，不传项目名：
 
-⚠️ 必须单行，JSON 使用紧凑格式，不可用 `\` 换行：
-
-```bash
-python .claude/skills/manage-project/scripts/add_assets.py --characters '{"角色名": {"description": "...", "voice_style": "..."}}' --scenes '{"场景名": {"description": "..."}}' --props '{"道具名": {"description": "..."}}'
+```text
+mcp__arcreel__update_project_assets({
+  "characters": {"角色名": {"description": "...", "voice_style": "..."}},
+  "scenes": {"场景名": {"description": "..."}},
+  "props": {"道具名": {"description": "..."}}
+})
 ```
+
+同名条目自动跳过，不覆盖已有定义；工具参数经过结构和长度校验。
 
 ## 字数统计规则
 

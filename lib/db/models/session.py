@@ -13,6 +13,7 @@ class AgentSession(TimestampMixin, UserOwnedMixin, Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     sdk_session_id: Mapped[str] = mapped_column(String, unique=True)
+    sandbox_id: Mapped[str | None] = mapped_column(String, nullable=True)
     project_name: Mapped[str] = mapped_column(String, nullable=False)
     title: Mapped[str] = mapped_column(String, server_default="")
     status: Mapped[str] = mapped_column(String, server_default="idle")
