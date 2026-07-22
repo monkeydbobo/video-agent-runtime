@@ -1,8 +1,8 @@
 """预设 Anthropic 兼容供应商目录。
 
 每条 PresetProvider 提供 messages_url + discovery_url + 「获取 API Key」链接，
-让用户在 UI 上选 chip 即填好 URL。`default_model` 仅作为输入框 placeholder
-提示，不再自动预填到表单。
+让用户在 UI 上选 chip 即填好 URL。`default_model` 同时作为输入框提示和创建凭证时
+未显式填写模型的安全默认值。
 
 新增 entries 在此文件添加；前端 ICON_LOADERS 通过 icon_key 与 @lobehub/icons 对齐。
 """
@@ -163,8 +163,8 @@ PRESET_PROVIDERS: dict[str, PresetProvider] = {
         icon_key="Volcengine",
         messages_url="https://ark.cn-beijing.volces.com/api/coding",
         discovery_url="https://ark.cn-beijing.volces.com",
-        default_model="",
-        suggested_models=(),
+        default_model="ark-code-latest",
+        suggested_models=("ark-code-latest",),
         docs_url="https://www.volcengine.com/docs/82379/1928262",
         api_key_url="https://console.volcengine.com/ark",
         notes_i18n_key="preset_notes_ark_coding_plan",

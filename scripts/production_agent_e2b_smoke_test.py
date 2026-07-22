@@ -56,6 +56,20 @@ async def main() -> None:
         client.headers["Authorization"] = f"Bearer {token}"
         checks["authenticated"] = True
 
+        credentials_response = await _request(client, "GET", "/api/v1/agent/credentials")
+        credentials = credentials_response.json().get("credentials", [])
+        active_credentials = [credential for credential in credentials if credential.get("is_active")]
+        if not active_credentials:
+            safe_summary = [
+                {
+                    "preset_id": credential.get("preset_id"),
+                    "model": credential.get("model"),
+                    "is_active": credential.get("is_active"),
+                }
+                for credential in credentials
+            ]
+            raise RuntimeError(f"no active Agent credential; configured={safe_summary}")
+
         try:
             await _request(
                 client,

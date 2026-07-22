@@ -82,7 +82,7 @@ def test_default_models_match_table() -> None:
         "minimax-cn": "MiniMax-M3",
         "minimax-intl": "MiniMax-M3",
         "kimi": "",
-        "ark-coding-plan": "",
+        "ark-coding-plan": "ark-code-latest",
         "ark-agent-plan": "",
     }
     actual = {p.id: p.default_model for p in list_presets()}
