@@ -74,5 +74,6 @@ EXPOSE 1241
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD curl -f http://localhost:1241/health || exit 1
 
-# 启动命令
-CMD ["uv", "run", "uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "1241"]
+# 启动命令。Railway 等托管平台会通过 PORT 注入监听端口；本地 Docker
+# 使用原有的 1241 默认值。
+CMD ["sh", "-c", "exec uv run uvicorn server.app:app --host 0.0.0.0 --port \"${PORT:-1241}\""]
