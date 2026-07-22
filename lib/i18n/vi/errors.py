@@ -115,6 +115,7 @@ MESSAGES = {
     "session_not_found": "Phiên '{session_id}' không tồn tại",
     "session_or_project_not_found": "Phiên hoặc dự án không tồn tại",
     "sdk_session_timeout": "Tạo phiên SDK quá thời gian",
+    "agent_credential_missing": "Chưa có thông tin xác thực mô hình Agent đang hoạt động. Hãy vào Cài đặt → Agent để thêm và kích hoạt.",
     "agent_startup_failed": "Khởi động agent thất bại:\n{details}",
     "agent_runtime_unavailable": "Bản triển khai này không cung cấp sandbox Agent bắt buộc, nên các tính năng Agent đã được tắt an toàn.",
     "interface_offline": "Giao diện này đã ngừng hoạt động, vui lòng dùng giao diện được khuyến nghị",

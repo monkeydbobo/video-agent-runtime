@@ -8,7 +8,7 @@ import pytest
 
 import server.agent_runtime.e2b_workspace as e2b_module
 from server.agent_runtime.e2b_workspace import REMOTE_PROJECT_ROOT, E2BWorkspaceManager
-from server.agent_runtime.session_manager import SessionManager
+from server.agent_runtime.session_manager import AgentConfigurationError, SessionManager
 from server.agent_runtime.session_store import SessionMetaStore
 
 
@@ -178,3 +178,28 @@ async def test_e2b_options_keep_orchestration_and_reads_but_remove_local_mutatio
 
     denied_write = await callback("Write", {"file_path": "project.json", "content": "{}"}, SimpleNamespace())
     assert "E2B 模式禁止本地工具" in denied_write.message
+
+
+@pytest.mark.asyncio
+async def test_missing_agent_credential_does_not_create_e2b_sandbox(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    projects, _project_dir = _project(tmp_path)
+    monkeypatch.setenv("ARCREEL_AGENT_BACKEND", "e2b")
+    manager = SessionManager(
+        project_root=tmp_path,
+        meta_store=SessionMetaStore(),
+        projects_root=projects,
+        sandbox_enabled=False,
+    )
+    assert manager._e2b_workspaces is not None
+    prepare = AsyncMock(return_value=FakeSandbox())
+    manager._e2b_workspaces.prepare = prepare  # type: ignore[method-assign]
+    manager._options_assembler.build_provider_env_overrides = AsyncMock(  # type: ignore[method-assign]
+        return_value={"ANTHROPIC_API_KEY": "", "ANTHROPIC_BASE_URL": ""}
+    )
+
+    with pytest.raises(AgentConfigurationError):
+        await manager._build_options("demo", runtime_session_key="temporary")
+
+    prepare.assert_not_awaited()

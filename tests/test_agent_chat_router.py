@@ -168,6 +168,21 @@ class TestAgentChatEndpoint:
         assert resp.json()["status"] == "timeout"
         assert resp.json()["reply"] == "部分响应"
 
+    def test_missing_agent_credential_returns_503(self, monkeypatch):
+        from server.agent_runtime.session_manager import AgentConfigurationError
+
+        service = self._patch_service(monkeypatch)
+        service.send_or_create.side_effect = AgentConfigurationError()
+
+        with _make_client() as client:
+            resp = client.post(
+                "/api/v1/agent/chat",
+                json={"project_name": "demo", "message": "测试"},
+            )
+
+        assert resp.status_code == 503
+        assert "设置" in resp.json()["detail"]
+
 
 class _StubSessionManager:
     """A SessionManager whose stream_messages yields a scripted event sequence.

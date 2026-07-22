@@ -226,3 +226,17 @@ class TestAssistantRoutes:
         assert "Agent" in detail or "agent" in detail
         assert "Git for Windows" in detail
         assert "CLAUDE_CODE_GIT_BASH_PATH" in detail
+
+    def test_send_endpoint_reports_missing_agent_credential(self):
+        from server.agent_runtime.session_manager import AgentConfigurationError
+
+        with patch.object(
+            assistant.assistant_service,
+            "send_or_create",
+            new=AsyncMock(side_effect=AgentConfigurationError()),
+        ):
+            with _build_client() as client:
+                response = client.post(f"{PREFIX}/sessions/send", json={"content": "hi"})
+
+        assert response.status_code == 503
+        assert "设置" in response.json()["detail"]

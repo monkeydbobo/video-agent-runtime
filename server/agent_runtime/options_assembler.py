@@ -38,6 +38,10 @@ from claude_agent_sdk.types import HookMatcher, SystemPromptPreset
 SDK_AVAILABLE = True
 
 
+class AgentConfigurationError(RuntimeError):
+    """Agent 模型凭证未配置或未启用。"""
+
+
 async def load_provider_env_overrides() -> dict[str, str]:
     """构造 options.env 注入字典。
 
@@ -281,6 +285,9 @@ class OptionsAssembler:
             }
 
         provider_env = await self.build_provider_env_overrides()
+        # 必须先于 E2B prepare：配置缺失时不能创建并计费远程沙盒。
+        if not provider_env.get("ANTHROPIC_API_KEY", "").strip():
+            raise AgentConfigurationError("Agent model credential is missing or inactive")
         sandbox_typed = policy.build_sandbox_settings(project_cwd)
 
         # Windows 回退：sandbox 关闭时 Bash 系列被剥离出 allowed_tools，

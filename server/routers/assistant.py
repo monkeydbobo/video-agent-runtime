@@ -17,7 +17,12 @@ from lib.api_errors import BadRequestError, ConflictError, ServiceUnavailableErr
 from lib.i18n import Translator, get_locale
 from server.agent_runtime.models import SessionMeta
 from server.agent_runtime.service import AssistantService
-from server.agent_runtime.session_manager import AgentStartupError, SessionBusyError, SessionCapacityError
+from server.agent_runtime.session_manager import (
+    AgentConfigurationError,
+    AgentStartupError,
+    SessionBusyError,
+    SessionCapacityError,
+)
 from server.auth import CurrentUser, CurrentUserFlexible
 
 router = APIRouter()
@@ -100,6 +105,8 @@ async def send_message(
         # 空消息内容 / 非法项目名等坏请求，str(exc) 只进日志
         logger.warning("会话发送请求非法: %s", exc)
         raise BadRequestError("request_invalid") from exc
+    except AgentConfigurationError as exc:
+        raise ServiceUnavailableError("agent_credential_missing") from exc
     except AgentStartupError as exc:
         raise HTTPException(
             status_code=502,

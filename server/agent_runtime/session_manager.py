@@ -41,7 +41,7 @@ from server.agent_runtime.models import (
     SessionStreamEvent,
     SubscriptionReady,
 )
-from server.agent_runtime.options_assembler import OptionsAssembler
+from server.agent_runtime.options_assembler import AgentConfigurationError, OptionsAssembler
 from server.agent_runtime.session_actor import SessionActor, SessionCommand
 from server.agent_runtime.session_store import SessionMetaStore
 from server.agent_runtime.usage_extraction import (

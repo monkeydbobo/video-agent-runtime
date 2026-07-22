@@ -115,6 +115,7 @@ MESSAGES = {
     "session_not_found": "Session '{session_id}' does not exist",
     "session_or_project_not_found": "Session or project does not exist",
     "sdk_session_timeout": "SDK session creation timed out",
+    "agent_credential_missing": "No active Agent model credential. Go to Settings → Agent to add and activate one.",
     "agent_startup_failed": "Failed to start agent:\n{details}",
     "agent_runtime_unavailable": "This deployment does not provide the required Agent sandbox, so Agent features are safely disabled.",
     "interface_offline": "This interface is offline, please use the recommended interface",

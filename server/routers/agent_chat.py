@@ -14,7 +14,7 @@ from lib.api_errors import BadRequestError, ConflictError, ServiceUnavailableErr
 from lib.i18n import Translator, get_locale
 from server.agent_runtime.models import Heartbeat, LiveMessage
 from server.agent_runtime.service import AssistantService
-from server.agent_runtime.session_manager import SessionBusyError, SessionCapacityError
+from server.agent_runtime.session_manager import AgentConfigurationError, SessionBusyError, SessionCapacityError
 from server.auth import CurrentUser
 from server.routers.assistant import get_assistant_service
 
@@ -199,6 +199,8 @@ async def agent_chat(
         session_id = result["session_id"]
     except SessionCapacityError as exc:
         raise ServiceUnavailableError("session_capacity_exceeded") from exc
+    except AgentConfigurationError as exc:
+        raise ServiceUnavailableError("agent_credential_missing") from exc
     except TimeoutError:
         raise HTTPException(status_code=504, detail=_t("sdk_session_timeout"))
     except SessionBusyError as exc:

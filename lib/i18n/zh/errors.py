@@ -112,6 +112,7 @@ MESSAGES = {
     "session_not_found": "会话 '{session_id}' 不存在",
     "session_or_project_not_found": "会话或项目不存在",
     "sdk_session_timeout": "SDK 会话创建超时",
+    "agent_credential_missing": "Agent 模型凭证未配置或未启用，请前往设置 → Agent 添加并激活凭证。",
     "agent_startup_failed": "Agent 启动失败：\n{details}",
     "agent_runtime_unavailable": "当前部署未提供所需的 Agent 沙盒，Agent 功能已安全关闭。",
     "interface_offline": "该接口已下线，请使用推荐的接口",
