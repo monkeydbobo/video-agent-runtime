@@ -72,7 +72,7 @@ EXPOSE 1241
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD curl -f http://localhost:1241/health || exit 1
+    CMD sh -c 'curl -f "http://localhost:${PORT:-1241}/health" || exit 1'
 
 # 启动命令。Railway 等托管平台会通过 PORT 注入监听端口；本地 Docker
 # 使用原有的 1241 默认值。
