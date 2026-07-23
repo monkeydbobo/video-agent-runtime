@@ -9,6 +9,7 @@ def test_all_providers_registered():
         "gemini-vertex",
         "ark",
         "ark-agent-plan",
+        "atlascloud",
         "grok",
         "openai",
         "vidu",

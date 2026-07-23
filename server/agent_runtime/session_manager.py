@@ -20,8 +20,8 @@ from lib.i18n import DEFAULT_LOCALE
 from lib.logging_config import resolve_log_dir
 from server.agent_runtime.agent_access_policy import AgentAccessPolicy
 from server.agent_runtime.backend import agent_runtime_backend
-from server.agent_runtime.entry_pipeline import SessionEntryPipeline
 from server.agent_runtime.e2b_workspace import E2BWorkspaceManager
+from server.agent_runtime.entry_pipeline import SessionEntryPipeline
 from server.agent_runtime.event_log import (
     REPLAYED_USER_ECHO_KEY,
     EventLogStore,
@@ -41,7 +41,8 @@ from server.agent_runtime.models import (
     SessionStreamEvent,
     SubscriptionReady,
 )
-from server.agent_runtime.options_assembler import AgentConfigurationError, OptionsAssembler
+from server.agent_runtime.options_assembler import AgentConfigurationError as AgentConfigurationError
+from server.agent_runtime.options_assembler import OptionsAssembler
 from server.agent_runtime.session_actor import SessionActor, SessionCommand
 from server.agent_runtime.session_store import SessionMetaStore
 from server.agent_runtime.usage_extraction import (
@@ -350,8 +351,10 @@ class SessionManager:
             user_id_provider=lambda: getattr(self, "_user_id", DEFAULT_USER_ID),
             execution_backend=self._execution_backend,
             e2b_workspaces=self._e2b_workspaces,
-            sandbox_id_provider=self._get_persisted_sandbox_id,
-            sandbox_id_updater=self.meta_store.update_sandbox_id,
+            sandbox_id_provider=self._get_persisted_sandbox_id if self._execution_backend == "e2b" else None,
+            sandbox_id_updater=(
+                self.meta_store.update_sandbox_id if self._execution_backend == "e2b" else None
+            ),
         )
 
     async def _get_persisted_sandbox_id(self, session_id: str) -> str | None:

@@ -72,6 +72,7 @@ class _FakeSessionManager:
         self.buffer = []
         self.pending = []
         self.close_error = None
+        self.deleted_sandboxes = []
 
     async def send_new_session(self, project_name, prompt, **kwargs):
         self.new_sessions.append((project_name, prompt))
@@ -99,6 +100,9 @@ class _FakeSessionManager:
         if self.close_error is not None:
             raise self.close_error
         self.sessions.pop(session_id, None)
+
+    async def delete_remote_sandbox(self, session_id, *, sandbox_id=None):
+        self.deleted_sandboxes.append((session_id, sandbox_id))
 
     async def shutdown_gracefully(self):
         return None

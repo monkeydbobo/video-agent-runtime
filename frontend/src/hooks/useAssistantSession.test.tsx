@@ -729,11 +729,12 @@ describe("useAssistantSession", () => {
     expect(MockEventSource.instances[1].url).toContain("after=1");
   });
 
-  it("accepts a terminal first snapshot when a newly created session completes before streaming connects", async () => {
+  it("accepts a terminal status when a newly created session completes before streaming connects", async () => {
     vi.spyOn(API, "listAssistantSessions").mockResolvedValue({ sessions: [] });
     vi.spyOn(API, "sendAssistantMessage").mockResolvedValue({
       session_id: "session-new",
       status: "accepted",
+      entry: userEntry(0, "hello"),
     });
 
     const { result } = renderHook(() => useAssistantSession("demo"));
@@ -751,22 +752,12 @@ describe("useAssistantSession", () => {
     expect(MockEventSource.instances).toHaveLength(1);
 
     act(() => {
-      MockEventSource.instances[0].emit("snapshot", makeSnapshot({
-        session_id: "session-new",
-        status: "completed",
-        turns: [
-          {
-            type: "user",
-            uuid: "real-user-new",
-            content: [{ type: "text", text: "hello" }],
-          },
-          {
-            type: "assistant",
-            uuid: "assistant-new",
-            content: [{ type: "text", text: "hi" }],
-          },
-        ],
-      }));
+      MockEventSource.instances[0].emit("entry", {
+        seq: 1,
+        type: "assistant",
+        uuid: "assistant-new",
+        content: [{ type: "text", text: "hi" }],
+      });
       MockEventSource.instances[0].emit("status", {
         session_id: "session-new",
         status: "completed",

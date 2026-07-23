@@ -78,7 +78,7 @@ async def main() -> None:
                 json={
                     "name": project_name,
                     "title": "E2B 生产验收",
-                    "content_mode": "marketing",
+                    "content_mode": "ad",
                     "aspect_ratio": "9:16",
                     "generation_mode": "storyboard",
                 },
@@ -102,17 +102,25 @@ async def main() -> None:
             checks["session_created"] = True
 
             deadline = time.monotonic() + 240
-            last_snapshot: dict = {}
+            last_state: dict = {}
             while time.monotonic() < deadline:
-                snapshot_response = await _request(
+                session_response = await _request(
                     client,
                     "GET",
-                    f"/api/v1/projects/{project_name}/assistant/sessions/{session_id}/snapshot",
+                    f"/api/v1/projects/{project_name}/assistant/sessions/{session_id}",
                 )
-                last_snapshot = snapshot_response.json()
-                serialized = json.dumps(last_snapshot, ensure_ascii=False)
+                entries_response = await _request(
+                    client,
+                    "GET",
+                    f"/api/v1/projects/{project_name}/assistant/sessions/{session_id}/entries",
+                )
+                last_state = {
+                    "session": session_response.json(),
+                    "event_log": entries_response.json(),
+                }
+                serialized = json.dumps(last_state, ensure_ascii=False)
                 checks["e2b_tool_observed"] = "mcp__e2b__bash" in serialized or '"name": "bash"' in serialized
-                status = str(last_snapshot.get("status", ""))
+                status = str(last_state["session"].get("status", ""))
                 if status in {"idle", "completed", "error", "interrupted"}:
                     checks["turn_completed"] = status in {"idle", "completed"}
                     break
@@ -134,14 +142,12 @@ async def main() -> None:
                     "file_synced",
                 )
             ):
-                status = last_snapshot.get("status", "unknown")
+                status = last_state.get("session", {}).get("status", "unknown")
                 # This is a dedicated temporary project containing only the
-                # fixed smoke prompt, so a bounded snapshot is safe and makes
+                # fixed smoke prompt, so a bounded event log is safe and makes
                 # model/tool-routing failures diagnosable without exposing auth.
-                snapshot = json.dumps(last_snapshot, ensure_ascii=False, sort_keys=True)[-8_000:]
-                raise RuntimeError(
-                    f"production Agent E2B checks failed (status={status}): {checks}; snapshot={snapshot}"
-                )
+                event_log = json.dumps(last_state, ensure_ascii=False, sort_keys=True)[-8_000:]
+                raise RuntimeError(f"production Agent E2B checks failed (status={status}): {checks}; state={event_log}")
         finally:
             if session_id is not None:
                 response = await client.delete(f"/api/v1/projects/{project_name}/assistant/sessions/{session_id}")

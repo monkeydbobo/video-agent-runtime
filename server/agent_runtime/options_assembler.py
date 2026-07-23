@@ -286,7 +286,7 @@ class OptionsAssembler:
 
         provider_env = await self.build_provider_env_overrides()
         # 必须先于 E2B prepare：配置缺失时不能创建并计费远程沙盒。
-        if not provider_env.get("ANTHROPIC_API_KEY", "").strip():
+        if self._execution_backend == "e2b" and not provider_env.get("ANTHROPIC_API_KEY", "").strip():
             raise AgentConfigurationError("Agent model credential is missing or inactive")
         sandbox_typed = policy.build_sandbox_settings(project_cwd)
 
