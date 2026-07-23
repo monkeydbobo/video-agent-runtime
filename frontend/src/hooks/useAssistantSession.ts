@@ -360,6 +360,12 @@ export function useAssistantSession(projectName: string | null) {
           store.getState().setIsDraftSession(false);
           saveLastSessionId(projectName!, returnedSessionId);
           sessionId = returnedSessionId;
+
+          // 新会话在 send 返回前不存在旧 SSE 状态，因此首个 terminal
+          // snapshot 不可能是 stale。部分兼容供应商直到整轮结束才返回
+          // sdk_session_id；此时必须结束 sending，让 completed snapshot
+          // 被正常接收，否则会被旧会话竞态守卫丢弃并无限重连。
+          store.getState().setSending(false);
         }
 
         if (store.getState().currentSessionId !== sessionId) return false;

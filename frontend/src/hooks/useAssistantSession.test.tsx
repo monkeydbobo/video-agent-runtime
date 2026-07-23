@@ -728,4 +728,54 @@ describe("useAssistantSession", () => {
     expect(MockEventSource.instances).toHaveLength(2);
     expect(MockEventSource.instances[1].url).toContain("after=1");
   });
+
+  it("accepts a terminal first snapshot when a newly created session completes before streaming connects", async () => {
+    vi.spyOn(API, "listAssistantSessions").mockResolvedValue({ sessions: [] });
+    vi.spyOn(API, "sendAssistantMessage").mockResolvedValue({
+      session_id: "session-new",
+      status: "accepted",
+    });
+
+    const { result } = renderHook(() => useAssistantSession("demo"));
+
+    await waitFor(() => {
+      expect(useAssistantStore.getState().messagesLoading).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.sendMessage("hello");
+    });
+
+    expect(useAssistantStore.getState().currentSessionId).toBe("session-new");
+    expect(useAssistantStore.getState().sending).toBe(false);
+    expect(MockEventSource.instances).toHaveLength(1);
+
+    act(() => {
+      MockEventSource.instances[0].emit("snapshot", makeSnapshot({
+        session_id: "session-new",
+        status: "completed",
+        turns: [
+          {
+            type: "user",
+            uuid: "real-user-new",
+            content: [{ type: "text", text: "hello" }],
+          },
+          {
+            type: "assistant",
+            uuid: "assistant-new",
+            content: [{ type: "text", text: "hi" }],
+          },
+        ],
+      }));
+      MockEventSource.instances[0].emit("status", {
+        session_id: "session-new",
+        status: "completed",
+      });
+    });
+
+    expect(useAssistantStore.getState().sessionStatus).toBe("completed");
+    expect(useAssistantStore.getState().sending).toBe(false);
+    expect(useAssistantStore.getState().turns.at(-1)?.content[0].text).toBe("hi");
+    expect(MockEventSource.instances[0].close).toHaveBeenCalled();
+  });
 });
