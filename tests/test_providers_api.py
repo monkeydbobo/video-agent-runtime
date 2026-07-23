@@ -1016,3 +1016,42 @@ class TestArkAgentPlanConnectionTest:
                 resp = client.post("/api/v1/providers/ark-agent-plan/test")
         assert resp.status_code == 200
         assert captured["base_url"] == "https://custom.example.com/v9"
+
+
+class TestAtlasCloudConnection:
+    def test_atlascloud_is_dispatched(self):
+        assert providers._TEST_DISPATCH["atlascloud"] is providers._test_atlascloud
+
+    def test_not_found_prediction_means_authentication_succeeded(self):
+        response = MagicMock(status_code=404)
+
+        def translator(key: str) -> str:
+            return "连接成功" if key == "connection_success" else key
+
+        with patch("server.routers.providers.httpx.get", return_value=response) as request:
+            result = providers._test_atlascloud(
+                {"api_key": "configured-key", "base_url": "https://api.atlascloud.ai/api/v1"},
+                translator,
+            )
+
+        assert result.success is True
+        assert result.message == "连接成功"
+        response.raise_for_status.assert_not_called()
+        request.assert_called_once_with(
+            "https://api.atlascloud.ai/api/v1/model/prediction/arcreel-connection-test",
+            headers={"Authorization": "Bearer configured-key"},
+            timeout=15,
+        )
+
+    def test_unauthorized_prediction_fails_connection_test(self):
+        response = MagicMock(status_code=401)
+        response.raise_for_status.side_effect = RuntimeError("unauthorized")
+
+        with (
+            patch("server.routers.providers.httpx.get", return_value=response),
+            pytest.raises(RuntimeError, match="unauthorized"),
+        ):
+            providers._test_atlascloud(
+                {"api_key": "invalid-key", "base_url": "https://api.atlascloud.ai/api/v1"},
+                lambda key: key,
+            )

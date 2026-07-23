@@ -14,6 +14,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
 
+import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import AfterValidator, BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -827,8 +828,6 @@ def _test_kling(config: dict[str, str], _t: Callable[..., str]) -> ConnectionTes
     """
     import time
 
-    import httpx
-
     from lib.kling_shared import (
         KLING_BASE_URL,
         KlingJWTManager,
@@ -878,11 +877,33 @@ def _test_kling(config: dict[str, str], _t: Callable[..., str]) -> ConnectionTes
     )
 
 
+def _test_atlascloud(config: dict[str, str], _t: Callable[..., str]) -> ConnectionTestResponse:
+    """用不存在的 prediction 做无计费鉴权探测。
+
+    AtlasCloud 会先校验 Bearer token：有效密钥访问不存在的 prediction 返回
+    404，错误密钥返回 401；该请求不会创建生成任务。
+    """
+    base_url = config["base_url"].rstrip("/")
+    response = httpx.get(
+        f"{base_url}/model/prediction/arcreel-connection-test",
+        headers={"Authorization": f"Bearer {config['api_key']}"},
+        timeout=_CONNECTION_TEST_TIMEOUT,
+    )
+    if response.status_code != 404:
+        response.raise_for_status()
+    return ConnectionTestResponse(
+        success=True,
+        available_models=[],
+        message=_t("connection_success"),
+    )
+
+
 _TEST_DISPATCH: dict[str, Callable[[dict[str, str], Any], ConnectionTestResponse]] = {
     "gemini-aistudio": _test_gemini_aistudio,
     "gemini-vertex": _test_gemini_vertex,
     "ark": _test_ark,
     "ark-agent-plan": _test_ark,
+    "atlascloud": _test_atlascloud,
     "grok": _test_grok,
     "openai": _test_openai,
     "vidu": _test_vidu,

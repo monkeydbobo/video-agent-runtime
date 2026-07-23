@@ -13,6 +13,12 @@ def test_provider_meta_default_base_url_optional() -> None:
     assert gemini.default_base_url is None
 
 
+def test_atlascloud_is_image_only() -> None:
+    atlascloud = PROVIDER_REGISTRY["atlascloud"]
+    assert atlascloud.media_types == ["image"]
+    assert atlascloud.default_base_url == "https://api.atlascloud.ai/api/v1"
+
+
 def test_ark_agent_plan_registered() -> None:
     p = PROVIDER_REGISTRY["ark-agent-plan"]
     assert p.default_base_url == "https://ark.cn-beijing.volces.com/api/plan/v3"
