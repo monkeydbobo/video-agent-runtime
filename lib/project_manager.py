@@ -223,8 +223,12 @@ class ProjectManager:
         self.projects_root.mkdir(parents=True, exist_ok=True)
 
     def list_projects(self) -> list[str]:
-        """列出所有项目"""
-        return [d.name for d in self.projects_root.iterdir() if d.is_dir() and not d.name.startswith((".", "_"))]
+        """列出合法项目目录，忽略卷文件系统保留目录等非项目条目。"""
+        return [
+            d.name
+            for d in self.projects_root.iterdir()
+            if d.is_dir() and not d.name.startswith((".", "_")) and PROJECT_NAME_PATTERN.fullmatch(d.name)
+        ]
 
     def get_global_assets_root(self) -> Path:
         """返回全局资产根目录，并确保 character/scene/prop 子目录存在。"""

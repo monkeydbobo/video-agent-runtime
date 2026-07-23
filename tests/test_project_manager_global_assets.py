@@ -16,5 +16,14 @@ def test_get_global_assets_root_creates_subdirs(tmp_path):
 def test_list_projects_skips_global_assets(tmp_path):
     pm = ProjectManager(tmp_path / "projects")
     pm.get_global_assets_root()  # 生成 _global_assets
-    (pm.projects_root / "my_project").mkdir()
-    assert pm.list_projects() == ["my_project"]
+    (pm.projects_root / "my-project").mkdir()
+    assert pm.list_projects() == ["my-project"]
+
+
+def test_list_projects_skips_filesystem_lost_found(tmp_path):
+    """卷文件系统的 lost+found 不是 ArcReel 项目，不能出现在项目列表。"""
+    pm = ProjectManager(tmp_path / "projects")
+    (pm.projects_root / "lost+found").mkdir()
+    (pm.projects_root / "valid-project").mkdir()
+
+    assert pm.list_projects() == ["valid-project"]

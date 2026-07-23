@@ -827,6 +827,8 @@ async def delete_project(name: str, _user: CurrentUser, _t: Translator):
         return await asyncio.to_thread(_sync)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=_t("project_not_found", name=name))
+    except ValueError as exc:
+        raise BadRequestError("invalid_project_name", name=name) from exc
     except HTTPException:
         raise
     except Exception:

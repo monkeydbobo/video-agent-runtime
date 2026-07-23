@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from lib.i18n.zh import errors as zh_errors
-from lib.project_manager import EmptySourceError
+from lib.project_manager import EmptySourceError, ProjectManager
 from server.auth import CurrentUserInfo, get_current_user
 from server.error_handlers import register_error_handlers
 from server.routers import projects
@@ -1571,6 +1571,13 @@ class TestUnexpectedErrorsDoNotLeak:
             resp = client.delete("/api/v1/projects/remove-me")
             assert resp.status_code == 500
             assert sentinel not in self._body(resp)
+
+    def test_delete_invalid_project_identifier_maps_to_400(self, tmp_path, monkeypatch):
+        """卷系统目录等非法标识不能落成 500，也不能进入删除实现。"""
+        client = _client(monkeypatch, ProjectManager(tmp_path / "projects"), _FakeCalc())
+        with client:
+            resp = client.delete("/api/v1/projects/lost%2Bfound")
+            assert resp.status_code == 400
 
     def test_get_script_unexpected_error_maps_to_500(self, tmp_path, monkeypatch):
         sentinel = "LEAKED_SECRET_get_script"
