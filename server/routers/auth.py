@@ -9,14 +9,16 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from lib.i18n import Translator
 from server.auth import (
     CurrentUser,
-    check_credentials,
+    create_registered_user,
     create_token,
+    authenticate_credentials,
     is_auth_enabled,
+    is_registration_enabled,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,6 +41,12 @@ class VerifyResponse(BaseModel):
 
 class AuthStatusResponse(BaseModel):
     enabled: bool
+    registration_enabled: bool
+
+
+class RegisterRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=64, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+    password: str = Field(min_length=8, max_length=128)
 
 
 # ==================== 路由 ====================
@@ -53,7 +61,7 @@ async def auth_status():
     登录链路。本接口本身**不要求认证**——一个 boolean 比 401 探针更直观，
     且实际"是否需要登录"通过 401/200 也能从外部观察到，因此不增量泄露。
     """
-    return AuthStatusResponse(enabled=is_auth_enabled())
+    return AuthStatusResponse(enabled=is_auth_enabled(), registration_enabled=is_registration_enabled())
 
 
 @router.post("/auth/token", response_model=TokenResponse)
@@ -67,7 +75,8 @@ async def login_for_access_token(
     ``AUTH_ENABLED=false`` 时跳过凭据校验，直接签发 token，让前端
     LoginPage 即便被打开也能正常跳转主界面。
     """
-    if is_auth_enabled() and not check_credentials(form_data.username, form_data.password):
+    user = await authenticate_credentials(form_data.username, form_data.password)
+    if user is None:
         logger.warning("登录失败: 用户名或密码错误 (用户: %s)", form_data.username)
         raise HTTPException(
             status_code=401,
@@ -75,9 +84,23 @@ async def login_for_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    token = create_token(form_data.username)
+    token = create_token(user.sub, user_id=user.id, role=user.role)
     logger.info("用户登录成功: %s", form_data.username)
     return TokenResponse(access_token=token, token_type="bearer")
+
+
+@router.post("/auth/register", response_model=TokenResponse, status_code=201)
+async def register(req: RegisterRequest, _t: Translator):
+    """Register a user and sign them in immediately."""
+    if not is_registration_enabled():
+        raise HTTPException(status_code=403, detail=_t("registration_disabled"))
+
+    user = await create_registered_user(req.username, req.password)
+    if user is None:
+        raise HTTPException(status_code=409, detail=_t("username_taken"))
+
+    logger.info("用户注册成功: %s", user.sub)
+    return TokenResponse(access_token=create_token(user.sub, user_id=user.id, role=user.role), token_type="bearer")
 
 
 @router.get("/auth/verify", response_model=VerifyResponse)

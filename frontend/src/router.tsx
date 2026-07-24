@@ -11,6 +11,7 @@ import { SystemConfigPage } from "@/components/pages/SystemConfigPage";
 import { ProjectSettingsPage } from "@/components/pages/ProjectSettingsPage";
 import { AssetLibraryPage } from "@/components/pages/AssetLibraryPage";
 import { LoginPage } from "@/pages/LoginPage";
+import { RegisterPage } from "@/pages/RegisterPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { ToastOverlay } from "@/components/layout/ToastOverlay";
 import { API } from "@/api";
@@ -150,6 +151,7 @@ export function AppRoutes() {
       <Switch>
         {/* Login page */}
         <Route path="/login" component={LoginPage} />
+        <Route path="/register" component={RegisterPage} />
 
         {/* Root redirects to projects list */}
         <Route path="/">

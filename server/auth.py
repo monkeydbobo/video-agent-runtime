@@ -11,6 +11,7 @@ import os
 import secrets
 import string
 import time
+import uuid
 from collections import OrderedDict
 from datetime import UTC
 from pathlib import Path
@@ -21,6 +22,7 @@ from fastapi import Depends, HTTPException, Query
 from fastapi.security import OAuth2PasswordBearer
 from pwdlib import PasswordHash
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import select
 
 from lib import PROJECT_ROOT
 
@@ -57,6 +59,15 @@ def is_auth_enabled() -> bool:
     ``false`` / ``0`` / ``no`` / ``off`` 一律视为关闭（不区分大小写）。
     """
     return os.environ.get("AUTH_ENABLED", "true").strip().lower() not in _AUTH_DISABLED_VALUES
+
+
+def is_registration_enabled() -> bool:
+    """Whether visitors may create database-backed accounts.
+
+    Registration is only meaningful while authentication is enabled. Deployments
+    that are intentionally single-user can set ``AUTH_REGISTRATION_ENABLED=false``.
+    """
+    return is_auth_enabled() and os.environ.get("AUTH_REGISTRATION_ENABLED", "true").strip().lower() not in _AUTH_DISABLED_VALUES
 
 
 def _anonymous_user() -> "CurrentUserInfo":
@@ -103,7 +114,7 @@ def get_token_secret() -> str:
     return _cached_token_secret
 
 
-def create_token(username: str) -> str:
+def create_token(username: str, *, user_id: str | None = None, role: str = "admin") -> str:
     """创建 JWT token
 
     Args:
@@ -115,6 +126,8 @@ def create_token(username: str) -> str:
     now = time.time()
     payload = {
         "sub": username,
+        "uid": user_id or "default",
+        "role": role,
         "iat": now,
         "exp": now + TOKEN_EXPIRY_SECONDS,
     }
@@ -202,6 +215,49 @@ def check_credentials(username: str, password: str) -> bool:
     username_ok = secrets.compare_digest(username, expected_username)
     password_ok = _password_hash.verify(password, pw_hash)
     return username_ok and password_ok
+
+
+async def authenticate_credentials(username: str, password: str) -> CurrentUserInfo | None:
+    """Authenticate either the legacy environment administrator or a registered user."""
+    if not is_auth_enabled():
+        return _anonymous_user()
+
+    if check_credentials(username, password):
+        from lib.db.base import DEFAULT_USER_ID
+
+        return CurrentUserInfo(id=DEFAULT_USER_ID, sub=username, role="admin")
+
+    from lib.db import async_session_factory
+    from lib.db.models.user import User
+
+    async with async_session_factory() as session:
+        user = (await session.execute(select(User).where(User.username == username))).scalar_one_or_none()
+
+    # Always run a password verification, including unknown users and legacy
+    # rows without a password hash, to avoid making account existence observable
+    # through timing.
+    password_hash = user.password_hash if user is not None else _password_hash.hash("invalid-password")
+    password_ok = _password_hash.verify(password, password_hash) if password_hash else False
+    if user is None or not user.is_active or not password_ok:
+        return None
+    return CurrentUserInfo(id=user.id, sub=user.username, role=user.role)
+
+
+async def create_registered_user(username: str, password: str) -> CurrentUserInfo | None:
+    """Create a regular user, returning ``None`` when the username already exists."""
+    from sqlalchemy.exc import IntegrityError
+
+    from lib.db import async_session_factory
+    from lib.db.models.user import User
+
+    user = User(id=str(uuid.uuid4()), username=username, password_hash=_password_hash.hash(password), role="user")
+    try:
+        async with async_session_factory() as session:
+            session.add(user)
+            await session.commit()
+    except IntegrityError:
+        return None
+    return CurrentUserInfo(id=user.id, sub=user.username, role=user.role)
 
 
 def ensure_auth_password(env_path: str | None = None) -> str:
@@ -428,7 +484,9 @@ def _payload_to_user(payload: dict) -> CurrentUserInfo:
     from lib.db.base import DEFAULT_USER_ID
 
     sub = payload.get("sub", "")
-    return CurrentUserInfo(id=DEFAULT_USER_ID, sub=sub, role="admin")
+    user_id = payload.get("uid", DEFAULT_USER_ID)
+    role = payload.get("role", "admin")
+    return CurrentUserInfo(id=str(user_id), sub=sub, role=str(role))
 
 
 async def get_current_user(

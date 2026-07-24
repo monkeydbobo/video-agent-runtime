@@ -32,6 +32,8 @@ MESSAGES = {
     "file_too_large": "文件大小超出限制（最大约 {max_chars} 字符）",
     "invalid_encoding": "文件编码错误，请使用 UTF-8 编码的文本文件",
     "unauthorized": "用户名或密码错误",
+    "username_taken": "该用户名已被占用",
+    "registration_disabled": "当前未开放注册",
     "task_not_found": "任务 '{id}' 不存在",
     # 任务失败原因（GenerationWorker 写入错误码 + 参数，tasks API 读取时按语言渲染）
     "task_fail_provider_unsupported_media": "供应商 {provider_id} 不支持 {media_type} 生成",

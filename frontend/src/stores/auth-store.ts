@@ -6,6 +6,7 @@ interface AuthState {
   username: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  registrationEnabled: boolean;
   initialize: () => void;
   login: (token: string, username: string) => void;
   logout: () => void;
@@ -17,6 +18,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   username: null,
   isAuthenticated: false,
   isLoading: true,
+  registrationEnabled: false,
 
   initialize: () => {
     const token = getToken();
@@ -36,11 +38,16 @@ export const useAuthStore = create<AuthState>((set) => ({
         if (
           typeof payload !== "object" ||
           payload === null ||
-          typeof (payload as { enabled?: unknown }).enabled !== "boolean"
+          typeof (payload as { enabled?: unknown }).enabled !== "boolean" ||
+          typeof (payload as { registration_enabled?: unknown }).registration_enabled !== "boolean"
         ) {
           throw new Error("invalid /auth/status payload");
         }
-        const { enabled } = payload as { enabled: boolean };
+        const { enabled, registration_enabled: registrationEnabled } = payload as {
+          enabled: boolean;
+          registration_enabled: boolean;
+        };
+        set({ registrationEnabled });
         if (!enabled) {
           set({ isAuthenticated: true });
         }

@@ -64,6 +64,35 @@ class TestLoginRoute:
         assert resp.status_code == 401
 
 
+class TestRegistrationRoute:
+    def test_register_success(self, client, monkeypatch):
+        user = auth_module.CurrentUserInfo(id="user-1", sub="alice", role="user")
+        monkeypatch.setattr(auth_router, "is_registration_enabled", lambda: True)
+        monkeypatch.setattr(auth_router, "create_registered_user", lambda *_: _return(user))
+
+        resp = client.post("/api/v1/auth/register", json={"username": "alice", "password": "a-password"})
+        assert resp.status_code == 201
+        payload = auth_module.verify_token(resp.json()["access_token"])
+        assert payload is not None
+        assert payload["uid"] == "user-1"
+        assert payload["role"] == "user"
+
+    def test_register_rejects_duplicate_username(self, client, monkeypatch):
+        monkeypatch.setattr(auth_router, "is_registration_enabled", lambda: True)
+        monkeypatch.setattr(auth_router, "create_registered_user", lambda *_: _return(None))
+
+        resp = client.post("/api/v1/auth/register", json={"username": "alice", "password": "a-password"})
+        assert resp.status_code == 409
+
+    def test_register_validates_username_and_password(self, client):
+        resp = client.post("/api/v1/auth/register", json={"username": "!", "password": "short"})
+        assert resp.status_code == 422
+
+
+async def _return(value):
+    return value
+
+
 class TestVerifyRoute:
     def test_verify_valid_token(self, client):
         """有效 token 验证通过"""

@@ -29,6 +29,7 @@ export function LoginPage() {
   const [, setLocation] = useLocation();
   const search = useSearch();
   const login = useAuthStore((s) => s.login);
+  const registrationEnabled = useAuthStore((s) => s.registrationEnabled);
   const usernameRef = useAutoFocus<HTMLInputElement>();
 
   // 登录页不展示产品品牌名；标签页标题也只用「登录」
@@ -147,6 +148,16 @@ export function LoginPage() {
             {loading && <Loader2 aria-hidden className="h-4 w-4 motion-safe:animate-spin" />}
             {loading ? t("auth:logging_in") : t("auth:login")}
           </button>
+
+          {registrationEnabled && (
+            <button
+              type="button"
+              onClick={() => setLocation(`/register${search}`)}
+              className="w-full text-sm text-text-3 transition-colors hover:text-text"
+            >
+              {t("auth:no_account_register")}
+            </button>
+          )}
         </form>
       </div>
     </div>

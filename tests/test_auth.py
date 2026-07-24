@@ -113,6 +113,17 @@ class TestCheckCredentials:
             assert auth_module.check_credentials("admin", "secret") is True
 
 
+class TestRegistrationSettings:
+    def test_registration_enabled_by_default(self):
+        with patch.dict(os.environ, {"AUTH_ENABLED": "true"}, clear=False):
+            os.environ.pop("AUTH_REGISTRATION_ENABLED", None)
+            assert auth_module.is_registration_enabled() is True
+
+    def test_registration_disabled_when_auth_is_off(self):
+        with patch.dict(os.environ, {"AUTH_ENABLED": "false"}, clear=False):
+            assert auth_module.is_registration_enabled() is False
+
+
 class TestEnsureAuthPassword:
     def setup_method(self):
         """每个测试前重置缓存"""
