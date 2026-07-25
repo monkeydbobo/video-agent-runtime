@@ -99,7 +99,7 @@ export function ArchiveDiagnosticsDialog({
               style={{
                 background: tone.soft,
                 border: `1px solid ${tone.ring}`,
-                boxShadow: "inset 0 1px 0 oklch(1 0 0 / 0.03)",
+                boxShadow: "inset 0 1px 0 oklch(0.35 0.02 265 / 0.04)",
               }}
             >
               <div className="mb-2.5 flex items-center gap-2">
@@ -107,7 +107,7 @@ export function ArchiveDiagnosticsDialog({
                   aria-hidden
                   className="grid h-6 w-6 place-items-center rounded-md"
                   style={{
-                    background: "oklch(0.16 0.010 265 / 0.6)",
+                    background: "oklch(0.992 0.008 265 / 0.78)",
                     border: `1px solid ${tone.ring}`,
                     color: tone.color,
                   }}
@@ -133,7 +133,7 @@ export function ArchiveDiagnosticsDialog({
                     key={`${section.key}-${item.code}-${item.location ?? index}`}
                     className="rounded-lg px-3 py-2"
                     style={{
-                      background: "oklch(0.16 0.010 265 / 0.5)",
+                      background: "oklch(0.992 0.008 265 / 0.73)",
                       border: "1px solid var(--color-hairline-soft)",
                       color: "var(--color-text-2)",
                     }}

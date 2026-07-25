@@ -77,15 +77,15 @@ export function EpisodeCard({
         gridTemplateColumns: "auto 1fr auto",
         marginBottom: 3,
         background: active
-          ? "linear-gradient(180deg, oklch(0.26 0.018 290 / 0.55), oklch(0.22 0.015 280 / 0.4))"
+          ? "linear-gradient(180deg, oklch(0.937 0.012 290 / 0.75), oklch(0.959 0.010 280 / 0.67))"
           : "transparent",
         border: active ? "1px solid var(--color-accent-soft)" : "1px solid transparent",
         boxShadow: active
-          ? "0 0 0 1px var(--color-accent-soft), 0 4px 12px -6px oklch(0 0 0 / 0.5), inset 0 1px 0 oklch(1 0 0 / 0.04)"
+          ? "0 0 0 1px var(--color-accent-soft), 0 4px 12px -6px oklch(0.30 0.04 265 / 0.12), inset 0 1px 0 oklch(0.35 0.02 265 / 0.05)"
           : "none",
       }}
       onMouseEnter={(e) => {
-        if (!active) e.currentTarget.style.background = "oklch(0.24 0.012 265 / 0.4)";
+        if (!active) e.currentTarget.style.background = "oklch(0.948 0.009 265 / 0.67)";
       }}
       onMouseLeave={(e) => {
         if (!active) e.currentTarget.style.background = "transparent";
@@ -96,11 +96,11 @@ export function EpisodeCard({
         style={{
           background: active
             ? "linear-gradient(135deg, var(--color-accent) 0%, oklch(0.45 0.12 285) 100%)"
-            : "linear-gradient(180deg, oklch(0.28 0.013 265), oklch(0.24 0.012 265))",
-          color: active ? "oklch(0.14 0 0)" : "var(--color-text-3)",
+            : "linear-gradient(180deg, oklch(0.926 0.009 265), oklch(0.948 0.009 265))",
+          color: active ? "oklch(0.99 0 0)" : "var(--color-text-3)",
           boxShadow: active
-            ? "inset 0 1px 0 oklch(1 0 0 / 0.25), 0 0 0 1px oklch(1 0 0 / 0.12), 0 2px 6px -2px var(--color-accent-glow)"
-            : "inset 0 1px 0 oklch(1 0 0 / 0.04), inset 0 0 0 1px var(--color-hairline-soft)",
+            ? "inset 0 1px 0 oklch(1 0 0 / 0.30), 0 0 0 1px oklch(1 0 0 / 0.12), 0 2px 6px -2px var(--color-accent-glow)"
+            : "inset 0 1px 0 oklch(0.35 0.02 265 / 0.05), inset 0 0 0 1px var(--color-hairline-soft)",
         }}
       >
         {showEpisodeBadge ? `E${ep.episode}` : <Clapperboard className="h-4 w-4" aria-hidden />}
@@ -146,7 +146,7 @@ export function EpisodeCard({
         {showProgress && (
           <div
             className="mt-[5px] h-[2px] overflow-hidden rounded-[1px]"
-            style={{ background: "oklch(0.22 0.010 265)" }}
+            style={{ background: "oklch(0.959 0.008 265)" }}
           >
             <div
               className="h-full"

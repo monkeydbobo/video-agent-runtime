@@ -27,10 +27,10 @@ interface ImageEditButtonProps {
 
 const FIELD_STYLE: CSSProperties = {
   background:
-    "linear-gradient(180deg, oklch(0.20 0.011 265 / 0.6), oklch(0.18 0.010 265 / 0.45))",
+    "linear-gradient(180deg, oklch(0.970 0.008 265 / 0.78), oklch(0.981 0.008 265 / 0.70))",
   border: "1px solid var(--color-hairline)",
   color: "var(--color-text)",
-  boxShadow: "inset 0 1px 2px oklch(0 0 0 / 0.2)",
+  boxShadow: "inset 0 1px 2px oklch(0.30 0.04 265 / 0.08)",
 };
 
 /**
@@ -93,7 +93,7 @@ export function ImageEditButton({
         disabled={disabled}
         title={triggerTitle}
         aria-label={t("image_edit_action")}
-        className="focus-ring inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-[oklch(1_0_0_/_0.05)] disabled:cursor-not-allowed disabled:opacity-40"
+        className="focus-ring inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-[oklch(0.35_0.02_265_/_0.06)] disabled:cursor-not-allowed disabled:opacity-40"
         style={{ color: "var(--color-text-3)" }}
       >
         <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -154,7 +154,7 @@ export function ImageEditButton({
               type="button"
               onClick={close}
               disabled={submitting}
-              className="focus-ring rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors hover:bg-[oklch(1_0_0_/_0.05)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="focus-ring rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors hover:bg-[oklch(0.35_0.02_265_/_0.06)] disabled:cursor-not-allowed disabled:opacity-50"
               style={{ color: "var(--color-text-2)" }}
             >
               {t("common:cancel")}
@@ -165,7 +165,7 @@ export function ImageEditButton({
               disabled={submitting || instruction.trim().length === 0 || disabled}
               className="focus-ring inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium transition-transform disabled:cursor-not-allowed disabled:opacity-50"
               style={{
-                color: "oklch(0.14 0 0)",
+                color: "oklch(0.99 0 0)",
                 background:
                   "linear-gradient(135deg, var(--color-accent-2), var(--color-accent))",
                 boxShadow:

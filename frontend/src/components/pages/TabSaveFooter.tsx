@@ -14,11 +14,11 @@ interface TabSaveFooterProps {
 
 const FOOTER_DIRTY_STYLE: CSSProperties = {
   background:
-    "linear-gradient(180deg, oklch(0.20 0.011 265 / 0.65), oklch(0.15 0.010 265 / 0.55))",
+    "linear-gradient(180deg, oklch(0.970 0.008 265 / 0.81), oklch(0.995 0.008 265 / 0.75))",
   backdropFilter: "blur(28px) saturate(1.5)",
   WebkitBackdropFilter: "blur(28px) saturate(1.5)",
   borderTop: "1px solid var(--color-hairline)",
-  boxShadow: "0 -8px 24px -12px oklch(0 0 0 / 0.45)",
+  boxShadow: "0 -8px 24px -12px oklch(0.30 0.04 265 / 0.10)",
 };
 
 export function TabSaveFooter({
@@ -84,7 +84,7 @@ export function TabSaveFooter({
             isDirty
               ? ACCENT_BUTTON_STYLE
               : {
-                  background: "oklch(0.20 0.010 265 / 0.55)",
+                  background: "oklch(0.970 0.008 265 / 0.75)",
                   color: "var(--color-text-4)",
                   border: "1px solid var(--color-hairline-soft)",
                 }

@@ -19,7 +19,7 @@ export function GalleryToolbar({ title, count, onAdd, onPickFromLibrary }: Props
       className="sticky top-0 z-10 flex items-center gap-3 px-5 py-3"
       style={{
         background:
-          "linear-gradient(180deg, oklch(0.20 0.012 265 / 0.85), oklch(0.18 0.010 265 / 0.65))",
+          "linear-gradient(180deg, oklch(0.970 0.009 265 / 0.92), oklch(0.981 0.008 265 / 0.81))",
         backdropFilter: "blur(10px)",
         WebkitBackdropFilter: "blur(10px)",
         borderBottom: "1px solid var(--color-hairline-soft)",
@@ -61,14 +61,14 @@ export function GalleryToolbar({ title, count, onAdd, onPickFromLibrary }: Props
         style={{
           color: "var(--color-text-2)",
           border: "1px solid var(--color-hairline)",
-          background: "oklch(0.22 0.011 265 / 0.5)",
+          background: "oklch(0.959 0.008 265 / 0.73)",
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.background = "oklch(0.26 0.013 265 / 0.7)";
+          e.currentTarget.style.background = "oklch(0.937 0.009 265 / 0.83)";
           e.currentTarget.style.color = "var(--color-text)";
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = "oklch(0.22 0.011 265 / 0.5)";
+          e.currentTarget.style.background = "oklch(0.959 0.008 265 / 0.73)";
           e.currentTarget.style.color = "var(--color-text-2)";
         }}
       >
@@ -81,7 +81,7 @@ export function GalleryToolbar({ title, count, onAdd, onPickFromLibrary }: Props
         onClick={onAdd}
         className="focus-ring inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-[11.5px] font-medium transition-transform"
         style={{
-          color: "oklch(0.14 0 0)",
+          color: "oklch(0.99 0 0)",
           background:
             "linear-gradient(135deg, var(--color-accent-2), var(--color-accent))",
           boxShadow:

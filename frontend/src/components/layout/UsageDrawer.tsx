@@ -31,7 +31,7 @@ interface UsageDrawerProps {
 
 const TYPE_TONE: Record<CallType, { color: string; label: string }> = {
   video: { color: "oklch(0.78 0.13 305)", label: "video_type_label" },
-  text: { color: "oklch(0.78 0.10 155)", label: "text_type_label" },
+  text: { color: "oklch(0.48 0.14 155)", label: "text_type_label" },
   image: { color: "oklch(0.80 0.10 230)", label: "image_type_label" },
   audio: { color: "oklch(0.80 0.11 75)", label: "audio_type_label" },
 };
@@ -112,7 +112,7 @@ export function UsageDrawer({ open, onClose, projectName, anchorRef }: UsageDraw
           className="grid h-7 w-7 place-items-center rounded-lg"
           style={{
             background:
-              "linear-gradient(135deg, var(--color-accent-dim), oklch(0.76 0.09 295 / 0.05))",
+              "linear-gradient(135deg, var(--color-accent-dim), oklch(0.58 0.16 295 / 0.08))",
             border: "1px solid var(--color-accent-soft)",
             color: "var(--color-accent-2)",
             boxShadow: "0 8px 18px -8px var(--color-accent-glow)",
@@ -190,7 +190,7 @@ export function UsageDrawer({ open, onClose, projectName, anchorRef }: UsageDraw
           icon={
             <AlertCircle
               className="h-3 w-3"
-              style={{ color: "oklch(0.72 0.18 25)" }}
+              style={{ color: "oklch(0.55 0.20 25)" }}
             />
           }
         />
@@ -230,7 +230,7 @@ export function UsageDrawer({ open, onClose, projectName, anchorRef }: UsageDraw
                     borderTop: "1px solid var(--color-hairline-soft)",
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = "oklch(0.24 0.012 265 / 0.45)";
+                    e.currentTarget.style.background = "oklch(0.948 0.009 265 / 0.70)";
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.background = "transparent";
@@ -308,8 +308,8 @@ export function UsageDrawer({ open, onClose, projectName, anchorRef }: UsageDraw
                     <div
                       className="mt-1 truncate rounded px-2 py-1 pl-5 text-[10px]"
                       style={{
-                        background: "oklch(0.30 0.10 25 / 0.10)",
-                        color: "oklch(0.85 0.10 25)",
+                        background: "oklch(0.92 0.05 25 / 0.35)",
+                        color: "oklch(0.58 0.18 25)",
                         border: "1px solid oklch(0.45 0.18 25 / 0.30)",
                       }}
                       title={call.error_message}
@@ -346,7 +346,7 @@ export function UsageDrawer({ open, onClose, projectName, anchorRef }: UsageDraw
               onMouseEnter={(e) => {
                 if (page > 1) {
                   e.currentTarget.style.color = "var(--color-text)";
-                  e.currentTarget.style.background = "oklch(1 0 0 / 0.05)";
+                  e.currentTarget.style.background = "oklch(0.35 0.02 265 / 0.06)";
                 }
               }}
               onMouseLeave={(e) => {
@@ -371,7 +371,7 @@ export function UsageDrawer({ open, onClose, projectName, anchorRef }: UsageDraw
               onMouseEnter={(e) => {
                 if (page < totalPages) {
                   e.currentTarget.style.color = "var(--color-text)";
-                  e.currentTarget.style.background = "oklch(1 0 0 / 0.05)";
+                  e.currentTarget.style.background = "oklch(0.35 0.02 265 / 0.06)";
                 }
               }}
               onMouseLeave={(e) => {
@@ -433,20 +433,20 @@ function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { color: string; bg: string }> = {
     success: {
       color: "var(--color-good)",
-      bg: "oklch(0.30 0.10 155 / 0.18)",
+      bg: "oklch(0.92 0.05 155 / 0.50)",
     },
     failed: {
-      color: "oklch(0.85 0.10 25)",
-      bg: "oklch(0.30 0.10 25 / 0.18)",
+      color: "oklch(0.58 0.18 25)",
+      bg: "oklch(0.92 0.05 25 / 0.55)",
     },
     pending: {
-      color: "oklch(0.85 0.13 75)",
-      bg: "oklch(0.30 0.10 75 / 0.18)",
+      color: "oklch(0.62 0.14 75)",
+      bg: "oklch(0.92 0.06 75 / 0.40)",
     },
   };
   const cfg = config[status] ?? {
     color: "var(--color-text-3)",
-    bg: "oklch(0.24 0.012 265 / 0.45)",
+    bg: "oklch(0.948 0.009 265 / 0.70)",
   };
   return (
     <span

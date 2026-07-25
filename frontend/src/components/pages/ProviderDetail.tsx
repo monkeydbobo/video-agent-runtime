@@ -23,9 +23,9 @@ const STATUS_BADGE_MAP: Record<string, BadgeStyle> = {
   ready: {
     label: "status_ready",
     style: {
-      background: "oklch(0.30 0.10 155 / 0.18)",
+      background: "oklch(0.92 0.05 155 / 0.50)",
       color: "var(--color-good)",
-      border: "1px solid oklch(0.45 0.10 155 / 0.40)",
+      border: "1px solid oklch(0.55 0.14 155 / 0.35)",
       boxShadow: "0 0 14px -6px oklch(0.55 0.10 155 / 0.50)",
     },
   },

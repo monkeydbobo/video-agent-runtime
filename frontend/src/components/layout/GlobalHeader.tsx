@@ -178,11 +178,11 @@ export function GlobalHeader({ onNavigateBack }: GlobalHeaderProps) {
           gridTemplateColumns: "minmax(0, 256px) 1fr auto",
           gap: 14,
           background:
-            "linear-gradient(180deg, oklch(0.21 0.011 265 / 0.85), oklch(0.19 0.010 265 / 0.75))",
+            "linear-gradient(180deg, oklch(0.965 0.008 265 / 0.92), oklch(0.976 0.008 265 / 0.86))",
           backdropFilter: "blur(16px) saturate(1.1)",
           WebkitBackdropFilter: "blur(16px) saturate(1.1)",
           borderBottom: "1px solid var(--color-hairline)",
-          boxShadow: "0 1px 0 0 oklch(1 0 0 / 0.02) inset",
+          boxShadow: "0 1px 0 0 oklch(0.35 0.02 265 / 0.05) inset",
           position: "relative",
           zIndex: 20,
         }}
@@ -231,7 +231,7 @@ export function GlobalHeader({ onNavigateBack }: GlobalHeaderProps) {
               }}
               onMouseEnter={(e) => {
                 if (!notificationDrawerOpen)
-                  e.currentTarget.style.background = "oklch(0.28 0.012 265 / 0.6)";
+                  e.currentTarget.style.background = "oklch(0.926 0.009 265 / 0.78)";
               }}
               onMouseLeave={(e) => {
                 if (!notificationDrawerOpen) e.currentTarget.style.background = "transparent";
@@ -245,7 +245,7 @@ export function GlobalHeader({ onNavigateBack }: GlobalHeaderProps) {
                   className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold"
                   style={{
                     background: "var(--color-warn)",
-                    color: "oklch(0.14 0 0)",
+                    color: "oklch(0.99 0 0)",
                   }}
                 >
                   {unreadNotificationCount > 9 ? "9+" : unreadNotificationCount}
@@ -269,7 +269,7 @@ export function GlobalHeader({ onNavigateBack }: GlobalHeaderProps) {
               style={{
                 background: usageDrawerOpen
                   ? "var(--color-accent-dim)"
-                  : "oklch(0.22 0.011 265 / 0.5)",
+                  : "oklch(0.959 0.008 265 / 0.73)",
                 border: "1px solid var(--color-hairline-soft)",
                 color: "var(--color-text-2)",
               }}
@@ -332,7 +332,7 @@ export function GlobalHeader({ onNavigateBack }: GlobalHeaderProps) {
               }}
               onMouseEnter={(e) => {
                 if (!taskHudOpen)
-                  e.currentTarget.style.background = "oklch(0.28 0.012 265 / 0.6)";
+                  e.currentTarget.style.background = "oklch(0.926 0.009 265 / 0.78)";
               }}
               onMouseLeave={(e) => {
                 if (!taskHudOpen) e.currentTarget.style.background = "transparent";
@@ -347,7 +347,7 @@ export function GlobalHeader({ onNavigateBack }: GlobalHeaderProps) {
               {runningCount > 0 && (
                 <span
                   className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold"
-                  style={{ background: "var(--color-accent)", color: "oklch(0.14 0 0)" }}
+                  style={{ background: "var(--color-accent)", color: "oklch(0.99 0 0)" }}
                 >
                   {runningCount}
                 </span>
@@ -374,7 +374,7 @@ export function GlobalHeader({ onNavigateBack }: GlobalHeaderProps) {
                   "linear-gradient(180deg, oklch(0.82 0.09 295), oklch(0.72 0.09 295))",
                 color: "oklch(0.15 0 0)",
                 boxShadow:
-                  "inset 0 1px 0 oklch(1 0 0 / 0.3), 0 0 0 1px oklch(0.55 0.10 295 / 0.4), 0 4px 14px -6px var(--color-accent-glow)",
+                  "inset 0 1px 0 oklch(1 0 0 / 0.35), 0 0 0 1px oklch(0.58 0.16 295 / 0.28), 0 4px 14px -6px var(--color-accent-glow)",
               }}
               title={t("dashboard:export_project_zip")}
               aria-label={t("dashboard:export_project_zip")}
@@ -411,7 +411,7 @@ export function GlobalHeader({ onNavigateBack }: GlobalHeaderProps) {
             className="grid h-[30px] w-[30px] place-items-center rounded-md transition-colors focus-ring"
             style={{ color: "var(--color-text-3)" }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "oklch(0.28 0.012 265 / 0.6)";
+              e.currentTarget.style.background = "oklch(0.926 0.009 265 / 0.78)";
               e.currentTarget.style.color = "var(--color-text)";
             }}
             onMouseLeave={(e) => {
@@ -437,7 +437,7 @@ export function GlobalHeader({ onNavigateBack }: GlobalHeaderProps) {
             className="relative grid h-[30px] w-[30px] place-items-center rounded-md transition-colors focus-ring"
             style={{ color: "var(--color-text-3)" }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "oklch(0.28 0.012 265 / 0.6)";
+              e.currentTarget.style.background = "oklch(0.926 0.009 265 / 0.78)";
               e.currentTarget.style.color = "var(--color-text)";
             }}
             onMouseLeave={(e) => {

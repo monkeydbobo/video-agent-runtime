@@ -90,12 +90,12 @@ export function ToolCallWithResult({ block }: ToolCallWithResultProps) {
   // -- colours ---------------------------------------------------------------
   const containerStyle: React.CSSProperties = isError
     ? {
-        border: "1px solid oklch(0.70 0.18 25 / 0.3)",
+        border: "1px solid oklch(0.58 0.20 25 / 0.22)",
         background: "oklch(0.70 0.18 25 / 0.06)",
       }
     : {
         border: "1px solid var(--color-hairline-soft)",
-        background: "oklch(0.21 0.012 265 / 0.5)",
+        background: "oklch(0.965 0.009 265 / 0.73)",
       };
 
   const labelColor = isError ? "var(--color-danger)" : "var(--color-warn)";
@@ -125,7 +125,7 @@ export function ToolCallWithResult({ block }: ToolCallWithResultProps) {
         aria-controls={detailsId}
         className="flex w-full items-center justify-between px-2.5 py-1.5 text-left transition-colors"
         onMouseEnter={(e) => {
-          e.currentTarget.style.background = "oklch(1 0 0 / 0.04)";
+          e.currentTarget.style.background = "oklch(0.35 0.02 265 / 0.05)";
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.background = "transparent";
@@ -170,7 +170,7 @@ export function ToolCallWithResult({ block }: ToolCallWithResultProps) {
           {/* Tool Input */}
           <div
             className="px-2.5 py-2"
-            style={{ background: "oklch(0.16 0.010 265 / 0.5)" }}
+            style={{ background: "oklch(0.992 0.008 265 / 0.73)" }}
           >
             <div
               className="mb-1 text-[10px] uppercase tracking-wide"
@@ -196,7 +196,7 @@ export function ToolCallWithResult({ block }: ToolCallWithResultProps) {
                   : "1px solid var(--color-hairline-soft)",
                 background: isError
                   ? "oklch(0.70 0.18 25 / 0.08)"
-                  : "oklch(0.16 0.010 265 / 0.5)",
+                  : "oklch(0.992 0.008 265 / 0.73)",
               }}
             >
               <div
@@ -242,7 +242,7 @@ function TodoWriteCompact({ block }: Readonly<{ block: ContentBlock }>) {
       className="my-1.5 min-w-0 overflow-hidden rounded-lg"
       style={{
         border: "1px solid var(--color-hairline-soft)",
-        background: "oklch(0.21 0.012 265 / 0.5)",
+        background: "oklch(0.965 0.009 265 / 0.73)",
       }}
     >
       <div className="flex items-center justify-between px-2.5 py-1.5">

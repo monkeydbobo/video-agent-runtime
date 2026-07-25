@@ -33,9 +33,9 @@ interface WelcomeCanvasProps {
 }
 
 const CARD_BG =
-  "linear-gradient(180deg, oklch(0.22 0.012 265 / 0.55), oklch(0.19 0.010 265 / 0.40))";
+  "linear-gradient(180deg, oklch(0.959 0.009 265 / 0.75), oklch(0.976 0.008 265 / 0.67))";
 const CARD_SHADOW =
-  "inset 0 1px 0 oklch(1 0 0 / 0.04), 0 8px 24px -10px oklch(0 0 0 / 0.5)";
+  "inset 0 1px 0 oklch(0.35 0.02 265 / 0.05), 0 8px 24px -10px oklch(0.30 0.04 265 / 0.12)";
 
 // ---------------------------------------------------------------------------
 // WelcomeCanvas — shown when a project has no overview yet.
@@ -184,10 +184,10 @@ export function WelcomeCanvas({
           className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl"
           style={{
             background:
-              "linear-gradient(135deg, oklch(0.85 0.08 295), oklch(0.70 0.12 280))",
-            color: "oklch(0.14 0 0)",
+              "linear-gradient(135deg, oklch(0.62 0.15 295), oklch(0.55 0.14 280))",
+            color: "oklch(0.99 0 0)",
             boxShadow:
-              "0 10px 32px -10px var(--color-accent-glow), inset 0 1px 0 oklch(1 0 0 / 0.4)",
+              "0 10px 32px -10px var(--color-accent-glow), inset 0 1px 0 oklch(1 0 0 / 0.40)",
           }}
         >
           <Sparkles className="h-5 w-5" strokeWidth={2.2} />
@@ -228,10 +228,10 @@ export function WelcomeCanvas({
                 ? "1px dashed var(--color-accent-soft)"
                 : "1px dashed var(--color-hairline)",
               background: isDragging
-                ? "linear-gradient(180deg, oklch(0.76 0.09 295 / 0.12), oklch(0.76 0.09 295 / 0.04))"
+                ? "linear-gradient(180deg, oklch(0.58 0.16 295 / 0.12), oklch(0.58 0.16 295 / 0.06))"
                 : CARD_BG,
               boxShadow: isDragging
-                ? "0 0 0 4px var(--color-accent-dim), inset 0 1px 0 oklch(1 0 0 / 0.04)"
+                ? "0 0 0 4px var(--color-accent-dim), inset 0 1px 0 oklch(0.35 0.02 265 / 0.05)"
                 : CARD_SHADOW,
             }}
           >
@@ -250,7 +250,7 @@ export function WelcomeCanvas({
               style={{
                 background: isDragging
                   ? "var(--color-accent-dim)"
-                  : "oklch(0.20 0.011 265 / 0.6)",
+                  : "oklch(0.970 0.008 265 / 0.78)",
                 border: isDragging
                   ? "1px solid var(--color-accent-soft)"
                   : "1px solid var(--color-hairline-soft)",
@@ -321,8 +321,8 @@ export function WelcomeCanvas({
                   style={{
                     border: "1px solid var(--color-hairline-soft)",
                     background:
-                      "linear-gradient(180deg, oklch(0.21 0.011 265 / 0.5), oklch(0.18 0.010 265 / 0.35))",
-                    boxShadow: "inset 0 1px 0 oklch(1 0 0 / 0.03)",
+                      "linear-gradient(180deg, oklch(0.965 0.008 265 / 0.73), oklch(0.981 0.008 265 / 0.64))",
+                    boxShadow: "inset 0 1px 0 oklch(0.35 0.02 265 / 0.04)",
                   }}
                 >
                   <span
@@ -396,7 +396,7 @@ export function WelcomeCanvas({
                   key={f}
                   className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12.5px]"
                   style={{
-                    background: "oklch(0.18 0.010 265 / 0.45)",
+                    background: "oklch(0.981 0.008 265 / 0.70)",
                     border: "1px solid var(--color-hairline-soft)",
                     color: "var(--color-text-2)",
                   }}
@@ -414,7 +414,7 @@ export function WelcomeCanvas({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="focus-ring mt-3 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11.5px] transition-colors hover:bg-[oklch(1_0_0_/_0.05)]"
+              className="focus-ring mt-3 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11.5px] transition-colors hover:bg-[oklch(0.35_0.02_265_/_0.06)]"
               style={{ color: "var(--color-text-3)" }}
             >
               <Plus className="h-3 w-3" />
@@ -462,10 +462,10 @@ export function WelcomeCanvas({
             className="focus-ring relative w-full overflow-hidden rounded-xl px-6 py-3 text-[13px] font-semibold transition-transform hover:translate-y-[-1px] active:translate-y-0"
             style={{
               background:
-                "linear-gradient(180deg, oklch(0.85 0.08 295), oklch(0.70 0.12 280))",
-              color: "oklch(0.14 0 0)",
+                "linear-gradient(180deg, oklch(0.62 0.15 295), oklch(0.55 0.14 280))",
+              color: "oklch(0.99 0 0)",
               boxShadow:
-                "0 12px 32px -10px var(--color-accent-glow), inset 0 1px 0 oklch(1 0 0 / 0.4)",
+                "0 12px 32px -10px var(--color-accent-glow), inset 0 1px 0 oklch(1 0 0 / 0.40)",
             }}
           >
             <span className="relative inline-flex items-center gap-2">
@@ -516,9 +516,9 @@ export function WelcomeCanvas({
           style={{
             border: "1px solid var(--color-accent-soft)",
             background:
-              "linear-gradient(180deg, oklch(0.76 0.09 295 / 0.10), oklch(0.76 0.09 295 / 0.04))",
+              "linear-gradient(180deg, oklch(0.76 0.09 295 / 0.10), oklch(0.58 0.16 295 / 0.06))",
             boxShadow:
-              "0 0 0 1px var(--color-accent-dim), inset 0 1px 0 oklch(1 0 0 / 0.05)",
+              "0 0 0 1px var(--color-accent-dim), inset 0 1px 0 oklch(0.35 0.02 265 / 0.06)",
           }}
         >
           <span
@@ -548,7 +548,7 @@ export function WelcomeCanvas({
           </p>
           <div
             className="relative mx-auto mt-5 h-1 w-56 overflow-hidden rounded-full"
-            style={{ background: "oklch(0.16 0.010 265 / 0.7)" }}
+            style={{ background: "oklch(0.992 0.008 265 / 0.83)" }}
           >
             <div
               className="absolute inset-y-0 w-1/3 rounded-full animate-progress-pulse"
@@ -572,7 +572,7 @@ export function WelcomeCanvas({
             border: "1px solid oklch(0.78 0.10 155 / 0.35)",
             background:
               "linear-gradient(180deg, oklch(0.78 0.10 155 / 0.10), oklch(0.78 0.10 155 / 0.04))",
-            boxShadow: "inset 0 1px 0 oklch(1 0 0 / 0.04)",
+            boxShadow: "inset 0 1px 0 oklch(0.35 0.02 265 / 0.05)",
           }}
         >
           <CheckCircle2
@@ -595,8 +595,8 @@ export function WelcomeCanvas({
           className="rounded-xl px-4 py-2.5 text-center text-[12px]"
           style={{
             border: "1px solid oklch(0.45 0.18 25 / 0.4)",
-            background: "oklch(0.30 0.10 25 / 0.18)",
-            color: "oklch(0.85 0.10 25)",
+            background: "oklch(0.92 0.05 25 / 0.55)",
+            color: "oklch(0.58 0.18 25)",
           }}
           role="alert"
         >

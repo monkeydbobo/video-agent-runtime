@@ -106,9 +106,9 @@ export function AgentHandoffHint({ triggerKey, storageScope }: AgentHandoffHintP
           padding: "16px 18px 14px",
           border: "1px solid var(--color-hairline)",
           background:
-            "linear-gradient(180deg, oklch(0.22 0.014 285 / 0.96), oklch(0.18 0.011 270 / 0.94))",
+            "linear-gradient(180deg, oklch(0.959 0.010 285 / 0.96), oklch(0.981 0.008 270 / 0.96))",
           boxShadow:
-            "0 28px 64px -24px oklch(0 0 0 / 0.85), 0 0 0 1px oklch(1 0 0 / 0.04), inset 0 1px 0 oklch(1 0 0 / 0.06)",
+            "0 28px 64px -24px oklch(0.30 0.04 265 / 0.30), 0 0 0 1px oklch(0.35 0.02 265 / 0.05), inset 0 1px 0 oklch(0.35 0.02 265 / 0.07)",
           backdropFilter: "blur(16px) saturate(1.1)",
           WebkitBackdropFilter: "blur(16px) saturate(1.1)",
           overflow: "visible",
@@ -178,10 +178,10 @@ export function AgentHandoffHint({ triggerKey, storageScope }: AgentHandoffHintP
               className="grid h-9 w-9 place-items-center rounded-xl"
               style={{
                 background:
-                  "linear-gradient(135deg, oklch(0.85 0.08 295), oklch(0.70 0.12 280))",
-                color: "oklch(0.14 0 0)",
+                  "linear-gradient(135deg, oklch(0.62 0.15 295), oklch(0.55 0.14 280))",
+                color: "oklch(0.99 0 0)",
                 boxShadow:
-                  "0 6px 18px -6px var(--color-accent-glow), inset 0 1px 0 oklch(1 0 0 / 0.4)",
+                  "0 6px 18px -6px var(--color-accent-glow), inset 0 1px 0 oklch(1 0 0 / 0.40)",
               }}
             >
               <Sparkles className="h-[18px] w-[18px]" strokeWidth={2.2} />
@@ -209,7 +209,7 @@ export function AgentHandoffHint({ triggerKey, storageScope }: AgentHandoffHintP
             onClick={handleDismiss}
             aria-label={t("agent_handoff_dismiss")}
             title={t("agent_handoff_dismiss")}
-            className="focus-ring pointer-events-auto -mr-1.5 -mt-1.5 shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-[oklch(1_0_0_/_0.06)]"
+            className="focus-ring pointer-events-auto -mr-1.5 -mt-1.5 shrink-0 inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-[oklch(0.35_0.02_265_/_0.07)]"
             style={{ color: "var(--color-text-3)" }}
           >
             <X className="h-3.5 w-3.5" />

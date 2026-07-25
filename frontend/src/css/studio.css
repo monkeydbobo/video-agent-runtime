@@ -5,7 +5,7 @@
 .prompt-editor {
   font-family: var(--font-mono);
   font-size: 0.875rem;
-  background: oklch(0.20 0.011 265 / 0.6);
+  background: oklch(0.970 0.008 265 / 0.78);
   border: 1px solid var(--color-hairline-soft);
   border-radius: 0.5rem;
   padding: 0.75rem;
@@ -15,7 +15,7 @@
 /* 强调色 */
 .accent-gradient {
   background: linear-gradient(180deg, var(--color-accent-2), var(--color-accent));
-  color: oklch(0.14 0 0);
+  color: oklch(0.99 0 0);
 }
 
 .accent-gradient-text {
@@ -24,7 +24,7 @@
 
 /* 片段卡片 */
 .segment-card {
-  background: linear-gradient(180deg, oklch(0.22 0.012 265 / 0.5), oklch(0.20 0.012 265 / 0.35));
+  background: linear-gradient(180deg, oklch(0.959 0.009 265 / 0.73), oklch(0.970 0.009 265 / 0.64));
   border: 1px solid var(--color-hairline-soft);
   border-radius: 0.75rem;
 }
@@ -72,47 +72,47 @@
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, transparent, oklch(1 0 0 / 0.08), transparent);
+  background: linear-gradient(90deg, transparent, oklch(0.35 0.02 265 / 0.08), transparent);
   background-size: 200% 100%;
   animation: shimmer 1.8s linear infinite;
 }
 
 @keyframes workspace-focus-flash {
   0% {
-    box-shadow: 0 0 0 0 oklch(0.76 0.09 295 / 0);
+    box-shadow: 0 0 0 0 oklch(0.58 0.16 295 / 0);
     background-color: transparent;
   }
   12% {
     box-shadow:
-      0 0 0 1px oklch(0.88 0.05 295 / 0.78),
-      0 0 0 10px oklch(0.76 0.09 295 / 0.12),
-      0 18px 36px oklch(0 0 0 / 0.38);
-    background-color: oklch(0.76 0.09 295 / 0.08);
+      0 0 0 1px oklch(0.68 0.14 295 / 0.70),
+      0 0 0 10px oklch(0.58 0.16 295 / 0.12),
+      0 18px 36px oklch(0.30 0.04 265 / 0.10);
+    background-color: oklch(0.58 0.16 295 / 0.10);
   }
   32% {
-    box-shadow: 0 0 0 0 oklch(0.76 0.09 295 / 0);
+    box-shadow: 0 0 0 0 oklch(0.58 0.16 295 / 0);
     background-color: transparent;
   }
   46% {
     box-shadow:
-      0 0 0 1px oklch(0.80 0.12 70 / 0.68),
-      0 0 0 9px oklch(0.80 0.12 70 / 0.12),
-      0 16px 34px oklch(0 0 0 / 0.34);
-    background-color: oklch(0.80 0.12 70 / 0.08);
+      0 0 0 1px oklch(0.68 0.14 70 / 0.55),
+      0 0 0 9px oklch(0.68 0.14 70 / 0.12),
+      0 16px 34px oklch(0.30 0.04 265 / 0.09);
+    background-color: oklch(0.68 0.14 70 / 0.10);
   }
   66% {
-    box-shadow: 0 0 0 0 oklch(0.76 0.09 295 / 0);
+    box-shadow: 0 0 0 0 oklch(0.58 0.16 295 / 0);
     background-color: transparent;
   }
   82% {
     box-shadow:
-      0 0 0 1px oklch(0.78 0.10 155 / 0.72),
-      0 0 0 8px oklch(0.78 0.10 155 / 0.12),
-      0 14px 28px oklch(0 0 0 / 0.28);
-    background-color: oklch(0.78 0.10 155 / 0.08);
+      0 0 0 1px oklch(0.55 0.14 155 / 0.55),
+      0 0 0 8px oklch(0.55 0.14 155 / 0.12),
+      0 14px 28px oklch(0.30 0.04 265 / 0.08);
+    background-color: oklch(0.55 0.14 155 / 0.10);
   }
   100% {
-    box-shadow: 0 0 0 0 oklch(0.76 0.09 295 / 0);
+    box-shadow: 0 0 0 0 oklch(0.58 0.16 295 / 0);
     background-color: transparent;
   }
 }
@@ -129,12 +129,12 @@
   border-radius: 5px;
   color: var(--color-text-2);
   border: 1px solid var(--color-hairline);
-  background: oklch(0.22 0.011 265 / 0.5);
+  background: oklch(0.959 0.008 265 / 0.73);
   transition: background .12s, color .12s;
   cursor: pointer;
 }
 .sv-navbtn:not(:disabled):hover {
-  background: oklch(0.26 0.013 265 / 0.7);
+  background: oklch(0.937 0.009 265 / 0.83);
   color: var(--color-text);
 }
 .sv-navbtn:disabled {
@@ -149,17 +149,17 @@
   font-size: 0.78125rem;
   line-height: 1.65;
   color: var(--color-text);
-  background: linear-gradient(180deg, oklch(0.225 0.003 285 / 0.55), oklch(0.195 0.003 285 / 0.4));
+  background: linear-gradient(180deg, oklch(0.985 0.004 285 / 0.82), oklch(0.968 0.005 285 / 0.75));
   border: 1px solid var(--color-hairline-soft);
   border-radius: 8px;
   font-family: var(--font-sans);
   resize: vertical;
-  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.03);
+  box-shadow: inset 0 1px 0 oklch(0.35 0.02 265 / 0.04);
   outline: none;
 }
 .prompt-ta:focus {
   border-color: var(--color-accent-soft);
-  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.04), 0 0 0 3px var(--color-accent-dim);
+  box-shadow: inset 0 1px 0 oklch(0.35 0.02 265 / 0.05), 0 0 0 3px var(--color-accent-dim);
 }
 .prompt-ta:disabled {
   opacity: 0.6;
@@ -172,7 +172,7 @@
   appearance: none;
   height: 4px;
   border-radius: 999px;
-  background: oklch(0.30 0.010 265 / 0.7);
+  background: oklch(0.78 0.012 265 / 0.55);
   outline: none;
   cursor: pointer;
 }
@@ -203,7 +203,7 @@
 .theme-slider::-moz-range-track {
   height: 4px;
   border-radius: 999px;
-  background: oklch(0.30 0.010 265 / 0.7);
+  background: oklch(0.78 0.012 265 / 0.55);
 }
 .theme-slider:disabled {
   opacity: 0.5;
@@ -216,11 +216,11 @@
   font-size: 0.78125rem;
   line-height: 1.4;
   color: var(--color-text);
-  background: linear-gradient(180deg, oklch(0.20 0.011 265 / 0.6), oklch(0.18 0.010 265 / 0.45));
+  background: linear-gradient(180deg, oklch(0.970 0.008 265 / 0.78), oklch(0.981 0.008 265 / 0.70));
   border: 1px solid var(--color-hairline-soft);
   border-radius: 6px;
   outline: none;
-  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.03);
+  box-shadow: inset 0 1px 0 oklch(0.35 0.02 265 / 0.04);
   transition: border-color .12s, box-shadow .12s;
 }
 .dlg-input::placeholder {
@@ -228,7 +228,7 @@
 }
 .dlg-input:focus {
   border-color: var(--color-accent-soft);
-  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.04), 0 0 0 3px var(--color-accent-dim);
+  box-shadow: inset 0 1px 0 oklch(0.35 0.02 265 / 0.05), 0 0 0 3px var(--color-accent-dim);
 }
 .dlg-input:disabled {
   opacity: 0.6;

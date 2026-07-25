@@ -35,9 +35,9 @@ function EpisodeHeader({
         className="num grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[13px] font-bold"
         style={{
           background: "linear-gradient(135deg, var(--color-accent) 0%, oklch(0.45 0.12 285) 100%)",
-          color: "oklch(0.14 0 0)",
+          color: "oklch(0.99 0 0)",
           boxShadow:
-            "inset 0 1px 0 oklch(1 0 0 / 0.25), 0 0 0 1px oklch(1 0 0 / 0.12), 0 4px 12px -4px var(--color-accent-glow)",
+            "inset 0 1px 0 oklch(1 0 0 / 0.30), 0 0 0 1px oklch(1 0 0 / 0.12), 0 4px 12px -4px var(--color-accent-glow)",
         }}
       >
         E{episode}
@@ -113,13 +113,13 @@ function GuideSection({ meta }: { meta: EpisodeMeta | undefined }) {
   return (
     <section
       className="mt-4 overflow-hidden rounded-xl"
-      style={{ background: "oklch(0.21 0.012 265 / 0.35)", border: "1px solid var(--color-hairline)" }}
+      style={{ background: "oklch(0.965 0.009 265 / 0.64)", border: "1px solid var(--color-hairline)" }}
     >
       <button
         type="button"
         onClick={() => setCollapsed((v) => !v)}
         aria-expanded={!collapsed}
-        className="focus-ring flex w-full items-center gap-2 px-4 py-2.5 text-left text-[11.5px] font-semibold tracking-wide transition-colors hover:bg-[oklch(1_0_0_/_0.03)]"
+        className="focus-ring flex w-full items-center gap-2 px-4 py-2.5 text-left text-[11.5px] font-semibold tracking-wide transition-colors hover:bg-[oklch(0.35_0.02_265_/_0.04)]"
         style={{
           color: "var(--color-text-3)",
           borderBottom: collapsed ? "none" : "1px solid var(--color-hairline-soft)",
@@ -149,7 +149,7 @@ function GuideSection({ meta }: { meta: EpisodeMeta | undefined }) {
                 <div
                   key={i}
                   className="rounded-lg px-3.5 py-3"
-                  style={{ background: "oklch(0.24 0.012 265 / 0.55)", border: "1px solid var(--color-hairline-soft)" }}
+                  style={{ background: "oklch(0.948 0.009 265 / 0.75)", border: "1px solid var(--color-hairline-soft)" }}
                 >
                   <span className="num text-[15px] font-bold" style={{ color: "var(--color-accent-2)" }}>
                     {i + 1}
@@ -235,9 +235,9 @@ export function EpisodeSourceReview({
           <div
             className="min-h-0 flex-1 overflow-y-auto rounded-2xl px-12 py-9"
             style={{
-              background: "linear-gradient(180deg, oklch(0.215 0.011 265 / 0.75), oklch(0.195 0.010 265 / 0.75))",
+              background: "linear-gradient(180deg, oklch(0.985 0.006 265 / 0.92), oklch(0.972 0.008 265 / 0.90))",
               border: "1px solid var(--color-hairline)",
-              boxShadow: "inset 0 1px 0 oklch(1 0 0 / 0.04)",
+              boxShadow: "inset 0 1px 0 oklch(0.35 0.02 265 / 0.05)",
             }}
           >
             {loading ? (

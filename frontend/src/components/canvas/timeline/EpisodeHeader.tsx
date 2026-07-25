@@ -45,7 +45,7 @@ export function EpisodeHeader({
       style={{
         borderBottom: "1px solid var(--color-hairline)",
         background:
-          "linear-gradient(180deg, oklch(0.22 0.014 290 / 0.4), oklch(0.20 0.012 250 / 0.15))",
+          "linear-gradient(180deg, oklch(0.959 0.010 290 / 0.67), oklch(0.970 0.009 250 / 0.55))",
       }}
     >
       <div className="min-w-0 flex-1" style={{ flexBasis: "240px" }}>

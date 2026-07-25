@@ -219,7 +219,7 @@ export function TimelineCanvas({
         className="flex items-center gap-0.5 px-5"
         style={{
           borderBottom: "1px solid var(--color-hairline)",
-          background: "oklch(0.19 0.012 250 / 0.5)",
+          background: "oklch(0.976 0.009 250 / 0.73)",
         }}
       >
         {showTabs && (

@@ -112,7 +112,7 @@ export function SubagentCard({ block }: SubagentCardProps) {
   return (
     <div
       className="my-1.5 min-w-0 overflow-hidden rounded-lg"
-      style={{ border: "1px solid var(--color-hairline-soft)", background: "oklch(0.21 0.012 265 / 0.5)" }}
+      style={{ border: "1px solid var(--color-hairline-soft)", background: "oklch(0.965 0.009 265 / 0.73)" }}
     >
       {expandable ? (
         <button
@@ -122,7 +122,7 @@ export function SubagentCard({ block }: SubagentCardProps) {
           aria-controls={detailsId}
           className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left transition-colors"
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = "oklch(1 0 0 / 0.04)";
+            e.currentTarget.style.background = "oklch(0.35 0.02 265 / 0.05)";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = "transparent";

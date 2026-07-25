@@ -52,7 +52,7 @@ function DialogueRow({ value, onUpdate, onRemove }: DialogueRowProps) {
         onClick={onRemove}
         aria-label={t("dialogue_remove")}
         title={t("dialogue_remove")}
-        className="focus-ring grid h-7 w-7 shrink-0 place-items-center rounded-md transition-colors hover:bg-[oklch(1_0_0_/_0.05)]"
+        className="focus-ring grid h-7 w-7 shrink-0 place-items-center rounded-md transition-colors hover:bg-[oklch(0.35_0.02_265_/_0.06)]"
         style={{ color: "var(--color-text-4)" }}
       >
         <X className="h-3.5 w-3.5" />
@@ -120,7 +120,7 @@ export function DialogueListEditor({
       <button
         type="button"
         onClick={add}
-        className="focus-ring inline-flex items-center gap-1 self-start rounded-md px-2 py-1 text-[11.5px] transition-colors hover:bg-[oklch(1_0_0_/_0.05)]"
+        className="focus-ring inline-flex items-center gap-1 self-start rounded-md px-2 py-1 text-[11.5px] transition-colors hover:bg-[oklch(0.35_0.02_265_/_0.06)]"
         style={{ color: "var(--color-text-3)" }}
       >
         <Plus className="h-3 w-3" />

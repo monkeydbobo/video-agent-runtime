@@ -30,7 +30,7 @@ const STATUS_COLORS: Record<TaskItem["status"], string> = {
   queued: "var(--color-text-4)",
   cancelling: "var(--color-text-3)",
   succeeded: "var(--color-good)",
-  failed: "oklch(0.72 0.18 25)",
+  failed: "oklch(0.55 0.20 25)",
   cancelled: "var(--color-text-3)",
 };
 
@@ -54,7 +54,7 @@ function TaskStatusIcon({ status }: { status: TaskItem["status"] }) {
           className="h-2 w-2 rounded-full"
           style={{
             background: STATUS_COLORS.queued,
-            boxShadow: "0 0 4px oklch(1 0 0 / 0.1)",
+            boxShadow: "0 0 4px oklch(0.35 0.02 265 / 0.10)",
           }}
         />
       );
@@ -82,7 +82,7 @@ function RunningProgressBar() {
   return (
     <div
       className="relative mt-1 h-0.5 w-full overflow-hidden rounded-full"
-      style={{ background: "oklch(0.16 0.010 265 / 0.7)" }}
+      style={{ background: "oklch(0.992 0.008 265 / 0.83)" }}
     >
       <motion.div
         className="absolute inset-y-0 left-0 w-1/3 rounded-full"
@@ -131,9 +131,9 @@ function TaskRow({
 
   const rowBg =
     task.status === "failed"
-      ? "oklch(0.30 0.10 25 / 0.18)"
+      ? "oklch(0.92 0.05 25 / 0.55)"
       : task.status === "succeeded" && !isFading
-        ? "oklch(0.30 0.10 155 / 0.12)"
+        ? "oklch(0.92 0.05 155 / 0.35)"
         : "transparent";
 
   const isErrorExpanded = expandedErrorId === task.task_id;
@@ -164,7 +164,7 @@ function TaskRow({
         onKeyDown={hasError ? activateOnEnterSpace(() => onToggleError(task.task_id)) : undefined}
         onMouseEnter={(e) => {
           if (hasError)
-            e.currentTarget.style.background = "oklch(0.30 0.10 25 / 0.28)";
+            e.currentTarget.style.background = "oklch(0.92 0.05 25 / 0.50)";
         }}
         onMouseLeave={(e) => {
           if (hasError) e.currentTarget.style.background = rowBg;
@@ -199,8 +199,8 @@ function TaskRow({
             className="focus-ring ml-1 rounded px-1 py-0.5 text-[10.5px] transition-colors"
             style={{ color: "var(--color-text-4)" }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color = "oklch(0.72 0.18 25)";
-              e.currentTarget.style.background = "oklch(0.30 0.10 25 / 0.18)";
+              e.currentTarget.style.color = "oklch(0.55 0.20 25)";
+              e.currentTarget.style.background = "oklch(0.92 0.05 25 / 0.55)";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.color = "var(--color-text-4)";
@@ -222,8 +222,8 @@ function TaskRow({
             className="focus-ring ml-1 inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10.5px] transition-colors"
             style={{ color: "var(--color-text-4)" }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color = "oklch(0.72 0.18 25)";
-              e.currentTarget.style.background = "oklch(0.30 0.10 25 / 0.18)";
+              e.currentTarget.style.color = "oklch(0.55 0.20 25)";
+              e.currentTarget.style.background = "oklch(0.92 0.05 25 / 0.55)";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.color = "var(--color-text-4)";
@@ -284,8 +284,8 @@ function TaskRow({
               id={`task-error-${task.task_id}`}
               className="mx-3 mb-1.5 rounded px-2 py-1.5 text-[10.5px]"
               style={{
-                background: "oklch(0.30 0.10 25 / 0.10)",
-                color: "oklch(0.85 0.10 25)",
+                background: "oklch(0.92 0.05 25 / 0.35)",
+                color: "oklch(0.58 0.18 25)",
                 border: "1px solid oklch(0.45 0.18 25 / 0.30)",
               }}
             >
@@ -384,7 +384,7 @@ function ChannelSection({
         style={{
           color: "var(--color-text-4)",
           letterSpacing: "0.8px",
-          background: "oklch(0.18 0.010 265 / 0.6)",
+          background: "oklch(0.981 0.008 265 / 0.78)",
         }}
       >
         <Icon className="h-3.5 w-3.5" style={{ color: "var(--color-text-3)" }} />
@@ -536,7 +536,7 @@ export function TaskHud({ anchorRef }: { anchorRef: RefObject<HTMLElement | null
             className="grid h-7 w-7 place-items-center rounded-lg"
             style={{
               background:
-                "linear-gradient(135deg, var(--color-accent-dim), oklch(0.76 0.09 295 / 0.05))",
+                "linear-gradient(135deg, var(--color-accent-dim), oklch(0.58 0.16 295 / 0.08))",
               border: "1px solid var(--color-accent-soft)",
               color: "var(--color-accent-2)",
               boxShadow: "0 8px 18px -8px var(--color-accent-glow)",
@@ -602,7 +602,7 @@ export function TaskHud({ anchorRef }: { anchorRef: RefObject<HTMLElement | null
               className="focus-ring ml-auto rounded px-1.5 py-0.5 text-[10.5px] transition-colors"
               style={{ color: "var(--color-text-4)" }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.color = "oklch(0.72 0.18 25)";
+                e.currentTarget.style.color = "oklch(0.55 0.20 25)";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.color = "var(--color-text-4)";
@@ -657,7 +657,7 @@ export function TaskHud({ anchorRef }: { anchorRef: RefObject<HTMLElement | null
             className="px-4 py-3"
             role="alertdialog"
             aria-label={t("cancel_confirm_aria")}
-            style={{ background: "oklch(0.16 0.010 265 / 0.5)" }}
+            style={{ background: "oklch(0.992 0.008 265 / 0.73)" }}
           >
             <p
               className="text-[12px]"
@@ -710,15 +710,15 @@ export function TaskHud({ anchorRef }: { anchorRef: RefObject<HTMLElement | null
                 style={{
                   color: "var(--color-text-3)",
                   border: "1px solid var(--color-hairline)",
-                  background: "oklch(0.22 0.011 265 / 0.5)",
+                  background: "oklch(0.959 0.008 265 / 0.73)",
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.color = "var(--color-text)";
-                  e.currentTarget.style.background = "oklch(0.26 0.013 265 / 0.7)";
+                  e.currentTarget.style.background = "oklch(0.937 0.009 265 / 0.83)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.color = "var(--color-text-3)";
-                  e.currentTarget.style.background = "oklch(0.22 0.011 265 / 0.5)";
+                  e.currentTarget.style.background = "oklch(0.959 0.008 265 / 0.73)";
                 }}
               >
                 {t("go_back")}

@@ -288,9 +288,9 @@ const CredentialRow = memo(function CredentialRow({
           style={
             testResult.success
               ? {
-                  background: "oklch(0.30 0.10 155 / 0.15)",
+                  background: "oklch(0.92 0.05 155 / 0.40)",
                   color: "var(--color-good)",
-                  border: "1px solid oklch(0.45 0.10 155 / 0.30)",
+                  border: "1px solid oklch(0.55 0.14 155 / 0.28)",
                 }
               : {
                   background: "var(--color-warm-tint)",

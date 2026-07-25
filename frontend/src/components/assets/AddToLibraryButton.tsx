@@ -73,8 +73,8 @@ export function AddToLibraryButton({
   };
 
   const defaultClass = showLabel
-    ? "focus-ring inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors hover:bg-[oklch(1_0_0_/_0.05)]"
-    : "focus-ring inline-flex items-center justify-center h-6 w-6 rounded transition-colors hover:bg-[oklch(1_0_0_/_0.05)]";
+    ? "focus-ring inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors hover:bg-[oklch(0.35_0.02_265_/_0.06)]"
+    : "focus-ring inline-flex items-center justify-center h-6 w-6 rounded transition-colors hover:bg-[oklch(0.35_0.02_265_/_0.06)]";
 
   return (
     <>

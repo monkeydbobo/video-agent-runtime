@@ -82,12 +82,12 @@ const PHASE_TONE: Record<Phase, PhaseTone> = {
     glow: "oklch(0.80 0.12 75 / 0.35)",
   },
   production: {
-    dot: "oklch(0.76 0.09 295)",
-    text: "oklch(0.88 0.05 295)",
+    dot: "oklch(0.58 0.16 295)",
+    text: "oklch(0.68 0.14 295)",
     glow: "oklch(0.76 0.09 295 / 0.40)",
   },
   completed: {
-    dot: "oklch(0.78 0.10 155)",
+    dot: "oklch(0.48 0.14 155)",
     text: "oklch(0.86 0.06 155)",
     glow: "oklch(0.78 0.10 155 / 0.35)",
   },
@@ -95,22 +95,22 @@ const PHASE_TONE: Record<Phase, PhaseTone> = {
 
 const POSTER_FX_STYLE: CSSProperties = {
   background:
-    "linear-gradient(115deg, oklch(1 0 0 / 0.18) 0%, transparent 30%), linear-gradient(295deg, oklch(0 0 0 / 0.55) 0%, transparent 45%)",
+    "linear-gradient(115deg, oklch(1 0 0 / 0.18) 0%, transparent 30%), linear-gradient(295deg, oklch(0.30 0.04 265 / 0.12) 0%, transparent 45%)",
 };
 
 const POSTER_GRID_STYLE = posterGridStyle();
 
 const POSTER_SPROCKET_STYLE: CSSProperties = {
   background:
-    "repeating-linear-gradient(0deg, oklch(0 0 0 / 0.6) 0 6px, transparent 6px 12px)",
+    "repeating-linear-gradient(0deg, oklch(0.30 0.04 265 / 0.14) 0 6px, transparent 6px 12px)",
 };
 
 const ACCENT_BUTTON_STYLE: CSSProperties = {
-  color: "oklch(0.14 0 0)",
+  color: "oklch(0.99 0 0)",
   background:
     "linear-gradient(180deg, var(--color-accent-2), var(--color-accent))",
   boxShadow:
-    "inset 0 1px 0 oklch(1 0 0 / 0.3), 0 0 0 1px oklch(0.55 0.10 295 / 0.4), 0 4px 14px -6px var(--color-accent)",
+    "inset 0 1px 0 oklch(1 0 0 / 0.35), 0 0 0 1px oklch(0.58 0.16 295 / 0.28), 0 4px 14px -6px var(--color-accent)",
 };
 
 function hashHue(name: string, salt: number): number {
@@ -182,8 +182,8 @@ function Poster({ project, styleLabel, large = false }: PosterProps) {
         width: "100%",
         aspectRatio: aspect,
         borderRadius: radius,
-        background: `radial-gradient(120% 80% at 30% 30%, oklch(0.55 0.15 ${hue1}) 0%, oklch(0.28 0.08 ${(hue1 + 10) % 360}) 45%, oklch(0.14 0.02 265) 100%)`,
-        boxShadow: "inset 0 0 0 1px oklch(1 0 0 / 0.06)",
+        background: `radial-gradient(120% 80% at 30% 30%, oklch(0.55 0.15 ${hue1}) 0%, oklch(0.28 0.08 ${(hue1 + 10) % 360}) 45%, oklch(0.28 0.02 265) 100%)`,
+        boxShadow: "inset 0 0 0 1px oklch(0.35 0.02 265 / 0.07)",
       }}
     >
       {project.thumbnail ? (
@@ -226,7 +226,7 @@ function Poster({ project, styleLabel, large = false }: PosterProps) {
             lineHeight: 0.95,
             color: "oklch(0.99 0.005 0)",
             letterSpacing: "-0.02em",
-            textShadow: "0 2px 28px oklch(0 0 0 / 0.5)",
+            textShadow: "0 2px 28px oklch(0.30 0.04 265 / 0.12)",
             wordBreak: "break-word",
             overflowWrap: "anywhere",
           }}
@@ -275,7 +275,7 @@ function episodeDotColor(
     return { bg: "var(--color-accent)", glow: "0 0 6px var(--color-accent-glow)" };
   }
   if (i < scriptedEnd) return { bg: "oklch(0.55 0.010 265)" };
-  return { bg: "oklch(0.22 0.011 265)" };
+  return { bg: "oklch(0.959 0.008 265)" };
 }
 
 function EpisodeStrip({ summary }: { summary: ProjectStatus["episodes_summary"] }) {
@@ -302,7 +302,7 @@ function gradientProgressStyles(variant: "accent" | "good"): {
   trackStyle: CSSProperties;
   barStyle: CSSProperties;
 } {
-  const trackStyle: CSSProperties = { background: "oklch(0.16 0.010 265)" };
+  const trackStyle: CSSProperties = { background: "oklch(0.992 0.008 265)" };
   if (variant === "good") {
     return {
       trackStyle,
@@ -373,7 +373,7 @@ function ProjectCard({ project, styleLabel, phaseLabels, t, onDelete }: ProjectC
   );
 
   return (
-    <article className="group relative overflow-hidden rounded-[12px] border border-hairline bg-bg-grad-a/85 transition-[transform,border-color,box-shadow] duration-150 motion-safe:hover:-translate-y-0.5 hover:border-accent/45 hover:shadow-[0_18px_40px_-22px_oklch(0_0_0_/_0.6),0_0_0_1px_var(--color-accent-soft)] focus-within:border-accent/60 focus-within:shadow-[0_0_0_2px_var(--color-accent-soft)]">
+    <article className="group relative overflow-hidden rounded-[12px] border border-hairline bg-bg-grad-a/85 transition-[transform,border-color,box-shadow] duration-150 motion-safe:hover:-translate-y-0.5 hover:border-accent/45 hover:shadow-[0_18px_40px_-22px_oklch(0.30_0.04_265_/_0.16),0_0_0_1px_var(--color-accent-soft)] focus-within:border-accent/60 focus-within:shadow-[0_0_0_2px_var(--color-accent-soft)]">
       <Link
         href={`/app/projects/${project.name}`}
         className="block w-full text-left text-text no-underline outline-none"
@@ -404,7 +404,7 @@ function ProjectCard({ project, styleLabel, phaseLabels, t, onDelete }: ProjectC
 
           <div
             className="mt-3 grid grid-cols-4 overflow-hidden rounded-[7px] border border-hairline-soft"
-            style={{ background: "oklch(0.16 0.010 265 / 0.5)" }}
+            style={{ background: "oklch(0.992 0.008 265 / 0.73)" }}
           >
             {(
               [
@@ -486,7 +486,7 @@ function ProjectCard({ project, styleLabel, phaseLabels, t, onDelete }: ProjectC
         {menuOpen ? (
           <div
             ref={menuRef}
-            className="absolute right-0 bottom-[calc(100%+6px)] min-w-[148px] overflow-hidden rounded-md border border-hairline bg-bg-grad-a/95 shadow-[0_18px_40px_-22px_oklch(0_0_0_/_0.7)] backdrop-blur"
+            className="absolute right-0 bottom-[calc(100%+6px)] min-w-[148px] overflow-hidden rounded-md border border-hairline bg-bg-grad-a/95 shadow-[0_18px_40px_-22px_oklch(0.30_0.04_265_/_0.20)] backdrop-blur"
           >
             <button
               type="button"
@@ -539,7 +539,7 @@ function NowEditingCard({ project, styleLabel, phaseLabels, t }: NowEditingCardP
       style={{
         gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr)",
         boxShadow:
-          "0 30px 80px -40px oklch(0 0 0 / 0.7), inset 0 1px 0 oklch(1 0 0 / 0.04)",
+          "0 30px 80px -40px oklch(0.30 0.04 265 / 0.18), inset 0 1px 0 oklch(0.35 0.02 265 / 0.05)",
       }}
     >
       <div className="p-3.5">
@@ -549,7 +549,7 @@ function NowEditingCard({ project, styleLabel, phaseLabels, t }: NowEditingCardP
         <span
           aria-hidden
           className="font-editorial pointer-events-none absolute right-[-6px] top-2 italic"
-          style={{ fontSize: 120, lineHeight: 1, color: "oklch(0.22 0.013 280)" }}
+          style={{ fontSize: 120, lineHeight: 1, color: "oklch(0.959 0.009 280)" }}
         >
           now
         </span>
@@ -635,7 +635,7 @@ function NowEditingCard({ project, styleLabel, phaseLabels, t }: NowEditingCardP
             <div
               key={cell.k}
               className="px-3.5 py-3"
-              style={{ background: "oklch(0.16 0.010 265 / 0.6)" }}
+              style={{ background: "oklch(0.992 0.008 265 / 0.78)" }}
             >
               <div className="font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-text-3">
                 {cell.k}
@@ -690,7 +690,7 @@ function PlaceholderTile({ onClick, title, kicker, icon, ariaLabel }: Placeholde
           style={{
             aspectRatio: "2 / 1",
             background:
-              "radial-gradient(120% 80% at 30% 30%, oklch(0.26 0.04 290 / 0.5) 0%, transparent 60%), oklch(0.18 0.011 265 / 0.55)",
+              "radial-gradient(120% 80% at 30% 30%, oklch(0.90 0.04 290 / 0.35) 0%, transparent 60%), oklch(0.981 0.008 265 / 0.75)",
           }}
         >
           <div className="flex flex-col items-center gap-2.5 transition-transform motion-safe:group-hover:-translate-y-0.5">
@@ -699,10 +699,10 @@ function PlaceholderTile({ onClick, title, kicker, icon, ariaLabel }: Placeholde
               className="grid h-12 w-12 place-items-center rounded-[12px]"
               style={{
                 background:
-                  "linear-gradient(180deg, oklch(0.30 0.04 290), oklch(0.22 0.02 280))",
+                  "linear-gradient(180deg, oklch(0.55 0.08 290), oklch(0.45 0.04 280))",
                 border: "1px solid oklch(0.76 0.09 295 / 0.4)",
                 boxShadow:
-                  "inset 0 1px 0 oklch(1 0 0 / 0.06), 0 8px 22px -14px var(--color-accent)",
+                  "inset 0 1px 0 oklch(0.35 0.02 265 / 0.07), 0 8px 22px -14px var(--color-accent)",
                 color: "var(--color-accent-2)",
               }}
             >
@@ -733,7 +733,7 @@ function PlaceholderTile({ onClick, title, kicker, icon, ariaLabel }: Placeholde
         </div>
         <div
           className="grid grid-cols-4 overflow-hidden rounded-[7px] border border-dashed border-hairline"
-          style={{ background: "oklch(0.16 0.010 265 / 0.45)" }}
+          style={{ background: "oklch(0.992 0.008 265 / 0.70)" }}
         >
           {[0, 1, 2, 3].map((i) => (
             <div
@@ -798,12 +798,12 @@ function TopBar({
       className="sticky top-0 z-30"
       style={{
         background:
-          "linear-gradient(180deg, oklch(0.20 0.011 265 / 0.55), oklch(0.15 0.010 265 / 0.45))",
+          "linear-gradient(180deg, oklch(0.970 0.008 265 / 0.75), oklch(0.995 0.008 265 / 0.70))",
         backdropFilter: "blur(28px) saturate(1.5)",
         WebkitBackdropFilter: "blur(28px) saturate(1.5)",
-        borderBottom: "1px solid oklch(1 0 0 / 0.06)",
+        borderBottom: "1px solid oklch(0.35 0.02 265 / 0.07)",
         boxShadow:
-          "inset 0 1px 0 oklch(1 0 0 / 0.05), 0 6px 24px -12px oklch(0 0 0 / 0.45)",
+          "inset 0 1px 0 oklch(0.35 0.02 265 / 0.06), 0 6px 24px -12px oklch(0.30 0.04 265 / 0.10)",
       }}
     >
       <div className="mx-auto flex max-w-[1320px] items-center gap-4 px-6 py-3">
@@ -1008,7 +1008,7 @@ function HeroStrip({ totals, t }: HeroStripProps) {
         </div>
         <div
           className="flex items-stretch overflow-hidden rounded-[10px] border border-hairline-soft"
-          style={{ background: "oklch(0.16 0.010 265 / 0.4)" }}
+          style={{ background: "oklch(0.992 0.008 265 / 0.67)" }}
         >
           {stats.map((s, i) => (
             <div
@@ -1067,7 +1067,7 @@ function FilterPills({ active, onChange, counts, phaseLabels, t }: FilterPillsPr
       style={{
         top: "var(--lobby-topbar-h, 57px)",
         background:
-          "linear-gradient(180deg, oklch(0.20 0.011 265 / 0.55), oklch(0.15 0.010 265 / 0.45))",
+          "linear-gradient(180deg, oklch(0.970 0.008 265 / 0.75), oklch(0.995 0.008 265 / 0.70))",
         backdropFilter: "blur(16px) saturate(1.1)",
         borderTopWidth: 1,
         borderTopColor: "var(--color-hairline-soft)",
@@ -1086,7 +1086,7 @@ function FilterPills({ active, onChange, counts, phaseLabels, t }: FilterPillsPr
                 "inline-flex items-center rounded-full px-3 py-1 text-[11.5px] font-medium backdrop-blur-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent " +
                 (isActive
                   ? "border border-accent/40 bg-accent/45 text-text"
-                  : "border border-hairline-soft bg-[oklch(0.22_0.012_265_/_0.7)] text-text-3 hover:border-hairline hover:bg-[oklch(0.24_0.012_265_/_0.78)] hover:text-text-2")
+                  : "border border-hairline-soft bg-[oklch(0.959_0.009_265_/_0.83)] text-text-3 hover:border-hairline hover:bg-[oklch(0.948_0.009_265_/_0.88)] hover:text-text-2")
               }
             >
               {c.label}
@@ -1360,7 +1360,7 @@ export function ProjectsPage() {
           // FilterPills 的 sticky top 读这个变量；TopBar = logo h-8 (32) + py-3 (24) + 1px border
           "--lobby-topbar-h": "57px",
           background:
-            "radial-gradient(1100px 540px at 8% -10%, oklch(0.32 0.05 295 / 0.28), transparent 55%), radial-gradient(900px 500px at 100% 110%, oklch(0.26 0.04 260 / 0.25), transparent 55%), linear-gradient(180deg, var(--color-bg-grad-a), var(--color-bg-grad-b))",
+            "radial-gradient(1100px 540px at 8% -10%, oklch(0.78 0.08 295 / 0.18), transparent 55%), radial-gradient(900px 500px at 100% 110%, oklch(0.82 0.05 260 / 0.16), transparent 55%), linear-gradient(180deg, var(--color-bg-grad-a), var(--color-bg-grad-b))",
         } as CSSProperties
       }
     >
