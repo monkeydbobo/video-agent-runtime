@@ -94,7 +94,7 @@ export function RegisterPage() {
             {loading && <Loader2 aria-hidden className="h-4 w-4 motion-safe:animate-spin" />}
             {loading ? t("auth:registering") : t("auth:register")}
           </button>
-          <button type="button" onClick={() => setLocation(`/login${search}`)} className="w-full text-sm text-text-3 transition-colors hover:text-text">
+          <button type="button" onClick={() => setLocation(search ? `/login?${search}` : "/login")} className="w-full text-sm text-text-3 transition-colors hover:text-text">
             {t("auth:already_have_account")}
           </button>
         </form>

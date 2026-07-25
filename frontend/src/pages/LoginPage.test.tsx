@@ -84,3 +84,29 @@ describe("LoginPage returnTo consumption", () => {
     });
   });
 });
+
+// wouter useSearch() 返回 ? 之后的内容（不含 ?）。登录↔注册互跳必须自行补上 ?，
+// 否则 /login?from=... 点「去注册」会拼成 /registerfrom=...，落入 SPA 404。
+describe("LoginPage ↔ RegisterPage cross-nav preserves query", () => {
+  beforeEach(() => {
+    useAuthStore.setState({
+      token: null,
+      username: null,
+      isAuthenticated: false,
+      isLoading: false,
+      registrationEnabled: true,
+    });
+  });
+
+  it("navigates to /register?from=... when search is present", () => {
+    const { getByRole, history } = renderLoginAt("/login?from=%2Fapp%2Fprojects");
+    fireEvent.click(getByRole("button", { name: "没有账号？去注册" }));
+    expect(history.at(-1)).toBe("/register?from=%2Fapp%2Fprojects");
+  });
+
+  it("navigates to /register when search is empty", () => {
+    const { getByRole, history } = renderLoginAt("/login");
+    fireEvent.click(getByRole("button", { name: "没有账号？去注册" }));
+    expect(history.at(-1)).toBe("/register");
+  });
+});

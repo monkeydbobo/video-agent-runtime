@@ -152,7 +152,7 @@ export function LoginPage() {
           {registrationEnabled && (
             <button
               type="button"
-              onClick={() => setLocation(`/register${search}`)}
+              onClick={() => setLocation(search ? `/register?${search}` : "/register")}
               className="w-full text-sm text-text-3 transition-colors hover:text-text"
             >
               {t("auth:no_account_register")}
