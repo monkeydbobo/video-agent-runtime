@@ -17,6 +17,7 @@ import { PhaseStepper } from "./PhaseStepper";
 
 import { API } from "@/api";
 import { ArchiveDiagnosticsDialog } from "@/components/shared/ArchiveDiagnosticsDialog";
+import { LogoutButton } from "@/components/auth/LogoutButton";
 import { rememberAssetLibraryReturnTo } from "@/components/pages/AssetLibraryPage";
 import { costEntries, formatCostOrZero, formatCurrencyAmount } from "@/utils/cost-format";
 import type { ExportDiagnostics, WorkspaceNotification } from "@/types";
@@ -456,6 +457,8 @@ export function GlobalHeader({ onNavigateBack }: GlobalHeaderProps) {
               />
             )}
           </button>
+          <span aria-hidden className="mx-0.5 h-4 w-px bg-hairline-soft" />
+          <LogoutButton variant="header" />
         </div>
       </header>
 

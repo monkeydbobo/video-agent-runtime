@@ -5,7 +5,7 @@ export default {
   'chinese': '中文',
   'english': '英文',
   'settings': '设置',
-  'logout': '登出',
+  'logout': '退出登录',
   'cancel': '取消',
   'conflict_modal_title': '同名文件已存在',
   'conflict_modal_desc': '该如何处理 "{{filename}}"？',
