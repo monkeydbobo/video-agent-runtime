@@ -20,7 +20,6 @@ export default {
   'brand_logo_alt': '{{brand}} cat logo',
   'trust_links_label': 'Product and support links',
   'home_link': 'Product home',
-  'source_link': 'Open-source project',
   'support_link': 'Contact support',
   'secure_account': 'Secure account',
   'form_context': 'Use your {{brand}} account to continue to the creative workspace.',

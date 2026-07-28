@@ -1,6 +1,6 @@
 // @author wanghaobo
 
-import { CodeXml, House, LifeBuoy, LockKeyhole } from "lucide-react";
+import { House, LifeBuoy, LockKeyhole } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { BRAND } from "@/branding";
@@ -11,7 +11,6 @@ const AMBIENT_GLOW_STYLE = ambientGlowStyle({ at: "22% 18%", intensity: 0.2 });
 
 const TRUST_LINKS = [
   { href: "/", labelKey: "home_link", Icon: House, external: false },
-  { href: "https://github.com/ArcReel/ArcReel", labelKey: "source_link", Icon: CodeXml, external: true },
   { href: "https://discord.gg/4fdsuGXE5", labelKey: "support_link", Icon: LifeBuoy, external: true },
 ] as const;
 

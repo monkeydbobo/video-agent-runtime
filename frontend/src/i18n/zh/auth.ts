@@ -21,7 +21,6 @@ export default {
   'brand_logo_alt': '{{brand}} 猫咪标识',
   'trust_links_label': '产品与支持链接',
   'home_link': '产品首页',
-  'source_link': '开源项目',
   'support_link': '联系支持',
   'secure_account': '安全账号',
   'form_context': '使用你的 {{brand}} 账号进入创作工作台。',
