@@ -72,6 +72,7 @@ from server.routers import (
 )
 from server.routers import auth as auth_router
 from server.services.project_events import ProjectEventService
+from server.services.user_stats_notifications import run_daily_user_stats_reporter
 
 
 def assert_no_provider_secrets_in_environ() -> None:
@@ -427,6 +428,13 @@ async def lifespan(app: FastAPI):
     # 启动共享 httpx 客户端（用于版本检查等外部 API 调用）
     await startup_http_client()
 
+    user_stats_stop_event = asyncio.Event()
+    user_stats_task = asyncio.create_task(
+        run_daily_user_stats_reporter(user_stats_stop_event), name="daily-user-stats-reporter"
+    )
+    app.state.user_stats_stop_event = user_stats_stop_event
+    app.state.user_stats_task = user_stats_task
+
     # Initialize the Agent runtime only when its required sandbox passed the
     # startup probe. Core-only deployments must not create an SDK session
     # manager that could execute tools without bwrap isolation.
@@ -454,6 +462,12 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
+    user_stats_stop_event = getattr(app.state, "user_stats_stop_event", None)
+    user_stats_task = getattr(app.state, "user_stats_task", None)
+    if user_stats_stop_event is not None:
+        user_stats_stop_event.set()
+    if user_stats_task is not None:
+        await user_stats_task
     project_event_service = getattr(app.state, "project_event_service", None)
     if project_event_service:
         logger.info("正在停止 ProjectEventService...")
