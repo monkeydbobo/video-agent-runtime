@@ -2,6 +2,8 @@
 
 > oioi.bio is an AI narrative filmmaking workspace for turning ideas and novels into scripts, reusable visual assets, storyboards, and generated video.
 
+Full guide content in one file: https://oioi.bio/llms-full.txt
+
 ## Core capabilities
 
 - Import source material from TXT, DOCX, EPUB, and PDF.

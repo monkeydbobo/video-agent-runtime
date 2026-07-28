@@ -753,24 +753,20 @@ app.add_middleware(BrowserSecurityMiddleware)
 frontend_dist_dir = PROJECT_ROOT / "frontend" / "dist"
 
 if (frontend_dist_dir / "index.html").is_file():
+    # 构建期预渲染的营销落地页（vite generateSeoPages 插件产出）：启动时扫描
+    # dist/{zh,en}/*/index.html 自动注册路由，新增落地页无需改后端。
     seo_page_files = {
-        "/zh/novel-to-video": frontend_dist_dir / "zh" / "novel-to-video" / "index.html",
-        "/zh/ai-storyboard-generator": frontend_dist_dir / "zh" / "ai-storyboard-generator" / "index.html",
-        "/zh/ai-video-workflow": frontend_dist_dir / "zh" / "ai-video-workflow" / "index.html",
-        "/en/novel-to-video": frontend_dist_dir / "en" / "novel-to-video" / "index.html",
-        "/en/ai-storyboard-generator": frontend_dist_dir / "en" / "ai-storyboard-generator" / "index.html",
-        "/en/ai-video-workflow": frontend_dist_dir / "en" / "ai-video-workflow" / "index.html",
+        f"/{locale}/{index_file.parent.name}": index_file
+        for locale in ("zh", "en")
+        for index_file in sorted((frontend_dist_dir / locale).glob("*/index.html"))
     }
 
-    @app.get("/zh/novel-to-video", include_in_schema=False)
-    @app.get("/zh/ai-storyboard-generator", include_in_schema=False)
-    @app.get("/zh/ai-video-workflow", include_in_schema=False)
-    @app.get("/en/novel-to-video", include_in_schema=False)
-    @app.get("/en/ai-storyboard-generator", include_in_schema=False)
-    @app.get("/en/ai-video-workflow", include_in_schema=False)
     async def static_seo_page(request: Request) -> FileResponse:
         """Serve build-time rendered marketing pages before the SPA fallback."""
         return FileResponse(seo_page_files[request.url.path])
+
+    for _seo_route_path in seo_page_files:
+        app.get(_seo_route_path, include_in_schema=False)(static_seo_page)
 
     @app.get("/app/{_rest:path}", include_in_schema=False)
     async def spa_deep_link(_rest: str) -> FileResponse:

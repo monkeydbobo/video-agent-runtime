@@ -101,6 +101,26 @@ async def test_seo_route_serves_its_prerendered_html(
         assert res.headers["cache-control"] == "no-store, no-cache, must-revalidate, max-age=0"
 
 
+async def test_new_seo_page_is_auto_discovered_without_backend_change(
+    reload_app_cleanup: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    """dist/{zh,en}/*/index.html 下的新落地页应被启动扫描自动注册，无需硬编码路由。"""
+    dist_dir = tmp_path / "frontend" / "dist"
+    seo_dir = dist_dir / "en" / "brand-new-guide"
+    seo_dir.mkdir(parents=True)
+    (dist_dir / "index.html").write_text("<html>shell</html>", encoding="utf-8")
+    (seo_dir / "index.html").write_text("<html>brand new guide body</html>", encoding="utf-8")
+    monkeypatch.setattr(lib, "PROJECT_ROOT", tmp_path)
+    importlib.reload(app_module)
+
+    transport = ASGITransport(app=app_module.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get("/en/brand-new-guide")
+        assert res.status_code == 200
+        assert "brand new guide body" in res.text
+        assert "shell" not in res.text
+
+
 async def test_deep_link_path_traversal_falls_back_to_shell(
     reload_app_cleanup: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
