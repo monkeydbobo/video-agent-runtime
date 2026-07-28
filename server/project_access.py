@@ -6,9 +6,9 @@
 - 路由 path/query 带 ``project_name`` / ``name`` 的端点，声明对应依赖即可；
 - 项目名在 request body 中的端点，在解析 body 后调用 :func:`ensure_project_access`。
 
-规则：``role == "admin"`` 全通；否则要求归属 user_id 与当前用户一致。
-无归属记录的存量项目视为 ``default`` 用户所有。对非属主返回 404（复用
-``project_not_found`` 文案），避免通过状态码探测他人项目名。
+规则：``role == "admin"`` 全通；归属为 ``default``（含启动对账登记的存量项目、
+无归属记录）的项目对全体认证用户开放；否则要求归属 user_id 与当前用户一致。
+对不可见项目返回 404（复用 ``project_not_found`` 文案），避免通过状态码探测他人项目名。
 """
 
 from __future__ import annotations
@@ -43,13 +43,18 @@ async def get_ownership_map() -> dict[str, str]:
         return await ProjectRepository(session).ownership_map()
 
 
+def _is_shared_owner(owner: str) -> bool:
+    """default 归属的项目（存量对账 / 无记录回落）对全体认证用户共享。"""
+    return owner == DEFAULT_USER_ID
+
+
 async def accessible_project_names(names: Iterable[str], user: CurrentUserInfo) -> list[str]:
-    """从 names 中筛出当前用户可见的项目名（admin 全量）。"""
+    """从 names 中筛出当前用户可见的项目名（admin 全量；default 归属共享）。"""
     names = list(names)
     if is_admin(user):
         return names
     ownership = await get_ownership_map()
-    return [n for n in names if ownership.get(n, DEFAULT_USER_ID) == user.id]
+    return [n for n in names if (owner := ownership.get(n, DEFAULT_USER_ID)) == user.id or _is_shared_owner(owner)]
 
 
 async def register_project_owner(name: str, user: CurrentUserInfo) -> None:
@@ -69,6 +74,7 @@ async def unregister_project(name: str) -> None:
 async def reconcile_project_ownership(disk_names: Iterable[str]) -> int:
     """启动对账：把磁盘存在但 DB 无归属记录的存量项目登记给 default 用户。
 
+    default 归属对全体认证用户共享，因此存量历史数据迁移后所有用户仍可见。
     返回新登记的数量。幂等，可重复执行。
     """
     disk_names = list(disk_names)
@@ -90,8 +96,9 @@ async def ensure_project_access(name: str, user: CurrentUserInfo, _t: Callable[.
     if is_admin(user):
         return
     owner = await get_project_owner(name)
-    if owner != user.id:
-        raise HTTPException(status_code=404, detail=_t("project_not_found", name=name))
+    if owner == user.id or _is_shared_owner(owner):
+        return
+    raise HTTPException(status_code=404, detail=_t("project_not_found", name=name))
 
 
 async def require_project_access(project_name: str, user: CurrentUser, _t: Translator) -> None:

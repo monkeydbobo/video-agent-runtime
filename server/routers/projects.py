@@ -177,7 +177,9 @@ async def import_project_archive(
         def _can_replace(project_name: str) -> bool:
             from lib.db.base import DEFAULT_USER_ID
 
-            return ownership.get(project_name, DEFAULT_USER_ID) == user_id
+            owner = ownership.get(project_name, DEFAULT_USER_ID)
+            # default 归属的存量/共享项目允许全体用户覆盖导入
+            return owner == user_id or owner == DEFAULT_USER_ID
 
         can_replace = _can_replace
 

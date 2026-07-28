@@ -1,7 +1,7 @@
 """项目用户维度隔离测试。
 
 覆盖：归属 Repository、归属守卫（admin 全通 / 属主放行 / 他人 404 /
-存量项目归 default）、列表过滤、启动对账、创建/删除时的登记与清理、
+存量 default 归属对全体用户共享）、列表过滤、启动对账、创建/删除时的登记与清理、
 任务视图 scope 解析、导入覆盖归属校验。
 """
 
@@ -91,19 +91,21 @@ class TestEnsureProjectAccess:
             await project_access.ensure_project_access("alice-proj", BOB, _t)
         assert exc_info.value.status_code == 404
 
-    async def test_legacy_project_belongs_to_default(self, project_ownership_db):
-        """无归属记录的存量项目视为 default 用户所有。"""
+    async def test_legacy_project_shared_with_all_users(self, project_ownership_db):
+        """无归属记录 / default 归属的存量项目对全体认证用户开放。"""
         default_user = CurrentUserInfo(id=DEFAULT_USER_ID, sub="local", role="user")
         await project_access.ensure_project_access("legacy-proj", default_user, _t)
-        with pytest.raises(HTTPException):
-            await project_access.ensure_project_access("legacy-proj", ALICE, _t)
+        await project_access.ensure_project_access("legacy-proj", ALICE, _t)
+        await project_access.ensure_project_access("legacy-proj", BOB, _t)
+        await _seed(project_ownership_db, "shared-proj", DEFAULT_USER_ID)
+        await project_access.ensure_project_access("shared-proj", ALICE, _t)
 
     async def test_accessible_project_names(self, project_ownership_db):
         await _seed(project_ownership_db, "alice-proj", "alice-id")
         await _seed(project_ownership_db, "bob-proj", "bob-id")
         names = ["alice-proj", "bob-proj", "legacy-proj"]
         assert await project_access.accessible_project_names(names, ADMIN) == names
-        assert await project_access.accessible_project_names(names, ALICE) == ["alice-proj"]
+        assert await project_access.accessible_project_names(names, ALICE) == ["alice-proj", "legacy-proj"]
         default_user = CurrentUserInfo(id=DEFAULT_USER_ID, sub="local", role="user")
         assert await project_access.accessible_project_names(names, default_user) == ["legacy-proj"]
 
