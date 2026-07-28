@@ -48,5 +48,13 @@ export default {
   guide_storyboard_body: "Giúp mỗi khung storyboard có mục đích kể chuyện và thông tin sản xuất rõ ràng.",
   guide_workflow_title: "Cách tổ chức quy trình video AI",
   guide_workflow_body: "Kết nối mô hình, hàng đợi, phiên bản và chi phí thay vì di chuyển tệp thủ công.",
+  contact_eyebrow: "Trao đổi cùng người tạo",
+  contact_title: "Cùng tạo nên câu chuyện tiếp theo.",
+  contact_body: "Tham gia Discord để trao đổi ý tưởng và cập nhật sản phẩm, hoặc quét WeChat để liên hệ trực tiếp với Aquarius.",
+  contact_discord_title: "Tham gia Discord",
+  contact_discord_body: "Ý tưởng, cập nhật sản phẩm và một nơi để cùng sáng tạo.",
+  contact_wechat_title: "WeChat",
+  contact_wechat_body: "Quét mã để kết bạn với Aquarius.",
+  contact_wechat_alt: "Mã QR WeChat của Aquarius",
   footer_login: "Vào studio",
 } satisfies Record<keyof typeof enLanding, string>;

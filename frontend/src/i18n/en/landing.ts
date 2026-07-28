@@ -46,5 +46,13 @@ export default {
   guide_storyboard_body: "Give every storyboard frame a clear narrative purpose and production context.",
   guide_workflow_title: "How to organize an AI video workflow",
   guide_workflow_body: "Connect models, task queues, versions, and cost instead of moving files between tools.",
+  contact_eyebrow: "Talk to the maker",
+  contact_title: "Build the next story together.",
+  contact_body: "Join the Discord community for ideas and updates, or scan WeChat to reach Aquarius directly.",
+  contact_discord_title: "Join Discord",
+  contact_discord_body: "Ideas, product updates, and a place to make things together.",
+  contact_wechat_title: "WeChat",
+  contact_wechat_body: "Scan to add Aquarius as a contact.",
+  contact_wechat_alt: "Aquarius WeChat QR code",
   footer_login: "Enter studio",
 };

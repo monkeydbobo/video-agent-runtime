@@ -1,4 +1,4 @@
-import { ArrowDownRight, ArrowRight, Clapperboard, FileText, Layers3, Pause, Play, Sparkles, WandSparkles } from "lucide-react";
+import { ArrowDownRight, ArrowRight, Clapperboard, FileText, Layers3, MessageCircle, Pause, Play, QrCode, Sparkles, WandSparkles } from "lucide-react";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
@@ -205,6 +205,32 @@ export function LandingPage() {
               <ArrowRight aria-hidden size={17} />
             </a>
           ))}
+        </div>
+      </section>
+
+      <section className="landing-contact" aria-labelledby="contact-title">
+        <div className="landing-contact__intro">
+          <p className="landing-kicker">{t("contact_eyebrow")}</p>
+          <h2 id="contact-title">{t("contact_title")}</h2>
+          <p>{t("contact_body")}</p>
+        </div>
+        <div className="landing-contact__channels">
+          <a className="landing-contact__discord" href="https://discord.gg/4fdsuGXE5" rel="noreferrer" target="_blank">
+            <span className="landing-contact__icon"><MessageCircle aria-hidden size={22} /></span>
+            <span>
+              <strong>{t("contact_discord_title")}</strong>
+              <small>{t("contact_discord_body")}</small>
+            </span>
+            <ArrowRight aria-hidden size={20} />
+          </a>
+          <div className="landing-contact__wechat">
+            <div>
+              <span className="landing-contact__icon"><QrCode aria-hidden size={22} /></span>
+              <strong>{t("contact_wechat_title")}</strong>
+              <p>{t("contact_wechat_body")}</p>
+            </div>
+            <img alt={t("contact_wechat_alt")} height="286" loading="lazy" src="/wechat-aquarius-contact.jpg" width="201" />
+          </div>
         </div>
       </section>
 

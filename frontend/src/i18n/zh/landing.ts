@@ -48,5 +48,13 @@ export default {
   guide_storyboard_body: "让每一格分镜都带着明确的叙事目的与制作信息。",
   guide_workflow_title: "如何组织 AI 视频工作流",
   guide_workflow_body: "连接模型、生成队列、版本和成本，而不是继续搬运文件。",
+  contact_eyebrow: "联系创作者",
+  contact_title: "一起把下一个故事做出来。",
+  contact_body: "加入 Discord 一起交流想法与产品动态，或扫码通过微信直接联系 Aquarius。",
+  contact_discord_title: "加入 Discord",
+  contact_discord_body: "交流想法、获取产品动态，也一起做点好玩的东西。",
+  contact_wechat_title: "微信联系",
+  contact_wechat_body: "扫码添加 Aquarius 为好友。",
+  contact_wechat_alt: "Aquarius 的微信二维码",
   footer_login: "进入工作台",
 } satisfies Record<keyof typeof enLanding, string>;
