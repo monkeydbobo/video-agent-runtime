@@ -15,9 +15,9 @@ export function LandingPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const clips = [
-    { src: "/showreel/forest.mp4", poster: "/showreel/forest.jpg", label: t("clip_forest"), number: "01" },
-    { src: "/showreel/meadow.mp4", poster: "/showreel/meadow.jpg", label: t("clip_meadow"), number: "02" },
-    { src: "/showreel/sunset.mp4", poster: "/showreel/sunset.jpg", label: t("clip_sunset"), number: "03" },
+    { src: "/showreel/elephants-dream-1.mp4", poster: "/showreel/elephants-dream-1.jpg", label: t("clip_dream_one"), number: "01" },
+    { src: "/showreel/elephants-dream-2.mp4", poster: "/showreel/elephants-dream-2.jpg", label: t("clip_dream_two"), number: "02" },
+    { src: "/showreel/big-buck-bunny.mp4", poster: "/showreel/big-buck-bunny.jpg", label: t("clip_bunny"), number: "03" },
   ];
   const selectedClip = clips[activeClip];
 
@@ -51,8 +51,8 @@ export function LandingPage() {
 
   return (
     <main className="landing-page">
-      <div aria-hidden className="landing-noise" />
-      <div aria-hidden className="landing-spotlight" />
+      <div aria-hidden className="landing-mesh" />
+      <div aria-hidden className="landing-mesh landing-mesh--alt" />
 
       <nav className="landing-nav" aria-label={t("navigation")}>
         <button className="landing-brand" onClick={() => setLocation("/")} type="button">
@@ -75,8 +75,7 @@ export function LandingPage() {
 
       <section className="landing-hero" aria-labelledby="landing-title">
         <div className="landing-hero__copy">
-          <p className="landing-kicker"><Sparkles aria-hidden size={13} /> {t("eyebrow")}</p>
-          <p className="landing-issue">ARC REEL / 01 — 2026</p>
+          <p className="landing-badge"><Sparkles aria-hidden size={13} /> {t("eyebrow")}</p>
           <h1 id="landing-title"><span>{t("title_before")}</span> <em>{t("title_emphasis")}</em>{t("title_after")}</h1>
           <p className="landing-lede">{t("description")}</p>
           <div className="landing-actions">
@@ -151,7 +150,13 @@ export function LandingPage() {
             </button>
           ))}
         </div>
-        <p className="landing-attribution">{t("clip_attribution")} <a href="https://www.bigbuckbunny.org/" rel="noreferrer" target="_blank">Big Buck Bunny</a> · <a href="https://creativecommons.org/licenses/by/3.0/" rel="noreferrer" target="_blank">CC BY 3.0</a></p>
+        <p className="landing-attribution">
+          {t("clip_attribution")}{" "}
+          <a href="https://orange.blender.org/" rel="noreferrer" target="_blank">Elephants Dream</a> (
+          <a href="https://creativecommons.org/licenses/by/2.5/" rel="noreferrer" target="_blank">CC BY 2.5</a>) ·{" "}
+          <a href="https://www.bigbuckbunny.org/" rel="noreferrer" target="_blank">Big Buck Bunny</a> (
+          <a href="https://creativecommons.org/licenses/by/3.0/" rel="noreferrer" target="_blank">CC BY 3.0</a>)
+        </p>
       </section>
 
       <section className="landing-features" id="capabilities" aria-label={t("features_label")}>
