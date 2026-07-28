@@ -54,9 +54,4 @@ export default {
   contact_discord_title: "Tham gia Discord",
   contact_discord_body: "Ý tưởng, cập nhật sản phẩm và một nơi để cùng sáng tạo.",
   footer_login: "Vào studio",
-  atmosphere_node_script: "Kịch bản",
-  atmosphere_node_assets: "Thư viện tài sản",
-  atmosphere_node_storyboard: "Storyboard",
-  atmosphere_node_video: "Tạo video",
-  atmosphere_node_export: "Xuất bản hoàn chỉnh",
 } satisfies Record<keyof typeof enLanding, string>;
