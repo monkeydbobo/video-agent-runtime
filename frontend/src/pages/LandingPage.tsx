@@ -1,4 +1,4 @@
-import { ArrowDownRight, ArrowRight, Clapperboard, FileText, Layers3, MessageCircle, Pause, Play, Sparkles, WandSparkles } from "lucide-react";
+import { ArrowDownRight, ArrowRight, FileText, Layers3, MessageCircle, Pause, Play, Sparkles, WandSparkles } from "lucide-react";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
@@ -56,7 +56,7 @@ export function LandingPage() {
 
       <nav className="landing-nav" aria-label={t("navigation")}>
         <button className="landing-brand" onClick={() => setLocation("/")} type="button">
-          <span className="landing-brand__mark"><Clapperboard aria-hidden size={18} /></span>
+          <span className="landing-brand__mark"><img alt="" height="26" src="/android-chrome-192x192.png" width="26" /></span>
           <span>{BRAND.name}</span>
         </button>
         <div className="landing-nav__right">

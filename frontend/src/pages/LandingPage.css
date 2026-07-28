@@ -73,10 +73,10 @@
   color: var(--lp-ink); font: 600 14px/1 "Inter", sans-serif; letter-spacing: -.02em;
 }
 .landing-brand__mark {
-  display: grid; width: 26px; height: 26px; place-items: center; border-radius: 8px;
-  color: #fff; background: linear-gradient(135deg, var(--lp-iris), var(--lp-coral));
-  box-shadow: 0 4px 10px rgb(90 84 224 / .3);
+  display: grid; width: 26px; height: 26px; overflow: hidden; place-items: center; border-radius: 8px;
+  background: #fff; box-shadow: 0 3px 10px rgb(90 84 224 / .16);
 }
+.landing-brand__mark img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .landing-nav__right {
   display: flex; align-items: center; gap: 26px;
   padding-right: max(32px, calc((100% - 1200px) / 2 + 32px));
