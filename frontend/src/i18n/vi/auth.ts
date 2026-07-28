@@ -21,7 +21,6 @@ export default {
   'brand_logo_alt': 'Biểu tượng mèo của {{brand}}',
   'trust_links_label': 'Liên kết sản phẩm và hỗ trợ',
   'home_link': 'Trang chủ sản phẩm',
-  'source_link': 'Dự án nguồn mở',
   'support_link': 'Liên hệ hỗ trợ',
   'secure_account': 'Tài khoản bảo mật',
   'form_context': 'Sử dụng tài khoản {{brand}} để tiếp tục vào không gian sáng tạo.',

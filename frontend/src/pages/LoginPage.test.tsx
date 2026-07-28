@@ -43,7 +43,7 @@ describe("LoginPage brand identity", () => {
   });
 
   it("clearly identifies oioi.bio before collecting credentials", () => {
-    const { getByRole, getByText } = renderLoginAt("/login");
+    const { getByRole, getByText, queryByRole } = renderLoginAt("/login");
 
     expect(getByRole("img", { name: "oioi.bio 猫咪标识" })).toHaveAttribute(
       "src",
@@ -52,10 +52,7 @@ describe("LoginPage brand identity", () => {
     expect(getByText("从故事、分镜到会动的画面，都在这里完成。")).toBeInTheDocument();
     expect(getByText("你的登录凭据只会提交至 oioi.bio，用于验证你在本站的账号。")).toBeInTheDocument();
     expect(getByRole("link", { name: "产品首页" })).toHaveAttribute("href", "/");
-    expect(getByRole("link", { name: "开源项目" })).toHaveAttribute(
-      "href",
-      "https://github.com/ArcReel/ArcReel",
-    );
+    expect(queryByRole("link", { name: "开源项目" })).not.toBeInTheDocument();
     expect(getByRole("link", { name: "联系支持" })).toHaveAttribute("href", "https://discord.gg/4fdsuGXE5");
   });
 
