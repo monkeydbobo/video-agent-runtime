@@ -22,7 +22,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from starlette.datastructures import MutableHeaders
+from starlette.datastructures import Headers, MutableHeaders
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.types import Message, Receive, Scope, Send
@@ -680,8 +680,27 @@ async def serve_skill_md(request: Request) -> Response:
     return PlainTextResponse(content, media_type="text/markdown; charset=utf-8")
 
 
-class SPAShellNoCacheMiddleware:
-    """SPA 入口 HTML 外壳禁止浏览器缓存。
+_CONTENT_SECURITY_POLICY = "; ".join(
+    (
+        "default-src 'self'",
+        "base-uri 'self'",
+        "connect-src 'self'",
+        "font-src 'self' data: https://fonts.gstatic.com",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+        "img-src 'self' data: blob: https:",
+        "manifest-src 'self'",
+        "media-src 'self' data: blob:",
+        "object-src 'none'",
+        "script-src 'self' 'unsafe-inline'",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "worker-src 'self' blob:",
+    )
+)
+
+
+class BrowserSecurityMiddleware:
+    """为浏览器响应补齐安全策略，并禁止缓存 SPA HTML 外壳。
 
     覆盖 spa_deep_link 与 app.frontend 原生 fallback 两条路径共用的响应特征
     （text/html），否则重新部署后浏览器可能沿用旧壳加载已被删除的旧哈希资源，
@@ -699,17 +718,33 @@ class SPAShellNoCacheMiddleware:
             await self.app(scope, receive, send)
             return
 
+        request_headers = Headers(scope=scope)
+        forwarded_proto = request_headers.get("x-forwarded-proto", "").split(",", maxsplit=1)[0].strip().lower()
+        is_https = scope.get("scheme") == "https" or forwarded_proto == "https"
+        path = scope.get("path", "")
+        is_private_page = path in {"/login", "/register", "/app"} or path.startswith("/app/")
+
         async def send_wrapper(message: Message) -> None:
             if message["type"] == "http.response.start":
                 headers = MutableHeaders(scope=message)
+                headers["X-Content-Type-Options"] = "nosniff"
+                headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+                headers["X-Frame-Options"] = "DENY"
+                headers["Permissions-Policy"] = "camera=(), geolocation=(), microphone=()"
+                headers["X-Permitted-Cross-Domain-Policies"] = "none"
+                if is_https:
+                    headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+                if is_private_page:
+                    headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
                 if headers.get("content-type", "").lower().startswith("text/html"):
                     headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+                    headers["Content-Security-Policy"] = _CONTENT_SECURITY_POLICY
             await send(message)
 
         await self.app(scope, receive, send_wrapper)
 
 
-app.add_middleware(SPAShellNoCacheMiddleware)
+app.add_middleware(BrowserSecurityMiddleware)
 
 
 # 前端构建产物：SPA 静态文件服务。fallback 仅对 GET/HEAD 生效，写请求误入页面路径不再返回页面。

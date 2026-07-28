@@ -39,3 +39,24 @@ describe("RegisterPage ↔ LoginPage cross-nav preserves query", () => {
     expect(history.at(-1)).toBe("/login");
   });
 });
+
+describe("RegisterPage brand identity", () => {
+  it("identifies oioi.bio and marks the registration page as non-indexable", () => {
+    const { getByRole, getByText } = renderRegisterAt("/register");
+
+    expect(getByRole("img", { name: "oioi.bio 猫咪标识" })).toHaveAttribute(
+      "src",
+      "/android-chrome-192x192.png",
+    );
+    expect(getByText("从故事、分镜到会动的画面，都在这里完成。")).toBeInTheDocument();
+    expect(document.title).toBe("注册账号 — oioi.bio");
+    expect(document.querySelector('meta[name="robots"]')).toHaveAttribute(
+      "content",
+      "noindex, nofollow, noarchive",
+    );
+    expect(document.querySelector('link[rel="canonical"]')).toHaveAttribute(
+      "href",
+      "http://localhost:3000/register",
+    );
+  });
+});

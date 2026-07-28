@@ -31,6 +31,46 @@ function submitLogin(container: HTMLElement) {
   fireEvent.submit(container.querySelector("form")!);
 }
 
+describe("LoginPage brand identity", () => {
+  beforeEach(() => {
+    useAuthStore.setState({
+      token: null,
+      username: null,
+      isAuthenticated: false,
+      isLoading: false,
+      registrationEnabled: true,
+    });
+  });
+
+  it("clearly identifies oioi.bio before collecting credentials", () => {
+    const { getByRole, getByText } = renderLoginAt("/login");
+
+    expect(getByRole("img", { name: "oioi.bio 猫咪标识" })).toHaveAttribute(
+      "src",
+      "/android-chrome-192x192.png",
+    );
+    expect(getByText("从故事、分镜到会动的画面，都在这里完成。")).toBeInTheDocument();
+    expect(getByText("你的登录凭据只会提交至 oioi.bio，用于验证你在本站的账号。")).toBeInTheDocument();
+    expect(getByRole("link", { name: "产品首页" })).toHaveAttribute("href", "/");
+    expect(getByRole("link", { name: "开源项目" })).toHaveAttribute(
+      "href",
+      "https://github.com/ArcReel/ArcReel",
+    );
+    expect(getByRole("link", { name: "联系支持" })).toHaveAttribute("href", "https://discord.gg/4fdsuGXE5");
+  });
+
+  it("marks the login document as non-indexable with explicit metadata", () => {
+    renderLoginAt("/login?from=%2Fapp%2Fprojects");
+
+    expect(document.title).toBe("登录 — oioi.bio");
+    expect(document.querySelector('meta[name="robots"]')).toHaveAttribute(
+      "content",
+      "noindex, nofollow, noarchive",
+    );
+    expect(document.querySelector('link[rel="canonical"]')).toHaveAttribute("href", "http://localhost:3000/login");
+  });
+});
+
 describe("LoginPage returnTo consumption", () => {
   beforeEach(() => {
     useAuthStore.setState({

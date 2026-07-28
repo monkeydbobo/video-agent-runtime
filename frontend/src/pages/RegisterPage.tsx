@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { useLocation, useSearch } from "wouter";
 import { useTranslation } from "react-i18next";
@@ -7,18 +7,9 @@ import { useAuthStore } from "@/stores/auth-store";
 import { errMsg, voidPromise } from "@/utils/async";
 import { safeReturnPath } from "@/utils/safe-url";
 import type { ErrorResponse, LoginResponse } from "@/api";
+import { AuthPageShell } from "@/components/auth/AuthPageShell";
 import { FieldLabel } from "@/components/ui/FieldLabel";
-import {
-  ACCENT_BTN_CLS,
-  ACCENT_BUTTON_STYLE,
-  CARD_STYLE,
-  INPUT_CLS,
-  ambientGlowStyle,
-  posterGridStyle,
-} from "@/components/ui/darkroom-tokens";
-
-const POSTER_GRID_STYLE = posterGridStyle({ size: 44, maskShape: "60% 60% at 50% 35%", opacity: 0.05 });
-const AMBIENT_GLOW_STYLE = ambientGlowStyle();
+import { ACCENT_BTN_CLS, ACCENT_BUTTON_STYLE, INPUT_CLS } from "@/components/ui/darkroom-tokens";
 
 export function RegisterPage() {
   const { t, i18n } = useTranslation(["common", "auth"]);
@@ -31,12 +22,6 @@ export function RegisterPage() {
   const search = useSearch();
   const login = useAuthStore((s) => s.login);
   const usernameRef = useAutoFocus<HTMLInputElement>();
-
-  useEffect(() => {
-    const prev = document.title;
-    document.title = t("auth:register");
-    return () => { document.title = prev; };
-  }, [t]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -68,14 +53,8 @@ export function RegisterPage() {
   };
 
   return (
-    <div data-testid="register-page" className="relative flex min-h-screen items-center justify-center overflow-hidden bg-bg px-4 text-text">
-      <div aria-hidden className="pointer-events-none absolute inset-0" style={AMBIENT_GLOW_STYLE} />
-      <div aria-hidden className="pointer-events-none absolute inset-0" style={POSTER_GRID_STYLE} />
-      <div className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-hairline p-8 shadow-2xl" style={CARD_STYLE}>
-        <div className="mb-6 text-center">
-          <div className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-text-4">system · register</div>
-          <h1 className="font-editorial mt-1 text-[28px] tracking-tight text-text">{t("auth:register")}</h1>
-        </div>
+    <div data-testid="register-page">
+      <AuthPageShell canonicalPath="/register" pageTitle={t("auth:register")}>
         <form onSubmit={voidPromise(handleSubmit)} className="space-y-4">
           <div>
             <FieldLabel htmlFor="register-username" required>{t("auth:username")}</FieldLabel>
@@ -94,11 +73,15 @@ export function RegisterPage() {
             {loading && <Loader2 aria-hidden className="h-4 w-4 motion-safe:animate-spin" />}
             {loading ? t("auth:registering") : t("auth:register")}
           </button>
-          <button type="button" onClick={() => setLocation(search ? `/login?${search}` : "/login")} className="w-full text-sm text-text-3 transition-colors hover:text-text">
+          <button
+            type="button"
+            onClick={() => setLocation(search ? `/login?${search}` : "/login")}
+            className="w-full rounded-md py-1 text-sm text-text-3 transition-colors hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
             {t("auth:already_have_account")}
           </button>
         </form>
-      </div>
+      </AuthPageShell>
     </div>
   );
 }
