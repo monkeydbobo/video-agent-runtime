@@ -249,8 +249,9 @@
     margin: 0.25rem 0;
 }
 
-.markdown-body code {
-    background-color: oklch(0.35 0.02 265 / 0.08);
+.markdown-body code,
+.markdown-body [data-streamdown="inline-code"] {
+    background-color: var(--color-muted);
     color: var(--color-text);
     border: 1px solid var(--color-hairline-soft);
     padding: 0.125rem 0.375rem;
