@@ -302,9 +302,7 @@ class SessionManager:
         self.meta_store = meta_store
         self._execution_backend = agent_runtime_backend()
         self._e2b_workspaces = (
-            E2BWorkspaceManager(projects_root=self.projects_root)
-            if self._execution_backend == "e2b"
-            else None
+            E2BWorkspaceManager(projects_root=self.projects_root) if self._execution_backend == "e2b" else None
         )
         self.sessions: dict[str, ManagedSession] = {}
         self._disconnecting: set[str] = set()
@@ -352,9 +350,7 @@ class SessionManager:
             execution_backend=self._execution_backend,
             e2b_workspaces=self._e2b_workspaces,
             sandbox_id_provider=self._get_persisted_sandbox_id if self._execution_backend == "e2b" else None,
-            sandbox_id_updater=(
-                self.meta_store.update_sandbox_id if self._execution_backend == "e2b" else None
-            ),
+            sandbox_id_updater=(self.meta_store.update_sandbox_id if self._execution_backend == "e2b" else None),
         )
 
     async def _get_persisted_sandbox_id(self, session_id: str) -> str | None:

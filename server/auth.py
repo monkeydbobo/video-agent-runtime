@@ -67,7 +67,10 @@ def is_registration_enabled() -> bool:
     Registration is only meaningful while authentication is enabled. Deployments
     that are intentionally single-user can set ``AUTH_REGISTRATION_ENABLED=false``.
     """
-    return is_auth_enabled() and os.environ.get("AUTH_REGISTRATION_ENABLED", "true").strip().lower() not in _AUTH_DISABLED_VALUES
+    return (
+        is_auth_enabled()
+        and os.environ.get("AUTH_REGISTRATION_ENABLED", "true").strip().lower() not in _AUTH_DISABLED_VALUES
+    )
 
 
 def _anonymous_user() -> "CurrentUserInfo":
