@@ -277,6 +277,7 @@ class GenerationQueue:
         self,
         *,
         project_name: str | None = None,
+        project_names: list[str] | None = None,
         status: str | None = None,
         task_type: str | None = None,
         source: str | None = None,
@@ -288,6 +289,7 @@ class GenerationQueue:
             repo = TaskRepository(session)
             return await repo.list_tasks(
                 project_name=project_name,
+                project_names=project_names,
                 status=status,
                 task_type=task_type,
                 source=source,
@@ -295,16 +297,22 @@ class GenerationQueue:
                 page_size=page_size,
             )
 
-    async def get_task_stats(self, project_name: str | None = None) -> dict[str, int]:
+    async def get_task_stats(
+        self,
+        project_name: str | None = None,
+        *,
+        project_names: list[str] | None = None,
+    ) -> dict[str, int]:
 
         async with self._session_factory() as session:
             repo = TaskRepository(session)
-            return await repo.get_stats(project_name=project_name)
+            return await repo.get_stats(project_name=project_name, project_names=project_names)
 
     async def get_recent_tasks_snapshot(
         self,
         *,
         project_name: str | None = None,
+        project_names: list[str] | None = None,
         limit: int = 200,
     ) -> list[dict[str, Any]]:
 
@@ -312,6 +320,7 @@ class GenerationQueue:
             repo = TaskRepository(session)
             return await repo.get_recent_tasks_snapshot(
                 project_name=project_name,
+                project_names=project_names,
                 limit=limit,
             )
 
@@ -320,6 +329,7 @@ class GenerationQueue:
         *,
         last_event_id: int,
         project_name: str | None = None,
+        project_names: list[str] | None = None,
         limit: int = 200,
     ) -> list[dict[str, Any]]:
 
@@ -328,14 +338,20 @@ class GenerationQueue:
             return await repo.get_events_since(
                 last_event_id=last_event_id,
                 project_name=project_name,
+                project_names=project_names,
                 limit=limit,
             )
 
-    async def get_latest_event_id(self, *, project_name: str | None = None) -> int:
+    async def get_latest_event_id(
+        self,
+        *,
+        project_name: str | None = None,
+        project_names: list[str] | None = None,
+    ) -> int:
 
         async with self._session_factory() as session:
             repo = TaskRepository(session)
-            return await repo.get_latest_event_id(project_name=project_name)
+            return await repo.get_latest_event_id(project_name=project_name, project_names=project_names)
 
     async def acquire_or_renew_worker_lease(
         self,

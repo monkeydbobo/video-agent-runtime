@@ -87,6 +87,49 @@ def _reset_app_data_dir_cache():
 
 
 @pytest.fixture(autouse=True)
+def project_ownership_db(monkeypatch):
+    """把项目归属守卫（server.project_access）的 DB 指向按需创建的内存 SQLite。
+
+    惰性初始化：绝大多数测试不触发归属读写，零开销；首次使用时才建引擎 +
+    create_all。测试可直接使用本 fixture 返回的 factory 断言/预置归属数据。
+    """
+    from contextlib import asynccontextmanager
+
+    state: dict = {}
+
+    async def _ensure_factory():
+        if "factory" not in state:
+            engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            state["engine"] = engine
+            state["factory"] = async_sessionmaker(engine, expire_on_commit=False)
+        return state["factory"]
+
+    @asynccontextmanager
+    async def _session_cm():
+        factory = await _ensure_factory()
+        async with factory() as session:
+            yield session
+
+    def _factory_call():
+        return _session_cm()
+
+    monkeypatch.setattr("server.project_access.async_session_factory", _factory_call)
+    yield _factory_call
+
+    engine = state.get("engine")
+    if engine is not None:
+        import asyncio
+
+        try:
+            asyncio.run(engine.dispose())
+        except RuntimeError:
+            # teardown 时已有运行中的 loop（如 anyio 测试内），交由 GC 兜底
+            pass
+
+
+@pytest.fixture(autouse=True)
 def _stub_sandbox_check(monkeypatch, request):
     """Mock ``check_sandbox_available`` 返回 True，避免测试机不满足真实 bwrap probe。
 

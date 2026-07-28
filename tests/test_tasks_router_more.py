@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from server.auth import CurrentUserInfo, get_current_user, get_current_user_flexible
 from server.error_handlers import register_error_handlers
 from server.routers import tasks as tasks_router
+from tests.conftest import make_translator
 
 
 class _FakeRequest:
@@ -26,16 +27,16 @@ class _FakeQueue:
         self.task = task
         self.cursors = []
 
-    async def get_latest_event_id(self, project_name=None):
+    async def get_latest_event_id(self, project_name=None, project_names=None):
         return self.latest
 
-    async def get_recent_tasks_snapshot(self, project_name=None, limit=1000):
+    async def get_recent_tasks_snapshot(self, project_name=None, project_names=None, limit=1000):
         return self.snapshot
 
-    async def get_task_stats(self, project_name=None):
+    async def get_task_stats(self, project_name=None, project_names=None):
         return self.stats
 
-    async def get_events_since(self, last_event_id, project_name=None, limit=200):
+    async def get_events_since(self, last_event_id, project_name=None, project_names=None, limit=200):
         self.cursors.append(last_event_id)
         if self.events:
             events = self.events
@@ -72,6 +73,7 @@ class TestTasksRouterMore:
         stream = tasks_router.stream_tasks(
             request=request,
             _user=CurrentUserInfo(id="default", sub="testuser", role="admin"),
+            _t=make_translator(),
             project_name="demo",
             last_event_id=None,
             last_event_header=" 7 ",
@@ -104,6 +106,7 @@ class TestTasksRouterMore:
         stream = tasks_router.stream_tasks(
             request=request,
             _user=CurrentUserInfo(id="default", sub="testuser", role="admin"),
+            _t=make_translator(),
             project_name="demo",
             last_event_id=0,
             last_event_header=None,

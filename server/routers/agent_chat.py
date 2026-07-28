@@ -16,6 +16,7 @@ from server.agent_runtime.models import Heartbeat, LiveMessage
 from server.agent_runtime.service import AssistantService
 from server.agent_runtime.session_manager import AgentConfigurationError, SessionBusyError, SessionCapacityError
 from server.auth import CurrentUser
+from server.project_access import ensure_project_access
 from server.routers.assistant import get_assistant_service
 
 logger = logging.getLogger(__name__)
@@ -165,6 +166,9 @@ async def agent_chat(
     - 流异常收尾时从事件日志补齐回复；无法确认完整的非空回复以 truncated=true 标记
     """
     service = get_assistant_service()
+
+    # 校验项目归属（非属主返回 404，避免探测他人项目名）
+    await ensure_project_access(body.project_name, _user, _t)
 
     # 验证项目是否存在
     try:

@@ -18,6 +18,7 @@ from lib.db.repositories.asset_repo import AssetRepository
 from lib.i18n import Translator
 from lib.project_manager import ProjectManager, get_project_manager
 from server.auth import CurrentUser
+from server.project_access import ensure_project_access
 
 logger = logging.getLogger(__name__)
 
@@ -252,6 +253,9 @@ async def from_project(
     if req.resource_type not in GLOBAL_LIBRARY_ASSET_TYPES:
         raise HTTPException(status_code=400, detail=_t("asset_invalid_type"))
 
+    # 1.5) 校验源项目归属
+    await ensure_project_access(req.project_name, _user, _t)
+
     # 2) 加载项目
     try:
         project = get_project_manager().load_project(req.project_name)
@@ -385,6 +389,9 @@ async def apply_to_project(
     # 1) 校验冲突策略（400 先于其它检查）
     if req.conflict_policy not in {"skip", "overwrite", "rename"}:
         raise HTTPException(status_code=400, detail=_t("asset_invalid_conflict_policy"))
+
+    # 1.5) 校验目标项目归属
+    await ensure_project_access(req.target_project, _user, _t)
 
     # 2) 校验目标项目存在
     project_manager = get_project_manager()

@@ -14,7 +14,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-from fastapi import APIRouter, Body, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Body, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, PlainTextResponse
 
 from lib.asset_types import GLOBAL_LIBRARY_ASSET_TYPES
@@ -41,6 +41,7 @@ from lib.source_loader import (
     UnsupportedFormatError,
 )
 from server.auth import CurrentUser
+from server.project_access import require_project_access
 
 router = APIRouter()
 
@@ -118,7 +119,7 @@ async def serve_global_asset(asset_type: str, filename: str, _t: Translator):
     return FileResponse(str(path))
 
 
-@router.post("/projects/{project_name}/upload/{upload_type}")
+@router.post("/projects/{project_name}/upload/{upload_type}", dependencies=[Depends(require_project_access)])
 async def upload_file(
     project_name: str,
     upload_type: str,
@@ -447,7 +448,7 @@ async def _handle_source_upload(
     }
 
 
-@router.get("/projects/{project_name}/files")
+@router.get("/projects/{project_name}/files", dependencies=[Depends(require_project_access)])
 async def list_project_files(project_name: str, _user: CurrentUser, _t: Translator):
     """列出项目中的所有文件"""
     try:
@@ -503,7 +504,7 @@ async def list_project_files(project_name: str, _user: CurrentUser, _t: Translat
         raise HTTPException(status_code=500, detail=_t("internal_server_error"))
 
 
-@router.get("/projects/{project_name}/source/{filename}")
+@router.get("/projects/{project_name}/source/{filename}", dependencies=[Depends(require_project_access)])
 async def get_source_file(project_name: str, filename: str, _user: CurrentUser, _t: Translator):
     """获取 source 文件的文本内容"""
     try:
@@ -537,7 +538,7 @@ async def get_source_file(project_name: str, filename: str, _user: CurrentUser, 
         raise HTTPException(status_code=500, detail=_t("internal_server_error"))
 
 
-@router.put("/projects/{project_name}/source/{filename}")
+@router.put("/projects/{project_name}/source/{filename}", dependencies=[Depends(require_project_access)])
 async def update_source_file(
     project_name: str,
     filename: str,
@@ -574,7 +575,7 @@ async def update_source_file(
         raise HTTPException(status_code=500, detail=_t("internal_server_error"))
 
 
-@router.delete("/projects/{project_name}/source/{filename}")
+@router.delete("/projects/{project_name}/source/{filename}", dependencies=[Depends(require_project_access)])
 async def delete_source_file(project_name: str, filename: str, _user: CurrentUser, _t: Translator):
     """删除 source 文件"""
     try:
@@ -685,7 +686,7 @@ def _resolve_step1_path(drafts_dir: Path, step_num: int, primary: Path) -> Path:
     return primary
 
 
-@router.get("/projects/{project_name}/drafts/{episode}/step{step_num}")
+@router.get("/projects/{project_name}/drafts/{episode}/step{step_num}", dependencies=[Depends(require_project_access)])
 async def get_draft_content(project_name: str, episode: int, step_num: int, _user: CurrentUser, _t: Translator):
     """获取特定步骤的草稿内容"""
     try:
@@ -713,7 +714,7 @@ async def get_draft_content(project_name: str, episode: int, step_num: int, _use
         raise HTTPException(status_code=404, detail=_t("project_not_found", name=project_name))
 
 
-@router.put("/projects/{project_name}/drafts/{episode}/step{step_num}")
+@router.put("/projects/{project_name}/drafts/{episode}/step{step_num}", dependencies=[Depends(require_project_access)])
 async def update_draft_content(
     project_name: str,
     episode: int,
@@ -793,7 +794,9 @@ async def update_draft_content(
         raise HTTPException(status_code=404, detail=_t("project_not_found", name=project_name))
 
 
-@router.delete("/projects/{project_name}/drafts/{episode}/step{step_num}")
+@router.delete(
+    "/projects/{project_name}/drafts/{episode}/step{step_num}", dependencies=[Depends(require_project_access)]
+)
 async def delete_draft(project_name: str, episode: int, step_num: int, _user: CurrentUser, _t: Translator):
     """删除草稿文件"""
     try:
@@ -824,7 +827,7 @@ async def delete_draft(project_name: str, episode: int, step_num: int, _user: Cu
 # ==================== 风格参考图管理 ====================
 
 
-@router.post("/projects/{project_name}/style-image")
+@router.post("/projects/{project_name}/style-image", dependencies=[Depends(require_project_access)])
 async def upload_style_image(project_name: str, _user: CurrentUser, _t: Translator, file: UploadFile = File(...)):
     """
     上传风格参考图并分析风格
