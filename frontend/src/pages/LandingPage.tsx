@@ -15,9 +15,9 @@ export function LandingPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const clips = [
-    { src: "/showreel/forest.mp4", poster: "/showreel/forest.jpg", label: t("clip_forest"), number: "01" },
-    { src: "/showreel/meadow.mp4", poster: "/showreel/meadow.jpg", label: t("clip_meadow"), number: "02" },
-    { src: "/showreel/sunset.mp4", poster: "/showreel/sunset.jpg", label: t("clip_sunset"), number: "03" },
+    { src: "/showreel/elephants-dream-1.mp4", poster: "/showreel/elephants-dream-1.jpg", label: t("clip_dream_one"), number: "01" },
+    { src: "/showreel/elephants-dream-2.mp4", poster: "/showreel/elephants-dream-2.jpg", label: t("clip_dream_two"), number: "02" },
+    { src: "/showreel/big-buck-bunny.mp4", poster: "/showreel/big-buck-bunny.jpg", label: t("clip_bunny"), number: "03" },
   ];
   const selectedClip = clips[activeClip];
 
@@ -150,7 +150,13 @@ export function LandingPage() {
             </button>
           ))}
         </div>
-        <p className="landing-attribution">{t("clip_attribution")} <a href="https://www.bigbuckbunny.org/" rel="noreferrer" target="_blank">Big Buck Bunny</a> · <a href="https://creativecommons.org/licenses/by/3.0/" rel="noreferrer" target="_blank">CC BY 3.0</a></p>
+        <p className="landing-attribution">
+          {t("clip_attribution")}{" "}
+          <a href="https://orange.blender.org/" rel="noreferrer" target="_blank">Elephants Dream</a> (
+          <a href="https://creativecommons.org/licenses/by/2.5/" rel="noreferrer" target="_blank">CC BY 2.5</a>) ·{" "}
+          <a href="https://www.bigbuckbunny.org/" rel="noreferrer" target="_blank">Big Buck Bunny</a> (
+          <a href="https://creativecommons.org/licenses/by/3.0/" rel="noreferrer" target="_blank">CC BY 3.0</a>)
+        </p>
       </section>
 
       <section className="landing-features" id="capabilities" aria-label={t("features_label")}>
