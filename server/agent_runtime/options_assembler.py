@@ -321,11 +321,7 @@ class OptionsAssembler:
                 project_name,
                 sandbox_id=existing_sandbox_id,
             )
-            if (
-                resume_id
-                and sandbox.sandbox_id != existing_sandbox_id
-                and self._sandbox_id_updater is not None
-            ):
+            if resume_id and sandbox.sandbox_id != existing_sandbox_id and self._sandbox_id_updater is not None:
                 await self._sandbox_id_updater(resume_id, sandbox.sandbox_id)
             mcp_servers["e2b"] = self._e2b_workspaces.build_mcp_server(
                 session_key=session_key,
