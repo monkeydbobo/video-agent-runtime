@@ -135,7 +135,7 @@ function replaceMeta(html: string, page: SeoPage): string {
         .replace(/<html lang="[^"]+"/, `<html lang="${page.locale === "zh" ? "zh-CN" : "en"}"`)
         .replace(/<title>[\s\S]*?<\/title>/, `<title>${escapeHtml(page.title)}</title>`)
         .replace(/<meta name="description" content="[^"]*"\s*\/>/, `<meta name="description" content="${escapeHtml(page.description)}" />`)
-        .replace(/<link rel="canonical" href="[^"]*"\s*\/>/, `<link rel="canonical" href="${url}" />\n    <link rel="alternate" hreflang="${page.locale}" href="${url}" />\n    <link rel="alternate" hreflang="${page.locale === "zh" ? "en" : "zh"}" href="https://oioi.bio${page.alternatePath}" />\n    <link rel="alternate" hreflang="x-default" href="https://oioi.bio/" />`)
+        .replace(/<link rel="canonical" href="[^"]*"\s*\/>/, `<link rel="canonical" href="${url}" />\n    <link rel="alternate" hreflang="${page.locale}" href="${url}" />\n    <link rel="alternate" hreflang="${page.locale === "zh" ? "en" : "zh"}" href="https://oioi.bio${page.alternatePath}" />\n    <link rel="alternate" hreflang="x-default" href="https://oioi.bio${xDefaultPath(page)}" />`)
         .replace(/<meta property="og:title" content="[^"]*"\s*\/>/, `<meta property="og:title" content="${escapeHtml(page.title)}" />`)
         .replace(/<meta property="og:description" content="[^"]*"\s*\/>/, `<meta property="og:description" content="${escapeHtml(page.description)}" />`)
         .replace(/<meta property="og:url" content="[^"]*"\s*\/>/, `<meta property="og:url" content="${url}" />`)
@@ -145,6 +145,102 @@ function replaceMeta(html: string, page: SeoPage): string {
         .replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/, `<script type="application/ld+json">${seoStructuredData(page)}</script>`)
         .replace('<div id="app-root">', '<div id="app-root" data-static-seo="true">')
         .replace('<div id="app-root" data-static-seo="true"></div>', `<div id="app-root" data-static-seo="true">${renderStaticSeoContent(page)}</div>`);
+}
+
+const SITE_ORIGIN = "https://oioi.bio";
+
+// 同一语言组（zh/en 互为 alternate）的 x-default 统一指向中文版（站点主语言），
+// 保证 sitemap 与页面内 hreflang 信号一致。
+function xDefaultPath(page: SeoPage): string {
+    return page.locale === "zh" ? page.path : page.alternatePath;
+}
+
+function renderSitemap(buildDate: string): string {
+    const pageEntries = seoPages
+        .map((page) => {
+            const alternate = seoPages.find((candidate) => candidate.path === page.alternatePath);
+            const links = [
+                `<xhtml:link rel="alternate" hreflang="${page.locale}" href="${SITE_ORIGIN}${page.path}" />`,
+                alternate
+                    ? `<xhtml:link rel="alternate" hreflang="${alternate.locale}" href="${SITE_ORIGIN}${alternate.path}" />`
+                    : "",
+                `<xhtml:link rel="alternate" hreflang="x-default" href="${SITE_ORIGIN}${xDefaultPath(page)}" />`,
+            ]
+                .filter(Boolean)
+                .map((line) => `    ${line}`)
+                .join("\n");
+            return `  <url>
+    <loc>${SITE_ORIGIN}${page.path}</loc>
+    <lastmod>${buildDate}</lastmod>
+${links}
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>`;
+        })
+        .join("\n");
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml"
+        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
+  <url>
+    <loc>${SITE_ORIGIN}/</loc>
+    <lastmod>${buildDate}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <video:video>
+      <video:thumbnail_loc>${SITE_ORIGIN}/showreel/elephants-dream-1.jpg</video:thumbnail_loc>
+      <video:title>oioi.bio narrative filmmaking showreel</video:title>
+      <video:description>Open-film moments demonstrating visual continuity and cinematic pacing.</video:description>
+      <video:content_loc>${SITE_ORIGIN}/showreel/elephants-dream-1.mp4</video:content_loc>
+    </video:video>
+  </url>
+${pageEntries}
+</urlset>
+`;
+}
+
+function renderLlmsFullTxt(): string {
+    const sections = seoPages.map((page) => {
+        const steps = page.steps.map((step, index) => `${index + 1}. **${step.title}** — ${step.body}`).join("\n");
+        const highlights = page.highlights.map((item) => `- ${item}`).join("\n");
+        const faq = page.faq.map((item) => `### ${item.question}\n\n${item.answer}`).join("\n\n");
+        return `## ${page.headline}
+
+Canonical URL: ${SITE_ORIGIN}${page.path} (${page.locale === "zh" ? "Chinese" : "English"}; alternate: ${SITE_ORIGIN}${page.alternatePath})
+
+${page.lede}
+
+**${page.problemTitle}**
+
+${page.problemBody}
+
+Workflow:
+
+${steps}
+
+Highlights:
+
+${highlights}
+
+FAQ:
+
+${faq}`;
+    });
+
+    return `# oioi.bio — full reference for AI assistants
+
+> oioi.bio is an AI narrative filmmaking workspace for turning ideas and novels into scripts, reusable visual assets, storyboards, and generated video. This file contains the full text of the official guides; a shorter index lives at ${SITE_ORIGIN}/llms.txt.
+
+- Product name: oioi.bio
+- Official website: ${SITE_ORIGIN}/
+- Category: AI narrative filmmaking and video production workspace
+- Primary languages: Chinese and English
+- Sign in: ${SITE_ORIGIN}/login
+- Create an account: ${SITE_ORIGIN}/register
+
+${sections.join("\n\n---\n\n")}
+`;
 }
 
 function generateSeoPages() {
@@ -158,6 +254,9 @@ function generateSeoPages() {
                 mkdirSync(targetDir, { recursive: true });
                 writeFileSync(path.join(targetDir, "index.html"), replaceMeta(shell, page), "utf-8");
             }
+            const buildDate = new Date().toISOString().slice(0, 10);
+            writeFileSync(path.join(distDir, "sitemap.xml"), renderSitemap(buildDate), "utf-8");
+            writeFileSync(path.join(distDir, "llms-full.txt"), renderLlmsFullTxt(), "utf-8");
         },
     };
 }
