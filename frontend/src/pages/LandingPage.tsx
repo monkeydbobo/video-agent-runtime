@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import { BRAND } from "@/branding";
+import { ParticleField } from "@/components/landing/ParticleField";
 import "./LandingPage.css";
 
 const FEATURE_ICONS = [FileText, Layers3, WandSparkles] as const;
@@ -51,6 +52,7 @@ export function LandingPage() {
 
   return (
     <main className="landing-page">
+      <ParticleField />
       <div aria-hidden className="landing-mesh" />
       <div aria-hidden className="landing-mesh landing-mesh--alt" />
 

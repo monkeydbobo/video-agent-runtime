@@ -26,6 +26,18 @@
   -webkit-font-smoothing: antialiased;
 }
 
+/* ---------- flowing particle backdrop ---------- */
+.landing-particles {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  opacity: .55;
+  mix-blend-mode: multiply;
+}
+
 /* ---------- ambient mesh backdrop ---------- */
 .landing-mesh {
   position: absolute;
