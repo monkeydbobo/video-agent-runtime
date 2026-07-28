@@ -51,8 +51,8 @@ export function LandingPage() {
 
   return (
     <main className="landing-page">
-      <div aria-hidden className="landing-noise" />
-      <div aria-hidden className="landing-spotlight" />
+      <div aria-hidden className="landing-mesh" />
+      <div aria-hidden className="landing-mesh landing-mesh--alt" />
 
       <nav className="landing-nav" aria-label={t("navigation")}>
         <button className="landing-brand" onClick={() => setLocation("/")} type="button">
@@ -75,8 +75,7 @@ export function LandingPage() {
 
       <section className="landing-hero" aria-labelledby="landing-title">
         <div className="landing-hero__copy">
-          <p className="landing-kicker"><Sparkles aria-hidden size={13} /> {t("eyebrow")}</p>
-          <p className="landing-issue">ARC REEL / 01 — 2026</p>
+          <p className="landing-badge"><Sparkles aria-hidden size={13} /> {t("eyebrow")}</p>
           <h1 id="landing-title"><span>{t("title_before")}</span> <em>{t("title_emphasis")}</em>{t("title_after")}</h1>
           <p className="landing-lede">{t("description")}</p>
           <div className="landing-actions">
