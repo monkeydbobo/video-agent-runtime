@@ -34,8 +34,6 @@
   width: 100vw;
   height: 100vh;
   pointer-events: none;
-  opacity: .55;
-  mix-blend-mode: multiply;
 }
 
 /* ---------- ambient mesh backdrop ---------- */
@@ -53,8 +51,19 @@
     radial-gradient(30% 36% at 55% 62%, rgb(255 212 121 / .10), transparent 70%);
   filter: blur(10px);
   transform: translateX(-50%);
+  animation: landing-mesh-drift 26s ease-in-out infinite;
 }
-.landing-mesh--alt { top: 118rem; height: 46rem; opacity: .8; }
+.landing-mesh--alt { top: 118rem; height: 46rem; opacity: .8; animation-duration: 32s; animation-direction: reverse; }
+
+@keyframes landing-mesh-drift {
+  0%, 100% { transform: translateX(-50%) translateY(0) scale(1); }
+  33% { transform: translateX(-46%) translateY(2.5rem) scale(1.06); }
+  66% { transform: translateX(-54%) translateY(-2rem) scale(0.97); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-mesh, .landing-mesh--alt { animation: none; }
+}
 
 /* ---------- shared containers ---------- */
 .landing-nav, .landing-hero, .landing-features, .landing-workflow, .landing-guides, .landing-contact, .landing-footer {
