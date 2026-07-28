@@ -7,19 +7,20 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, Field
 
 from lib.i18n import Translator
 from server.auth import (
     CurrentUser,
+    authenticate_credentials,
     create_registered_user,
     create_token,
-    authenticate_credentials,
     is_auth_enabled,
     is_registration_enabled,
 )
+from server.services.registration_notifications import notify_new_registration
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +91,7 @@ async def login_for_access_token(
 
 
 @router.post("/auth/register", response_model=TokenResponse, status_code=201)
-async def register(req: RegisterRequest, _t: Translator):
+async def register(req: RegisterRequest, background_tasks: BackgroundTasks, _t: Translator):
     """Register a user and sign them in immediately."""
     if not is_registration_enabled():
         raise HTTPException(status_code=403, detail=_t("registration_disabled"))
@@ -100,6 +101,7 @@ async def register(req: RegisterRequest, _t: Translator):
         raise HTTPException(status_code=409, detail=_t("username_taken"))
 
     logger.info("用户注册成功: %s", user.sub)
+    background_tasks.add_task(notify_new_registration, user.sub)
     return TokenResponse(access_token=create_token(user.sub, user_id=user.id, role=user.role), token_type="bearer")
 
 

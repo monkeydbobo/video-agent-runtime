@@ -67,11 +67,18 @@ class TestLoginRoute:
 class TestRegistrationRoute:
     def test_register_success(self, client, monkeypatch):
         user = auth_module.CurrentUserInfo(id="user-1", sub="alice", role="user")
+        notified_users = []
+
+        async def notify(username):
+            notified_users.append(username)
+
         monkeypatch.setattr(auth_router, "is_registration_enabled", lambda: True)
         monkeypatch.setattr(auth_router, "create_registered_user", lambda *_: _return(user))
+        monkeypatch.setattr(auth_router, "notify_new_registration", notify)
 
         resp = client.post("/api/v1/auth/register", json={"username": "alice", "password": "a-password"})
         assert resp.status_code == 201
+        assert notified_users == ["alice"]
         payload = auth_module.verify_token(resp.json()["access_token"])
         assert payload is not None
         assert payload["uid"] == "user-1"
