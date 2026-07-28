@@ -1,0 +1,296 @@
+[
+  {
+    "path": "/zh/novel-to-video",
+    "locale": "zh",
+    "alternatePath": "/en/novel-to-video",
+    "title": "小说转视频：从文本到分镜与成片的 AI 工作流 | oioi.bio",
+    "description": "了解如何使用 oioi.bio 将小说整理为剧本、角色与场景资产、结构化分镜和生成视频，并持续保持人物与视觉风格一致。",
+    "eyebrow": "小说转视频",
+    "headline": "把几万字的故事，变成可以逐镜头制作的影像。",
+    "lede": "oioi.bio 把小说拆解、剧本整理、角色与场景管理、分镜设计和视频生成放进同一条连续工作流，让创作者不必在零散工具之间反复复制上下文。",
+    "problemTitle": "小说不是提示词，改编需要一条有记忆的生产线。",
+    "problemBody": "长篇文本包含人物关系、空间规则、伏笔和节奏。真正困难的不是生成某一张好看的图，而是在几十个镜头后仍然认得出同一个角色，并让每一幕服务于同一段叙事。",
+    "steps": [
+      {
+        "title": "导入并理解原文",
+        "body": "导入 TXT、DOCX、EPUB 或 PDF，保留章节结构，并从原始文本中提取可制作的剧情信息。"
+      },
+      {
+        "title": "整理成可制作剧本",
+        "body": "根据说书或剧情动画模式组织段落、场景、对白和叙事节拍，而不是直接把整章塞进生成模型。"
+      },
+      {
+        "title": "建立视觉资产",
+        "body": "集中维护角色、场景、道具与参考图，后续镜头始终引用同一套视觉定义。"
+      },
+      {
+        "title": "生成并迭代镜头",
+        "body": "把场景转为分镜图和视频，逐镜头审阅、重做和保留版本，而不推翻已经确认的部分。"
+      }
+    ],
+    "highlights": [
+      "适合小说改编、短剧、说书视频与剧情动画",
+      "角色、场景和道具作为项目资产统一管理",
+      "从文本到镜头的上下文持续留在同一项目中"
+    ],
+    "faq": [
+      {
+        "question": "可以直接导入整本小说吗？",
+        "answer": "可以导入常见文本与电子书格式。实际制作时建议按章节或剧集推进，便于控制叙事节奏、成本与生成质量。"
+      },
+      {
+        "question": "如何保持角色在不同镜头中一致？",
+        "answer": "先建立项目级角色资产和视觉参考，再让各个镜头引用这些资产。这样比每次重新描述角色更稳定，也更容易回溯修改。"
+      },
+      {
+        "question": "生成失败后需要重新开始吗？",
+        "answer": "不需要。oioi.bio 以镜头和资产为单位管理生成任务与版本，可以只重做需要调整的部分。"
+      }
+    ]
+  },
+  {
+    "path": "/zh/ai-storyboard-generator",
+    "locale": "zh",
+    "alternatePath": "/en/ai-storyboard-generator",
+    "title": "AI 分镜生成器：把剧本变成可执行镜头 | oioi.bio",
+    "description": "使用 oioi.bio 将剧本场景拆解为结构化镜头、分镜图和视频任务，统一管理角色、景别、动作、构图与视觉连续性。",
+    "eyebrow": "AI 分镜生成器",
+    "headline": "分镜不只是好看的图，而是下一步能执行的镜头计划。",
+    "lede": "从场景目标、人物动作和情绪节拍出发，oioi.bio 帮你组织镜头描述、景别、构图、资产引用和生成结果，让分镜真正连接剧本与视频制作。",
+    "problemTitle": "一组漂亮图片，不等于一段讲得通的戏。",
+    "problemBody": "分镜需要明确每个镜头为什么存在、承接什么动作、使用哪些角色与场景，以及如何进入下一个镜头。结构化信息让团队和生成模型都能理解同一套意图。",
+    "steps": [
+      {
+        "title": "读取场景目的",
+        "body": "从对白、动作和情绪变化中识别需要被看见的关键叙事节拍。"
+      },
+      {
+        "title": "规划镜头顺序",
+        "body": "为每个节拍安排景别、主体、动作和构图，形成前后可衔接的镜头列表。"
+      },
+      {
+        "title": "引用项目资产",
+        "body": "镜头直接关联已确认的角色、场景和道具，减少视觉漂移和重复描述。"
+      },
+      {
+        "title": "生成、评审、局部重做",
+        "body": "对单个镜头生成分镜图或视频，不满意时只调整这一镜，而不是重做整段。"
+      }
+    ],
+    "highlights": [
+      "镜头描述与角色、场景、道具保持关联",
+      "支持分镜图、宫格图与视频生成路径",
+      "每个镜头可以独立审阅和迭代"
+    ],
+    "faq": [
+      {
+        "question": "AI 会自动决定所有镜头吗？",
+        "answer": "它可以提供初始拆解，但创作者仍然可以修改镜头目标、构图和动作。oioi.bio 的重点是让这些选择可见、可编辑、可追踪。"
+      },
+      {
+        "question": "可以只重新生成其中一格吗？",
+        "answer": "可以。镜头和资源按独立单元管理，局部调整不会强制重做已经确认的内容。"
+      },
+      {
+        "question": "分镜可以直接用于视频生成吗？",
+        "answer": "可以。分镜图、首尾帧、宫格图或参考视频可以进入不同的视频生成路径，具体能力取决于所配置的模型供应商。"
+      }
+    ]
+  },
+  {
+    "path": "/zh/ai-video-workflow",
+    "locale": "zh",
+    "alternatePath": "/en/ai-video-workflow",
+    "title": "AI 视频创作工作流：剧本、资产、分镜与生成一体化 | oioi.bio",
+    "description": "oioi.bio 将 AI 视频制作中的剧本、角色、场景、道具、分镜、生成任务、版本和成本放在同一个项目工作流中。",
+    "eyebrow": "AI 视频工作流",
+    "headline": "少一点工具搬运，多一点真正的创作判断。",
+    "lede": "AI 视频制作往往不是缺少模型，而是缺少连接模型的工作流。oioi.bio 保存项目上下文、排队生成任务、追踪版本与费用，让创作者专注于故事和画面。",
+    "problemTitle": "模型越来越多，制作过程却不该越来越碎。",
+    "problemBody": "提示词散落在聊天记录、图片堆在下载目录、视频任务分散在不同平台时，任何修改都会变得昂贵。项目化工作流把创作意图、资产和生成结果重新连在一起。",
+    "steps": [
+      {
+        "title": "定义项目与内容模式",
+        "body": "确定作品是说书、剧情动画或参考视频路径，让后续结构与制作方式保持一致。"
+      },
+      {
+        "title": "配置需要的模型",
+        "body": "为文本、图片和视频选择合适的供应商与模型，按项目需求组合，而不是被单一平台锁定。"
+      },
+      {
+        "title": "排队执行生成任务",
+        "body": "镜头、图片和视频任务进入统一队列，持续显示占用状态、进度与结果。"
+      },
+      {
+        "title": "审阅版本与成本",
+        "body": "保留每次生成版本，按项目、剧集或镜头查看费用，再决定哪里值得继续迭代。"
+      }
+    ],
+    "highlights": [
+      "多种文本、图片和视频模型可组合使用",
+      "生成队列、版本历史和费用估算集中管理",
+      "项目上下文不会随一次生成请求结束而丢失"
+    ],
+    "faq": [
+      {
+        "question": "oioi.bio 自带生成模型吗？",
+        "answer": "它是连接创作流程与多种模型供应商的工作台。你可以在系统配置中接入所需的文本、图片和视频服务。"
+      },
+      {
+        "question": "如何控制生成成本？",
+        "answer": "可以按项目、剧集和镜头查看费用预估与实际用量，把预算集中在最重要的画面上。"
+      },
+      {
+        "question": "适合一个人使用还是团队使用？",
+        "answer": "当前工作流适合独立创作者和小型制作团队，尤其适合需要长期维护角色与世界观一致性的系列内容。"
+      }
+    ]
+  },
+  {
+    "path": "/en/novel-to-video",
+    "locale": "en",
+    "alternatePath": "/zh/novel-to-video",
+    "title": "Novel to Video: An AI Workflow from Text to Final Shots | oioi.bio",
+    "description": "Use oioi.bio to adapt a novel into a production-ready script, reusable character and location assets, structured storyboards, and generated video.",
+    "eyebrow": "Novel to video",
+    "headline": "Turn a long story into shots you can actually produce.",
+    "lede": "oioi.bio keeps source analysis, script development, worldbuilding, storyboards, and video generation in one continuous project, so creators do not have to rebuild context in every tool.",
+    "problemTitle": "A novel is not a prompt. Adaptation needs a production memory.",
+    "problemBody": "Long-form stories depend on relationships, locations, setups, and rhythm. The hard part is not producing one attractive image. It is keeping the same character recognizable dozens of shots later while every frame still serves the story.",
+    "steps": [
+      {
+        "title": "Import and understand the source",
+        "body": "Bring in TXT, DOCX, EPUB, or PDF files, preserve chapter structure, and extract information that matters to production."
+      },
+      {
+        "title": "Shape a production-ready script",
+        "body": "Organize narration, scenes, dialogue, and story beats instead of sending an entire chapter to a generation model."
+      },
+      {
+        "title": "Build reusable visual assets",
+        "body": "Manage characters, locations, props, and reference images as shared project assets."
+      },
+      {
+        "title": "Generate and iterate shot by shot",
+        "body": "Create storyboards and video per shot, review the result, and redo only the moments that need work."
+      }
+    ],
+    "highlights": [
+      "Built for novel adaptations, narrated video, shorts, and animated drama",
+      "Characters, locations, and props stay connected to the project",
+      "Creative context survives from source text to final shot"
+    ],
+    "faq": [
+      {
+        "question": "Can I import a complete novel?",
+        "answer": "Yes. Common document and ebook formats are supported. For production, moving chapter by chapter or episode by episode makes pacing, cost, and quality easier to control."
+      },
+      {
+        "question": "How do characters stay consistent across shots?",
+        "answer": "Create project-level character assets and visual references first, then reuse them in each shot instead of describing the character from scratch."
+      },
+      {
+        "question": "Do I have to restart when one generation fails?",
+        "answer": "No. Tasks and versions are managed per asset and shot, so you can redo one result without discarding approved work."
+      }
+    ]
+  },
+  {
+    "path": "/en/ai-storyboard-generator",
+    "locale": "en",
+    "alternatePath": "/zh/ai-storyboard-generator",
+    "title": "AI Storyboard Generator for Production-Ready Shots | oioi.bio",
+    "description": "Turn scripts into structured shot plans, storyboard images, and video tasks while keeping characters, locations, actions, and visual continuity connected.",
+    "eyebrow": "AI storyboard generator",
+    "headline": "A storyboard should be more than a collection of attractive images.",
+    "lede": "Starting with scene intent, action, and emotional beats, oioi.bio organizes shot descriptions, framing, asset references, and generated results so the storyboard can carry a script into production.",
+    "problemTitle": "Beautiful frames do not automatically make a scene work.",
+    "problemBody": "A useful storyboard explains why each shot exists, which action it carries, what assets it uses, and how it leads into the next moment. Structured shot data keeps creators and generation models aligned.",
+    "steps": [
+      {
+        "title": "Read the scene intent",
+        "body": "Identify the visible story beats hidden inside dialogue, action, and changes in emotion."
+      },
+      {
+        "title": "Plan the shot sequence",
+        "body": "Assign subject, framing, action, and composition to each beat, building a sequence that cuts together."
+      },
+      {
+        "title": "Reference project assets",
+        "body": "Connect shots to approved characters, locations, and props to reduce visual drift and repeated prompting."
+      },
+      {
+        "title": "Generate, review, and revise locally",
+        "body": "Create storyboard images or video for a single shot and adjust that shot without rebuilding the scene."
+      }
+    ],
+    "highlights": [
+      "Shot descriptions stay linked to characters, locations, and props",
+      "Supports storyboard, grid-image, and video generation paths",
+      "Every shot can be reviewed and iterated independently"
+    ],
+    "faq": [
+      {
+        "question": "Does AI make every shot decision automatically?",
+        "answer": "It can propose an initial breakdown, but creators can edit shot intent, composition, and action. The goal is to make those choices visible, editable, and traceable."
+      },
+      {
+        "question": "Can I regenerate only one storyboard frame?",
+        "answer": "Yes. Shots and assets are managed independently, so a local revision does not force you to rebuild approved work."
+      },
+      {
+        "question": "Can a storyboard feed directly into video generation?",
+        "answer": "Yes. Storyboard images, start and end frames, grids, or reference video can feed different generation paths depending on the configured provider."
+      }
+    ]
+  },
+  {
+    "path": "/en/ai-video-workflow",
+    "locale": "en",
+    "alternatePath": "/zh/ai-video-workflow",
+    "title": "AI Video Workflow for Scripts, Assets, Storyboards, and Generation | oioi.bio",
+    "description": "oioi.bio brings scripts, characters, locations, props, storyboards, generation tasks, versions, and cost tracking into one AI video production workflow.",
+    "eyebrow": "AI video workflow",
+    "headline": "Spend less time moving files and more time making creative decisions.",
+    "lede": "AI video production rarely lacks models; it lacks the workflow connecting them. oioi.bio preserves project context, queues generation tasks, tracks versions and costs, and keeps the story at the center.",
+    "problemTitle": "More models should not mean a more fragmented production.",
+    "problemBody": "When prompts live in chats, images pile up in downloads, and video jobs are scattered across platforms, every revision becomes expensive. A project workflow reconnects creative intent, assets, and generated results.",
+    "steps": [
+      {
+        "title": "Define the project and content mode",
+        "body": "Choose narrated video, animated drama, or a reference-video path so structure and production stay aligned."
+      },
+      {
+        "title": "Connect the models you need",
+        "body": "Choose suitable text, image, and video providers per project rather than being locked to one platform."
+      },
+      {
+        "title": "Queue generation work",
+        "body": "Shots, images, and video enter a shared task queue with visible busy states, progress, and results."
+      },
+      {
+        "title": "Review versions and cost",
+        "body": "Keep generation history and inspect estimated or actual cost per project, episode, or shot before iterating."
+      }
+    ],
+    "highlights": [
+      "Combine multiple text, image, and video providers",
+      "Manage generation queues, version history, and cost estimates together",
+      "Project context remains available after each generation request"
+    ],
+    "faq": [
+      {
+        "question": "Does oioi.bio include its own generation model?",
+        "answer": "It is a workspace that connects the creative process to multiple model providers. Configure the text, image, and video services that fit your production."
+      },
+      {
+        "question": "How can I control generation cost?",
+        "answer": "Review estimates and actual usage by project, episode, or shot, then focus the budget on the moments that matter most."
+      },
+      {
+        "question": "Is it designed for individuals or teams?",
+        "answer": "The workflow suits independent creators and small production teams, especially for serialized work that needs long-term character and world consistency."
+      }
+    ]
+  }
+]

@@ -12,6 +12,8 @@ import { ProjectSettingsPage } from "@/components/pages/ProjectSettingsPage";
 import { AssetLibraryPage } from "@/components/pages/AssetLibraryPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
+import { LandingPage } from "@/pages/LandingPage";
+import { SeoLandingPage } from "@/pages/SeoLandingPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { ToastOverlay } from "@/components/layout/ToastOverlay";
 import { API } from "@/api";
@@ -153,10 +155,10 @@ export function AppRoutes() {
         <Route path="/login" component={LoginPage} />
         <Route path="/register" component={RegisterPage} />
 
-        {/* Root redirects to projects list */}
-        <Route path="/">
-          <Redirect to="/app/projects" />
-        </Route>
+        {/* Public product landing page */}
+        <Route path="/zh/:seoSlug" component={SeoLandingPage} />
+        <Route path="/en/:seoSlug" component={SeoLandingPage} />
+        <Route path="/" component={LandingPage} />
 
         {/* /app and /app/ also redirect to projects list */}
         <Route path="/app">

@@ -1,0 +1,267 @@
+.seo-page {
+  --seo-ink: #0b0b0b;
+  --seo-paper: #ede7dc;
+  --seo-cream: #fffaf0;
+  --seo-red: #e14225;
+  --seo-muted: #9f9991;
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background: var(--seo-ink);
+  color: var(--seo-paper);
+  font-family: "Noto Sans SC", sans-serif;
+}
+
+.seo-page__grain {
+  position: absolute;
+  inset: 0;
+  opacity: .1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.75'/%3E%3C/svg%3E");
+}
+
+.seo-nav,
+.seo-hero,
+.seo-problem,
+.seo-process,
+.seo-faq,
+.seo-related,
+.seo-footer {
+  position: relative;
+  z-index: 1;
+  width: min(1180px, calc(100% - 64px));
+  margin-inline: auto;
+}
+
+.seo-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 78px;
+  border-bottom: 1px solid rgb(237 231 220 / .2);
+}
+
+.seo-brand,
+.seo-nav button {
+  border: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.seo-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font: 700 13px/1 "JetBrains Mono", monospace;
+  letter-spacing: -.05em;
+}
+
+.seo-brand > span {
+  display: grid;
+  width: 29px;
+  height: 29px;
+  place-items: center;
+  color: var(--seo-ink);
+  background: var(--seo-red);
+}
+
+.seo-nav > div {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+}
+
+.seo-nav a {
+  color: var(--seo-muted);
+  font: 700 10px "JetBrains Mono", monospace;
+  text-decoration: none;
+}
+
+.seo-nav > div button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.seo-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(300px, .75fr);
+  gap: clamp(50px, 9vw, 140px);
+  align-items: center;
+  min-height: 670px;
+  padding-block: 95px;
+}
+
+.seo-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 55px;
+  color: var(--seo-muted);
+  font: 600 10px "JetBrains Mono", monospace;
+  letter-spacing: .07em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.seo-eyebrow,
+.seo-problem > p,
+.seo-section-heading > p,
+.seo-related > p {
+  margin: 0;
+  color: var(--seo-red);
+  font: 700 10px "JetBrains Mono", monospace;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+.seo-hero h1 {
+  max-width: 820px;
+  margin: 20px 0 0;
+  color: var(--seo-cream);
+  font: 400 clamp(60px, 7.2vw, 108px)/.86 "Instrument Serif", "Noto Serif SC", serif;
+  letter-spacing: -.063em;
+}
+
+.seo-lede {
+  max-width: 660px;
+  margin: 34px 0 0;
+  color: #c0b9b0;
+  font-size: 15px;
+  line-height: 1.9;
+}
+
+.seo-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 35px;
+  border: 1px solid var(--seo-red);
+  padding: 14px 18px;
+  color: var(--seo-cream);
+  background: var(--seo-red);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  transition: background .2s, transform .2s;
+}
+
+.seo-primary:hover { background: #f05739; transform: translateY(-2px); }
+
+.seo-cut-sheet {
+  position: relative;
+  padding: 27px;
+  color: var(--seo-ink);
+  background: var(--seo-paper);
+  box-shadow: 18px 18px 0 rgb(225 66 37 / .78);
+  transform: rotate(1.5deg);
+}
+
+.seo-cut-sheet::before,
+.seo-cut-sheet::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 8px;
+  content: "";
+  background: repeating-linear-gradient(90deg, var(--seo-ink) 0 13px, transparent 13px 21px);
+}
+
+.seo-cut-sheet::before { top: 12px; }
+.seo-cut-sheet::after { bottom: 12px; }
+.seo-cut-sheet > p { margin: 14px 0 32px; color: #6c665e; font: 9px "JetBrains Mono", monospace; letter-spacing: .1em; }
+.seo-cut-sheet > strong { display: block; font: italic 40px/1 "Instrument Serif", "Noto Serif SC", serif; }
+.seo-cut-sheet ul { display: grid; gap: 17px; margin: 33px 0; padding: 24px 0; border-block: 1px solid #bbb3a8; list-style: none; }
+.seo-cut-sheet li { display: flex; align-items: flex-start; gap: 9px; font-size: 12px; line-height: 1.65; }
+.seo-cut-sheet li svg { flex: 0 0 auto; margin-top: 3px; color: var(--seo-red); }
+.seo-cut-sheet > span { font: 700 9px "JetBrains Mono", monospace; letter-spacing: .05em; }
+
+.seo-problem {
+  display: grid;
+  grid-template-columns: .5fr 1.5fr;
+  gap: 9%;
+  padding-block: 90px;
+  border-block: 1px solid rgb(237 231 220 / .22);
+}
+
+.seo-problem h2,
+.seo-section-heading h2 {
+  max-width: 730px;
+  margin: 0;
+  font: 400 clamp(44px, 5vw, 74px)/.94 "Instrument Serif", "Noto Serif SC", serif;
+  letter-spacing: -.052em;
+}
+
+.seo-problem div > p {
+  max-width: 700px;
+  margin: 29px 0 0;
+  color: var(--seo-muted);
+  font-size: 14px;
+  line-height: 1.9;
+}
+
+.seo-process,
+.seo-faq {
+  display: grid;
+  grid-template-columns: .7fr 1.3fr;
+  gap: 9%;
+  padding-block: 120px;
+}
+
+.seo-section-heading > p { margin-bottom: 20px; }
+.seo-process ol { margin: 0; padding: 0; border-top: 1px solid rgb(237 231 220 / .22); list-style: none; }
+.seo-process li { display: grid; grid-template-columns: 50px 1fr; gap: 18px; padding: 24px 0; border-bottom: 1px solid rgb(237 231 220 / .22); }
+.seo-process li > span { color: var(--seo-red); font: 10px "JetBrains Mono", monospace; }
+.seo-process h3 { margin: 0; font: 400 29px/1.1 "Instrument Serif", "Noto Serif SC", serif; }
+.seo-process li p { max-width: 550px; margin: 9px 0 0; color: var(--seo-muted); font-size: 13px; line-height: 1.75; }
+
+.seo-faq { border-top: 1px solid rgb(237 231 220 / .22); }
+.seo-faq__list { border-top: 1px solid rgb(237 231 220 / .22); }
+.seo-faq details { border-bottom: 1px solid rgb(237 231 220 / .22); }
+.seo-faq summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px 0; cursor: pointer; font-size: 14px; font-weight: 700; list-style: none; }
+.seo-faq summary::-webkit-details-marker { display: none; }
+.seo-faq summary span { color: var(--seo-red); font: 20px "JetBrains Mono", monospace; transition: transform .2s; }
+.seo-faq details[open] summary span { transform: rotate(45deg); }
+.seo-faq details > p { max-width: 650px; margin: -5px 0 24px; color: var(--seo-muted); font-size: 13px; line-height: 1.85; }
+
+.seo-related {
+  padding-block: 80px 120px;
+  border-top: 1px solid rgb(237 231 220 / .22);
+}
+
+.seo-related > div { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; margin-top: 25px; background: rgb(237 231 220 / .22); }
+.seo-related a { display: grid; grid-template-columns: 1fr auto; gap: 12px 20px; min-height: 170px; padding: 25px; color: var(--seo-paper); background: var(--seo-ink); text-decoration: none; transition: background .2s; }
+.seo-related a:hover { background: #171717; }
+.seo-related a span { grid-column: 1 / -1; color: var(--seo-red); font: 700 9px "JetBrains Mono", monospace; letter-spacing: .1em; text-transform: uppercase; }
+.seo-related a strong { max-width: 430px; font: 400 27px/1.05 "Instrument Serif", "Noto Serif SC", serif; }
+.seo-related a svg { align-self: end; color: var(--seo-red); }
+
+.seo-footer { display: flex; justify-content: space-between; padding-block: 24px; border-top: 1px solid rgb(237 231 220 / .2); color: var(--seo-muted); font: 10px "JetBrains Mono", monospace; }
+.seo-footer a { color: var(--seo-paper); text-underline-offset: 4px; }
+
+@media (max-width: 800px) {
+  .seo-nav,
+  .seo-hero,
+  .seo-problem,
+  .seo-process,
+  .seo-faq,
+  .seo-related,
+  .seo-footer { width: min(100% - 34px, 1180px); }
+  .seo-hero { grid-template-columns: 1fr; min-height: unset; padding-block: 70px 90px; }
+  .seo-hero h1 { font-size: clamp(55px, 15vw, 82px); }
+  .seo-back { margin-bottom: 42px; }
+  .seo-cut-sheet { width: min(88%, 460px); justify-self: center; }
+  .seo-problem,
+  .seo-process,
+  .seo-faq { grid-template-columns: 1fr; gap: 50px; padding-block: 80px; }
+  .seo-related > div { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seo-primary,
+  .seo-faq summary span { transition: none; }
+}

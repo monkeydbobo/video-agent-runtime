@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
@@ -24,12 +24,15 @@ vi.mock("@/components/pages/ProjectsPage", () => ({
 }));
 
 function renderAt(path: string) {
-  const { hook } = memoryLocation({ path });
-  return render(
-    <Router hook={hook}>
+  const memory = memoryLocation({ path, record: true });
+  return {
+    ...render(
+    <Router hook={memory.hook}>
       <AppRoutes />
     </Router>,
-  );
+    ),
+    history: memory.history,
+  };
 }
 
 function resetStores(): void {
@@ -52,9 +55,18 @@ describe("AppRoutes", () => {
     vi.useRealTimers();
   });
 
-  it("redirects root path to /app/projects", async () => {
-    renderAt("/");
-    expect(await screen.findByTestId("projects-page")).toBeInTheDocument();
+  it("renders the public product landing page at the root path", async () => {
+    const { history } = renderAt("/");
+    expect(await screen.findByRole("heading", { name: /会动的画面/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "登录" }));
+    expect(history.at(-1)).toBe("/login");
+  });
+
+  it("renders a public SEO guide without authentication", async () => {
+    useAuthStore.setState({ isAuthenticated: false, isLoading: false });
+    renderAt("/zh/novel-to-video");
+    expect(await screen.findByRole("heading", { name: /变成可以逐镜头制作的影像/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "EN" })).toHaveAttribute("href", "/en/novel-to-video");
   });
 
   it("redirects /app to /app/projects", async () => {

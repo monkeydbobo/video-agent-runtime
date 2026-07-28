@@ -1,0 +1,34 @@
+# oioi.bio
+
+> oioi.bio is an AI narrative filmmaking workspace for turning ideas and novels into scripts, reusable visual assets, storyboards, and generated video.
+
+## Core capabilities
+
+- Import source material from TXT, DOCX, EPUB, and PDF.
+- Develop narration or animated-drama scripts.
+- Manage reusable characters, locations, props, and visual references.
+- Turn scenes into structured shots, storyboard images, and generated video.
+- Connect multiple text, image, and video model providers.
+- Track generation tasks, versions, estimated cost, and actual usage.
+
+## Official guides
+
+- [Novel to video — 中文](https://oioi.bio/zh/novel-to-video)
+- [Novel to video — English](https://oioi.bio/en/novel-to-video)
+- [AI storyboard generator — 中文](https://oioi.bio/zh/ai-storyboard-generator)
+- [AI storyboard generator — English](https://oioi.bio/en/ai-storyboard-generator)
+- [AI video workflow — 中文](https://oioi.bio/zh/ai-video-workflow)
+- [AI video workflow — English](https://oioi.bio/en/ai-video-workflow)
+
+## Canonical identity
+
+- Product name: oioi.bio
+- Official website: https://oioi.bio/
+- Category: AI narrative filmmaking and video production workspace
+- Primary languages: Chinese and English
+
+## Access
+
+- Product overview: https://oioi.bio/
+- Sign in: https://oioi.bio/login
+- Create an account: https://oioi.bio/register

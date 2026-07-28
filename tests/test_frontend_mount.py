@@ -80,6 +80,27 @@ async def test_real_static_file_under_app_path_is_not_shadowed_by_shell(
         assert res.content == b"fake-png-bytes"
 
 
+async def test_seo_route_serves_its_prerendered_html(
+    reload_app_cleanup: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    """公开主题页必须返回自己的静态 HTML，而不是通用 SPA 外壳。"""
+    dist_dir = tmp_path / "frontend" / "dist"
+    seo_dir = dist_dir / "zh" / "novel-to-video"
+    seo_dir.mkdir(parents=True)
+    (dist_dir / "index.html").write_text("<html>shell</html>", encoding="utf-8")
+    (seo_dir / "index.html").write_text("<html>小说转视频静态正文</html>", encoding="utf-8")
+    monkeypatch.setattr(lib, "PROJECT_ROOT", tmp_path)
+    importlib.reload(app_module)
+
+    transport = ASGITransport(app=app_module.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get("/zh/novel-to-video")
+        assert res.status_code == 200
+        assert "小说转视频静态正文" in res.text
+        assert "shell" not in res.text
+        assert res.headers["cache-control"] == "no-store, no-cache, must-revalidate, max-age=0"
+
+
 async def test_deep_link_path_traversal_falls_back_to_shell(
     reload_app_cleanup: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):
