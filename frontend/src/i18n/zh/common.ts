@@ -5,6 +5,7 @@ export default {
   'chinese': '中文',
   'english': '英文',
   'settings': '设置',
+  'signed_in_as': '当前用户：{{username}}',
   'logout': '退出登录',
   'cancel': '取消',
   'conflict_modal_title': '同名文件已存在',

@@ -4,6 +4,7 @@ import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import { API } from "@/api";
 import { useAppStore } from "@/stores/app-store";
+import { useAuthStore } from "@/stores/auth-store";
 import { useProjectsStore } from "@/stores/projects-store";
 import { ProjectsPage } from "@/components/pages/ProjectsPage";
 
@@ -27,7 +28,22 @@ describe("ProjectsPage", () => {
   beforeEach(() => {
     useProjectsStore.setState(useProjectsStore.getInitialState(), true);
     useAppStore.setState(useAppStore.getInitialState(), true);
+    useAuthStore.setState({
+      token: "test-token",
+      username: "alice",
+      isAuthenticated: true,
+      isLoading: false,
+    });
     vi.restoreAllMocks();
+  });
+
+  it("shows the signed-in username in the lobby top bar", async () => {
+    vi.spyOn(API, "listProjects").mockResolvedValue({ projects: [] });
+
+    renderPage();
+
+    expect(await screen.findByTestId("current-user-badge")).toHaveTextContent("alice");
+    expect(screen.getByLabelText("当前用户：alice")).toBeInTheDocument();
   });
 
   it("shows loading state while projects are being fetched", () => {

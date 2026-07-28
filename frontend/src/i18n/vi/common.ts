@@ -5,6 +5,7 @@ export default {
   'chinese': 'Tiếng Trung',
   'english': 'Tiếng Anh',
   'settings': 'Cài đặt',
+  'signed_in_as': 'Đã đăng nhập: {{username}}',
   'logout': 'Đăng xuất',
   'cancel': 'Hủy',
   'conflict_modal_title': 'Đã có tệp trùng tên',
