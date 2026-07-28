@@ -96,10 +96,10 @@ export function ProductsPage({
 
 const FIELD_STYLE: React.CSSProperties = {
   background:
-    "linear-gradient(180deg, oklch(0.20 0.011 265 / 0.6), oklch(0.18 0.010 265 / 0.45))",
+    "linear-gradient(180deg, oklch(0.970 0.008 265 / 0.78), oklch(0.981 0.008 265 / 0.70))",
   border: "1px solid var(--color-hairline)",
   color: "var(--color-text)",
-  boxShadow: "inset 0 1px 2px oklch(0 0 0 / 0.2)",
+  boxShadow: "inset 0 1px 2px oklch(0.30 0.04 265 / 0.08)",
 };
 
 function ProductFormModal({

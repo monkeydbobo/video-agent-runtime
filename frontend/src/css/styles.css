@@ -33,13 +33,13 @@
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, calc(0.12 * var(--scrollbar-opacity)));
+    background: rgba(55, 65, 90, calc(0.22 * var(--scrollbar-opacity)));
     border-radius: 9999px;
 }
 
-/* 悬停在滑块上：提亮 */
+/* 悬停在滑块上：加深 */
 [data-scrolling]::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.25);
+    background: rgba(55, 65, 90, 0.38);
 }
 
 /* 卡片悬停效果 — 仅颜色过渡，禁止位移 */
@@ -67,7 +67,7 @@
 
 /* 文件拖拽区域 */
 .drop-zone {
-    border: 2px dashed #3a3a3a;
+    border: 2px dashed oklch(0.55 0.015 265 / 0.35);
     transition: border-color 0.2s, background-color 0.2s;
 }
 

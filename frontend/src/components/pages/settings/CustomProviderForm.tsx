@@ -845,9 +845,9 @@ export function CustomProviderForm({ existing, onSaved, onCancel }: CustomProvid
             style={
               testResult.success
                 ? {
-                    background: "oklch(0.30 0.10 155 / 0.15)",
+                    background: "oklch(0.92 0.05 155 / 0.40)",
                     color: "var(--color-good)",
-                    border: "1px solid oklch(0.45 0.10 155 / 0.30)",
+                    border: "1px solid oklch(0.55 0.14 155 / 0.28)",
                   }
                 : {
                     background: "var(--color-warm-tint)",
@@ -874,7 +874,7 @@ export function CustomProviderForm({ existing, onSaved, onCancel }: CustomProvid
         className="sticky bottom-0 z-10 border-t border-hairline px-6 py-3 backdrop-blur"
         style={{
           background:
-            "linear-gradient(180deg, oklch(0.20 0.011 265 / 0.65), oklch(0.15 0.010 265 / 0.85))",
+            "linear-gradient(180deg, oklch(0.970 0.008 265 / 0.81), oklch(0.995 0.008 265 / 0.92))",
         }}
       >
         <div className="flex items-center gap-3">

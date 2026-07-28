@@ -178,7 +178,7 @@ export function ProviderSection() {
       <nav
         aria-label={t("provider_list")}
         className="sticky top-0 max-h-screen w-56 shrink-0 self-start overflow-y-auto border-r border-hairline-soft px-3 py-5"
-        style={{ background: "oklch(0.16 0.010 265 / 0.45)" }}
+        style={{ background: "oklch(0.992 0.008 265 / 0.70)" }}
       >
         <div className="mb-2 px-3 font-mono text-[9.5px] font-bold uppercase tracking-[0.16em] text-text-4">
           {t("preset_providers")}
@@ -196,7 +196,7 @@ export function ProviderSection() {
               className={
                 "group relative mb-0.5 flex w-full items-center gap-2.5 rounded-[8px] border px-3 py-2 text-left text-[12.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent " +
                 (isActive
-                  ? "border-accent/35 bg-accent-dim text-text shadow-[inset_0_1px_0_oklch(1_0_0_/_0.04),0_0_22px_-10px_var(--color-accent-glow)]"
+                  ? "border-accent/35 bg-accent-dim text-text shadow-[inset_0_1px_0_oklch(0.35_0.02_265_/_0.05),0_0_22px_-10px_var(--color-accent-glow)]"
                   : "border-transparent text-text-3 hover:border-hairline-soft hover:bg-bg-grad-a/55 hover:text-text")
               }
             >

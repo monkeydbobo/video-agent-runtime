@@ -76,7 +76,7 @@ function TemplateCard({
         className="-z-10 absolute inset-0"
         style={{
           background:
-            "linear-gradient(135deg, oklch(0.30 0.04 295), oklch(0.18 0.012 265))",
+            "linear-gradient(135deg, oklch(0.72 0.10 295), oklch(0.981 0.009 265))",
         }}
       />
 
@@ -85,7 +85,7 @@ function TemplateCard({
         className="absolute inset-x-0 bottom-0 px-2 py-1.5"
         style={{
           background:
-            "linear-gradient(180deg, transparent 0%, oklch(0 0 0 / 0.8) 100%)",
+            "linear-gradient(180deg, transparent 0%, oklch(0.30 0.04 265 / 0.28) 100%)",
         }}
       >
         <p className="truncate text-[11px] leading-tight text-text">{label}</p>
@@ -103,7 +103,7 @@ function TemplateCard({
           style={{
             background:
               "linear-gradient(180deg, var(--color-accent-2), var(--color-accent))",
-            color: "oklch(0.14 0 0)",
+            color: "oklch(0.99 0 0)",
             boxShadow: "0 0 14px -4px var(--color-accent-glow)",
           }}
         >
@@ -116,7 +116,7 @@ function TemplateCard({
         <div
           className="absolute left-1.5 top-1.5 rounded-full px-1.5 py-0.5 font-mono text-[8.5px] font-bold uppercase tracking-[0.12em]"
           style={{
-            background: "oklch(0 0 0 / 0.55)",
+            background: "oklch(0.30 0.04 265 / 0.12)",
             color: "var(--color-accent-2)",
             border: "1px solid var(--color-accent-soft)",
             backdropFilter: "blur(6px)",
@@ -239,7 +239,7 @@ export function StylePicker({ value, onChange }: StylePickerProps) {
                 aria-label={t("common:remove")}
                 className="absolute right-1.5 top-1.5 rounded-full p-1 text-text-2 transition-colors hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 style={{
-                  background: "oklch(0 0 0 / 0.55)",
+                  background: "oklch(0.30 0.04 265 / 0.12)",
                   backdropFilter: "blur(6px)",
                   WebkitBackdropFilter: "blur(6px)",
                 }}

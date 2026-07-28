@@ -250,7 +250,7 @@ export function AssetLibraryPage() {
             const active = activeTab === type;
             const count = byType[type].length;
             const cls = active
-              ? "border-accent/45 bg-accent-dim text-text shadow-[inset_0_1px_0_oklch(1_0_0_/_0.05),0_0_22px_-10px_var(--color-accent-glow)]"
+              ? "border-accent/45 bg-accent-dim text-text shadow-[inset_0_1px_0_oklch(0.35_0.02_265_/_0.06),0_0_22px_-10px_var(--color-accent-glow)]"
               : "border-hairline-soft bg-bg-grad-a/40 text-text-2 hover:border-hairline hover:text-text";
             return (
               <button

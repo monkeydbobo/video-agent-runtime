@@ -113,7 +113,7 @@ export function AssetPickerModal({ type, existingNames, onClose, onImport }: Pro
             className="grid h-9 w-9 shrink-0 place-items-center rounded-lg"
             style={{
               background:
-                "linear-gradient(135deg, var(--color-accent-dim), oklch(0.76 0.09 295 / 0.05))",
+                "linear-gradient(135deg, var(--color-accent-dim), oklch(0.58 0.16 295 / 0.08))",
               border: "1px solid var(--color-accent-soft)",
               color: "var(--color-accent-2)",
               boxShadow: "0 8px 18px -8px var(--color-accent-glow)",
@@ -143,7 +143,7 @@ export function AssetPickerModal({ type, existingNames, onClose, onImport }: Pro
           <div
             className="flex w-52 items-center gap-2 rounded-md px-2.5 py-1.5"
             style={{
-              background: "oklch(0.16 0.010 265 / 0.6)",
+              background: "oklch(0.992 0.008 265 / 0.78)",
               border: "1px solid var(--color-hairline)",
             }}
           >
@@ -193,25 +193,25 @@ export function AssetPickerModal({ type, existingNames, onClose, onImport }: Pro
                       ? "1px solid var(--color-accent-soft)"
                       : "1px solid var(--color-hairline)",
                   background: dup
-                    ? "oklch(0.20 0.011 265 / 0.3)"
+                    ? "oklch(0.970 0.008 265 / 0.61)"
                     : sel
-                      ? "linear-gradient(135deg, var(--color-accent-dim) 0%, oklch(0.20 0.011 265 / 0.5) 60%)"
-                      : "oklch(0.20 0.011 265 / 0.5)",
+                      ? "linear-gradient(135deg, var(--color-accent-dim) 0%, oklch(0.970 0.008 265 / 0.73) 60%)"
+                      : "oklch(0.970 0.008 265 / 0.73)",
                   opacity: dup ? 0.4 : 1,
                   boxShadow: sel
-                    ? "inset 0 1px 0 oklch(1 0 0 / 0.04), 0 6px 18px -6px var(--color-accent-glow)"
-                    : "inset 0 1px 0 oklch(1 0 0 / 0.03)",
+                    ? "inset 0 1px 0 oklch(0.35 0.02 265 / 0.05), 0 6px 18px -6px var(--color-accent-glow)"
+                    : "inset 0 1px 0 oklch(0.35 0.02 265 / 0.04)",
                 }}
                 onMouseEnter={(e) => {
                   if (!dup && !sel) {
                     e.currentTarget.style.borderColor = "var(--color-hairline-strong)";
-                    e.currentTarget.style.background = "oklch(0.22 0.011 265 / 0.7)";
+                    e.currentTarget.style.background = "oklch(0.959 0.008 265 / 0.83)";
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!dup && !sel) {
                     e.currentTarget.style.borderColor = "var(--color-hairline)";
-                    e.currentTarget.style.background = "oklch(0.20 0.011 265 / 0.5)";
+                    e.currentTarget.style.background = "oklch(0.970 0.008 265 / 0.73)";
                   }
                 }}
               >
@@ -235,7 +235,7 @@ export function AssetPickerModal({ type, existingNames, onClose, onImport }: Pro
                     aria-hidden
                     className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full"
                     style={{
-                      color: "oklch(0.14 0 0)",
+                      color: "oklch(0.99 0 0)",
                       background:
                         "linear-gradient(135deg, var(--color-accent-2), var(--color-accent))",
                       boxShadow:
@@ -250,9 +250,9 @@ export function AssetPickerModal({ type, existingNames, onClose, onImport }: Pro
                     className="num absolute left-1.5 top-1.5 rounded px-1.5 py-0.5 text-[9.5px]"
                     style={{
                       letterSpacing: "0.4px",
-                      color: "oklch(0.85 0.13 75)",
-                      background: "oklch(0.30 0.10 75 / 0.30)",
-                      border: "1px solid oklch(0.45 0.13 75 / 0.40)",
+                      color: "oklch(0.62 0.14 75)",
+                      background: "oklch(0.92 0.06 75 / 0.45)",
+                      border: "1px solid oklch(0.72 0.14 75 / 0.35)",
                     }}
                   >
                     {t("already_in_project")}
@@ -298,8 +298,8 @@ export function AssetPickerModal({ type, existingNames, onClose, onImport }: Pro
               <span
                 className="num ml-1.5 rounded px-1.5 py-px text-[10.5px]"
                 style={{
-                  background: "oklch(0 0 0 / 0.18)",
-                  color: "oklch(0.14 0 0)",
+                  background: "oklch(0.30 0.04 265 / 0.08)",
+                  color: "oklch(0.99 0 0)",
                 }}
               >
                 {selected.size}

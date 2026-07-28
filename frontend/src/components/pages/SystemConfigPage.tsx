@@ -124,7 +124,7 @@ export function SystemConfigPage() {
       style={
         {
           background:
-            "radial-gradient(900px 480px at 8% -10%, oklch(0.32 0.05 295 / 0.22), transparent 55%), radial-gradient(800px 460px at 100% 110%, oklch(0.26 0.04 260 / 0.22), transparent 55%), linear-gradient(180deg, var(--color-bg-grad-a), var(--color-bg-grad-b))",
+            "radial-gradient(900px 480px at 8% -10%, oklch(0.78 0.08 295 / 0.14), transparent 55%), radial-gradient(800px 460px at 100% 110%, oklch(0.86 0.04 260 / 0.14), transparent 55%), linear-gradient(180deg, var(--color-bg-grad-a), var(--color-bg-grad-b))",
         }
       }
     >
@@ -133,12 +133,12 @@ export function SystemConfigPage() {
         className="shrink-0 sticky top-0 z-30"
         style={{
           background:
-            "linear-gradient(180deg, oklch(0.20 0.011 265 / 0.55), oklch(0.15 0.010 265 / 0.45))",
+            "linear-gradient(180deg, oklch(0.970 0.008 265 / 0.75), oklch(0.995 0.008 265 / 0.70))",
           backdropFilter: "blur(28px) saturate(1.5)",
           WebkitBackdropFilter: "blur(28px) saturate(1.5)",
           borderBottom: "1px solid var(--color-hairline)",
           boxShadow:
-            "inset 0 1px 0 oklch(1 0 0 / 0.05), 0 6px 24px -12px oklch(0 0 0 / 0.45)",
+            "inset 0 1px 0 oklch(0.35 0.02 265 / 0.06), 0 6px 24px -12px oklch(0.30 0.04 265 / 0.10)",
         }}
       >
         <div className="mx-auto flex max-w-[1320px] items-center gap-5 px-6 py-4">
@@ -192,7 +192,7 @@ export function SystemConfigPage() {
         <nav
           aria-label={t("common:settings")}
           className="w-[220px] shrink-0 overflow-y-auto border-r border-hairline-soft px-3 py-5"
-          style={{ background: "oklch(0.16 0.010 265 / 0.45)" }}
+          style={{ background: "oklch(0.992 0.008 265 / 0.70)" }}
         >
           {SECTION_GROUPS.map((group, gi) => (
             <div key={group.kicker} className={gi > 0 ? "mt-5" : undefined}>
@@ -215,7 +215,7 @@ export function SystemConfigPage() {
                     className={
                       "group relative mb-0.5 flex w-full items-center gap-2.5 rounded-[8px] border px-3 py-2 text-left text-[12.5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent " +
                       (isActive
-                        ? "border-accent/35 bg-accent-dim text-text shadow-[inset_0_1px_0_oklch(1_0_0_/_0.04),0_0_22px_-10px_var(--color-accent-glow)]"
+                        ? "border-accent/35 bg-accent-dim text-text shadow-[inset_0_1px_0_oklch(0.35_0.02_265_/_0.05),0_0_22px_-10px_var(--color-accent-glow)]"
                         : "border-transparent text-text-3 hover:border-hairline-soft hover:bg-bg-grad-a/55 hover:text-text")
                     }
                   >
@@ -241,7 +241,7 @@ export function SystemConfigPage() {
                         aria-label={t("dashboard:config_incomplete")}
                         className="grid h-4 w-4 place-items-center rounded-full"
                         style={{
-                          background: "oklch(0.30 0.10 25 / 0.22)",
+                          background: "oklch(0.92 0.05 25 / 0.45)",
                           color: "var(--color-warm-bright)",
                         }}
                       >

@@ -107,7 +107,7 @@ export function AdReferenceUnitsPanel({ projectName, episode, shots }: AdReferen
   return (
     <div
       className="mx-4 mt-3 rounded-lg border px-3.5 py-3"
-      style={{ borderColor: "var(--color-hairline)", background: "oklch(0.19 0.012 250 / 0.5)" }}
+      style={{ borderColor: "var(--color-hairline)", background: "oklch(0.976 0.009 250 / 0.73)" }}
     >
       <div className="flex items-center gap-2">
         <Layers className="h-3.5 w-3.5" style={{ color: "var(--color-text-3)" }} aria-hidden="true" />
@@ -160,7 +160,7 @@ export function AdReferenceUnitsPanel({ projectName, episode, shots }: AdReferen
               <li
                 key={unit.unit_id}
                 className="flex items-center gap-3 rounded px-2 py-1.5 text-[12px]"
-                style={{ background: "oklch(0.22 0.012 250 / 0.5)" }}
+                style={{ background: "oklch(0.959 0.009 250 / 0.73)" }}
               >
                 <span className="font-mono font-medium" style={{ color: "var(--color-text-2)" }}>
                   {unit.unit_id}

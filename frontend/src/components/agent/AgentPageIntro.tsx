@@ -13,7 +13,7 @@ export function AgentPageIntro() {
           className="shrink-0 rounded-[10px] border border-hairline p-3"
           style={{
             ...CARD_STYLE,
-            boxShadow: "inset 0 1px 0 oklch(1 0 0 / 0.04)",
+            boxShadow: "inset 0 1px 0 oklch(0.35 0.02 265 / 0.05)",
           }}
         >
           <ClaudeColor size={28} />

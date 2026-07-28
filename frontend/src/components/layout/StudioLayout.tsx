@@ -163,7 +163,7 @@ export function StudioLayout({ children }: StudioLayoutProps) {
           }`}
           style={{
             width: assistantPanelOpen ? displayedPanelWidth : 0,
-            background: "oklch(0.19 0.011 250 / 0.5)",
+            background: "oklch(0.976 0.008 250 / 0.73)",
             borderLeft: assistantPanelOpen
               ? "1px solid var(--color-hairline)"
               : "1px solid transparent",
@@ -207,9 +207,9 @@ export function StudioLayout({ children }: StudioLayoutProps) {
         style={{
           background:
             "linear-gradient(135deg, var(--color-accent), oklch(0.60 0.10 280))",
-          color: "oklch(0.12 0 0)",
+          color: "oklch(0.99 0 0)",
           boxShadow:
-            "0 0 0 1px oklch(1 0 0 / 0.1), 0 6px 20px -6px var(--color-accent-glow)",
+            "0 0 0 1px oklch(0.35 0.02 265 / 0.10), 0 6px 20px -6px var(--color-accent-glow)",
           transitionDelay: assistantPanelOpen ? "0ms" : "200ms",
         }}
         title={t("open_assistant_panel")}

@@ -101,7 +101,7 @@ export function AssetFormModal({
             className="grid h-9 w-9 shrink-0 place-items-center rounded-lg"
             style={{
               background:
-                "linear-gradient(135deg, var(--color-accent-dim), oklch(0.76 0.09 295 / 0.05))",
+                "linear-gradient(135deg, var(--color-accent-dim), oklch(0.58 0.16 295 / 0.08))",
               border: "1px solid var(--color-accent-soft)",
               color: "var(--color-accent-2)",
               boxShadow: "0 8px 18px -8px var(--color-accent-glow)",
@@ -154,7 +154,7 @@ export function AssetFormModal({
               onClick={() => fileRef.current?.click()}
               className="focus-ring group relative aspect-video w-full overflow-hidden rounded-xl transition-colors"
               style={{
-                background: "oklch(0.16 0.010 265 / 0.6)",
+                background: "oklch(0.992 0.008 265 / 0.78)",
                 border: "1px dashed var(--color-hairline)",
               }}
               onMouseEnter={(e) => {
@@ -175,7 +175,7 @@ export function AssetFormModal({
                   <div
                     className="absolute inset-0 flex items-center justify-center gap-2 text-[13px] opacity-0 transition-opacity group-hover:opacity-100"
                     style={{
-                      background: "oklch(0 0 0 / 0.6)",
+                      background: "oklch(0.30 0.04 265 / 0.14)",
                       color: "var(--color-text)",
                     }}
                   >
@@ -193,7 +193,7 @@ export function AssetFormModal({
                     className="grid h-10 w-10 place-items-center rounded-full"
                     style={{
                       background:
-                        "linear-gradient(135deg, var(--color-accent-dim), oklch(0.76 0.09 295 / 0.05))",
+                        "linear-gradient(135deg, var(--color-accent-dim), oklch(0.58 0.16 295 / 0.08))",
                       border: "1px solid var(--color-accent-soft)",
                       color: "var(--color-accent-2)",
                     }}
@@ -240,7 +240,7 @@ export function AssetFormModal({
                 onChange={(e) => setName(e.target.value)}
                 className="focus-ring rounded-lg px-3 py-2 text-[13px] outline-none"
                 style={{
-                  background: "oklch(0.16 0.010 265 / 0.6)",
+                  background: "oklch(0.992 0.008 265 / 0.78)",
                   border: "1px solid var(--color-hairline)",
                   color: "var(--color-text)",
                 }}
@@ -254,7 +254,7 @@ export function AssetFormModal({
                 rows={4}
                 className="focus-ring resize-none rounded-lg px-3 py-2 text-[13px] leading-[1.55] outline-none"
                 style={{
-                  background: "oklch(0.16 0.010 265 / 0.6)",
+                  background: "oklch(0.992 0.008 265 / 0.78)",
                   border: "1px solid var(--color-hairline)",
                   color: "var(--color-text)",
                 }}
@@ -268,7 +268,7 @@ export function AssetFormModal({
                   onChange={(e) => setVoiceStyle(e.target.value)}
                   className="focus-ring rounded-lg px-3 py-2 text-[13px] outline-none"
                   style={{
-                    background: "oklch(0.16 0.010 265 / 0.6)",
+                    background: "oklch(0.992 0.008 265 / 0.78)",
                     border: "1px solid var(--color-hairline)",
                     color: "var(--color-text)",
                   }}
@@ -283,7 +283,7 @@ export function AssetFormModal({
           className="flex items-center gap-2 px-6 py-4"
           style={{
             borderTop: "1px solid var(--color-hairline-soft)",
-            background: "oklch(0.17 0.010 250 / 0.5)",
+            background: "oklch(0.987 0.008 250 / 0.73)",
           }}
         >
           <SecondaryButton size="sm" onClick={onClose}>

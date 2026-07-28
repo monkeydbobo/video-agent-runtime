@@ -189,8 +189,8 @@ function DurationPill({
     "inline-flex items-center gap-1.5 rounded-md px-2 py-[3px] text-[11.5px] focus-ring";
   const baseStyle: React.CSSProperties = {
     background: isIncompatible
-      ? "oklch(0.32 0.10 75 / 0.35)"
-      : "oklch(0.22 0.011 265 / 0.6)",
+      ? "oklch(0.92 0.06 75 / 0.50)"
+      : "oklch(0.959 0.008 265 / 0.78)",
     border: isIncompatible
       ? "1px solid oklch(0.65 0.12 75 / 0.5)"
       : "1px solid var(--color-hairline-soft)",
@@ -242,12 +242,12 @@ function DurationPill({
         width="w-auto"
         align="start"
         sideOffset={6}
-        backgroundColor="oklch(0.21 0.012 265 / 0.98)"
+        backgroundColor="oklch(0.965 0.009 265 / 0.96)"
         className="rounded-lg p-2"
         style={{
           border: "1px solid var(--color-hairline)",
           boxShadow:
-            "0 24px 60px -20px oklch(0 0 0 / 0.7), 0 0 0 1px var(--color-hairline-soft)",
+            "0 24px 60px -20px oklch(0.30 0.04 265 / 0.18), 0 0 0 1px var(--color-hairline-soft)",
           backdropFilter: "blur(12px)",
           WebkitBackdropFilter: "blur(12px)",
         }}
@@ -312,12 +312,12 @@ function DurationPill({
                       ? {
                           background:
                             "linear-gradient(180deg, var(--color-accent-2), var(--color-accent))",
-                          color: "oklch(0.14 0 0)",
+                          color: "oklch(0.99 0 0)",
                           boxShadow:
-                            "inset 0 1px 0 oklch(1 0 0 / 0.25), 0 2px 6px -2px var(--color-accent-glow)",
+                            "inset 0 1px 0 oklch(1 0 0 / 0.30), 0 2px 6px -2px var(--color-accent-glow)",
                         }
                       : {
-                          background: "oklch(0.22 0.011 265 / 0.5)",
+                          background: "oklch(0.959 0.008 265 / 0.73)",
                           color: "var(--color-text-2)",
                           border: "1px solid var(--color-hairline-soft)",
                         }
@@ -629,7 +629,7 @@ export function ShotDetail({
                     key={name}
                     className="rounded-md px-2 py-1 text-[11.5px]"
                     style={{
-                      background: "oklch(0.22 0.011 265 / 0.6)",
+                      background: "oklch(0.959 0.008 265 / 0.78)",
                       border: "1px solid var(--color-hairline-soft)",
                       color: "var(--color-text-2)",
                     }}
@@ -719,7 +719,7 @@ export function ShotDetail({
             className="rounded-md px-3 py-2.5"
             style={{
               background:
-                "linear-gradient(180deg, oklch(0.22 0.012 265 / 0.5), oklch(0.20 0.012 265 / 0.35))",
+                "linear-gradient(180deg, oklch(0.959 0.009 265 / 0.73), oklch(0.970 0.009 265 / 0.64))",
               border: "1px solid var(--color-hairline-soft)",
               borderLeft: "3px solid var(--color-accent-soft)",
             }}
@@ -889,7 +889,7 @@ export function ShotDetail({
       className="flex min-h-0 min-w-0 flex-col overflow-hidden"
       style={{
         background:
-          "radial-gradient(ellipse at top, oklch(0.20 0.012 270 / 0.35), oklch(0.17 0.010 265 / 0.2))",
+          "radial-gradient(ellipse at top, oklch(0.970 0.009 270 / 0.64), oklch(0.987 0.008 265 / 0.56))",
       }}
     >
       <div
@@ -901,10 +901,10 @@ export function ShotDetail({
           style={{
             background:
               "linear-gradient(180deg, var(--color-accent-2), var(--color-accent))",
-            color: "oklch(0.14 0 0)",
+            color: "oklch(0.99 0 0)",
             letterSpacing: "0.3px",
             boxShadow:
-              "inset 0 1px 0 oklch(1 0 0 / 0.3), 0 2px 6px -2px var(--color-accent-glow)",
+              "inset 0 1px 0 oklch(1 0 0 / 0.35), 0 2px 6px -2px var(--color-accent-glow)",
           }}
         >
           {segmentId}
@@ -987,7 +987,7 @@ export function ShotDetail({
           className="flex items-center gap-2 px-5 py-2"
           style={{
             background:
-              "linear-gradient(180deg, var(--color-accent-dim), oklch(0.20 0.012 270 / 0.35))",
+              "linear-gradient(180deg, var(--color-accent-dim), oklch(0.970 0.009 270 / 0.64))",
             borderBottom: "1px solid var(--color-accent-soft)",
           }}
         >
@@ -1013,10 +1013,10 @@ export function ShotDetail({
             type="button"
             onClick={handleCancel}
             disabled={saving}
-            className="focus-ring inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11.5px] text-[var(--color-text-3)] transition-colors [&:not(:disabled)]:hover:bg-[oklch(0.26_0.013_265_/_0.7)] [&:not(:disabled)]:hover:text-[var(--color-text)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="focus-ring inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11.5px] text-[var(--color-text-3)] transition-colors [&:not(:disabled)]:hover:bg-[oklch(0.937_0.009_265_/_0.83)] [&:not(:disabled)]:hover:text-[var(--color-text)] disabled:cursor-not-allowed disabled:opacity-50"
             style={{
               border: "1px solid var(--color-hairline)",
-              background: "oklch(0.22 0.011 265 / 0.5)",
+              background: "oklch(0.959 0.008 265 / 0.73)",
             }}
           >
             <Undo2 className="h-3.5 w-3.5" />
@@ -1028,7 +1028,7 @@ export function ShotDetail({
             disabled={saving}
             className="focus-ring inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-[11.5px] font-medium transition-transform [&:not(:disabled)]:hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-60"
             style={{
-              color: "oklch(0.14 0 0)",
+              color: "oklch(0.99 0 0)",
               background:
                 "linear-gradient(135deg, var(--color-accent-2), var(--color-accent))",
               boxShadow:

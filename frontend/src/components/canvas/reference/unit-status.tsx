@@ -13,7 +13,7 @@ export const STATUS_CONF: Record<UnitStatus, UnitStatusConf> = {
   pending: {
     i18nKey: "reference_status_pending",
     textClass: "text-[var(--color-text-4)]",
-    bgClass: "bg-[oklch(0.30_0.01_250_/_0.4)]",
+    bgClass: "bg-[oklch(0.90_0.01_250_/_0.45)]",
     dotClass: "bg-[var(--color-text-4)]",
     pulse: false,
   },

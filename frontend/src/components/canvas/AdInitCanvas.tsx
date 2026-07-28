@@ -13,13 +13,13 @@ interface AdInitCanvasProps {
 }
 
 const CARD_BG =
-  "linear-gradient(180deg, oklch(0.22 0.012 265 / 0.55), oklch(0.19 0.010 265 / 0.40))";
+  "linear-gradient(180deg, oklch(0.959 0.009 265 / 0.75), oklch(0.976 0.008 265 / 0.67))";
 const FIELD_STYLE: React.CSSProperties = {
   background:
-    "linear-gradient(180deg, oklch(0.20 0.011 265 / 0.6), oklch(0.18 0.010 265 / 0.45))",
+    "linear-gradient(180deg, oklch(0.970 0.008 265 / 0.78), oklch(0.981 0.008 265 / 0.70))",
   border: "1px solid var(--color-hairline)",
   color: "var(--color-text)",
-  boxShadow: "inset 0 1px 2px oklch(0 0 0 / 0.2)",
+  boxShadow: "inset 0 1px 2px oklch(0.30 0.04 265 / 0.08)",
 };
 
 /**
@@ -101,7 +101,7 @@ export function AdInitCanvas({ projectName, onDone }: AdInitCanvasProps) {
         border: "1px solid var(--color-hairline-soft)",
         background: CARD_BG,
         boxShadow:
-          "inset 0 1px 0 oklch(1 0 0 / 0.04), 0 8px 24px -10px oklch(0 0 0 / 0.5)",
+          "inset 0 1px 0 oklch(0.35 0.02 265 / 0.05), 0 8px 24px -10px oklch(0.30 0.04 265 / 0.12)",
       }}
     >
       <span
@@ -198,7 +198,7 @@ export function AdInitCanvas({ projectName, onDone }: AdInitCanvasProps) {
                       onClick={() => setFiles((prev) => prev.filter((_, i) => i !== idx))}
                       disabled={submitting}
                       aria-label={`${t("common:delete")} ${file.name}`}
-                      className="focus-ring inline-flex h-5 w-5 shrink-0 items-center justify-center rounded transition-colors hover:bg-[oklch(1_0_0_/_0.06)]"
+                      className="focus-ring inline-flex h-5 w-5 shrink-0 items-center justify-center rounded transition-colors hover:bg-[oklch(0.35_0.02_265_/_0.07)]"
                       style={{ color: "var(--color-text-4)" }}
                     >
                       <X className="h-3 w-3" />
@@ -281,7 +281,7 @@ export function AdInitCanvas({ projectName, onDone }: AdInitCanvasProps) {
         disabled={!canSubmit}
         className="focus-ring inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-[13px] font-medium transition-transform disabled:cursor-not-allowed disabled:opacity-50"
         style={{
-          color: "oklch(0.14 0 0)",
+          color: "oklch(0.99 0 0)",
           background:
             "linear-gradient(135deg, var(--color-accent-2), var(--color-accent))",
           boxShadow:

@@ -47,9 +47,9 @@ export function ProjectMenu() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex min-w-0 items-center gap-2 rounded-md py-[3px] pl-1 pr-2 transition-colors focus-ring"
-        style={{ background: open ? "oklch(0.26 0.012 265 / 0.5)" : "transparent" }}
+        style={{ background: open ? "oklch(0.937 0.009 265 / 0.73)" : "transparent" }}
         onMouseEnter={(e) => {
-          if (!open) e.currentTarget.style.background = "oklch(0.26 0.012 265 / 0.5)";
+          if (!open) e.currentTarget.style.background = "oklch(0.937 0.009 265 / 0.73)";
         }}
         onMouseLeave={(e) => {
           if (!open) e.currentTarget.style.background = "transparent";
@@ -59,9 +59,9 @@ export function ProjectMenu() {
           className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-[11.5px] font-bold display-serif"
           style={{
             background: "linear-gradient(135deg, var(--color-accent) 0%, oklch(0.55 0.12 260) 100%)",
-            color: "oklch(0.12 0 0)",
+            color: "oklch(0.99 0 0)",
             boxShadow:
-              "inset 0 1px 0 oklch(1 0 0 / 0.25), inset 0 -1px 0 oklch(0 0 0 / 0.15), 0 0 0 1px oklch(1 0 0 / 0.08), 0 2px 10px -2px var(--color-accent-glow)",
+              "inset 0 1px 0 oklch(1 0 0 / 0.30), inset 0 -1px 0 oklch(0.30 0.04 265 / 0.06), 0 0 0 1px oklch(0.35 0.02 265 / 0.08), 0 2px 10px -2px var(--color-accent-glow)",
           }}
         >
           {initial}
@@ -98,12 +98,12 @@ export function ProjectMenu() {
           className="absolute left-0 z-50 min-w-[280px] rounded-[10px] p-1.5"
           style={{
             top: "calc(100% + 6px)",
-            background: "oklch(0.20 0.011 265 / 0.98)",
+            background: "oklch(0.970 0.008 265 / 0.96)",
             backdropFilter: "blur(20px) saturate(1.2)",
             WebkitBackdropFilter: "blur(20px) saturate(1.2)",
             border: "1px solid var(--color-hairline-strong)",
             boxShadow:
-              "0 14px 40px -10px oklch(0 0 0 / 0.6), 0 0 0 1px oklch(1 0 0 / 0.04)",
+              "0 14px 40px -10px oklch(0.30 0.04 265 / 0.14), 0 0 0 1px oklch(0.35 0.02 265 / 0.05)",
           }}
         >
           <div
@@ -121,7 +121,7 @@ export function ProjectMenu() {
           >
             <div
               className="display-serif grid h-[30px] w-[30px] shrink-0 place-items-center rounded-md text-sm font-bold"
-              style={{ background: "var(--color-accent)", color: "oklch(0.12 0 0)" }}
+              style={{ background: "var(--color-accent)", color: "oklch(0.99 0 0)" }}
             >
               {initial}
             </div>
@@ -137,7 +137,7 @@ export function ProjectMenu() {
                   className="num rounded-[3px] px-1 py-px text-[9.5px] font-bold"
                   style={{
                     background: "var(--color-accent)",
-                    color: "oklch(0.12 0 0)",
+                    color: "oklch(0.99 0 0)",
                     letterSpacing: "0.4px",
                   }}
                 >
@@ -167,7 +167,7 @@ export function ProjectMenu() {
             className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] transition-colors focus-ring"
             style={{ color: "var(--color-text-3)" }}
             onMouseEnter={(e) =>
-              (e.currentTarget.style.background = "oklch(0.26 0.012 265 / 0.55)")
+              (e.currentTarget.style.background = "oklch(0.937 0.009 265 / 0.75)")
             }
             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
           >
@@ -191,7 +191,7 @@ export function ProjectMenu() {
             style={{ color: "var(--color-text-3)" }}
             onMouseEnter={(e) => {
               if (!currentProjectName) return;
-              e.currentTarget.style.background = "oklch(0.26 0.012 265 / 0.55)";
+              e.currentTarget.style.background = "oklch(0.937 0.009 265 / 0.75)";
             }}
             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
           >

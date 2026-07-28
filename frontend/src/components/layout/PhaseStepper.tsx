@@ -18,9 +18,9 @@ export function PhaseStepper({ currentPhase }: PhaseStepperProps) {
       <div
         className="inline-flex items-center gap-px rounded-full p-[3px]"
         style={{
-          background: "oklch(0.17 0.010 265 / 0.6)",
+          background: "oklch(0.987 0.008 265 / 0.78)",
           border: "1px solid var(--color-hairline)",
-          boxShadow: "inset 0 1px 2px oklch(0 0 0 / 0.25)",
+          boxShadow: "inset 0 1px 2px oklch(0.30 0.04 265 / 0.08)",
         }}
       >
         {PHASE_ORDER.map((phase, idx) => {
@@ -36,9 +36,9 @@ export function PhaseStepper({ currentPhase }: PhaseStepperProps) {
                   isActive
                     ? {
                         color: "var(--color-text)",
-                        background: "linear-gradient(180deg, oklch(0.30 0.012 265), oklch(0.26 0.012 265))",
+                        background: "linear-gradient(180deg, oklch(0.920 0.009 265), oklch(0.937 0.009 265))",
                         boxShadow:
-                          "0 0 0 1px var(--color-hairline-strong), 0 1px 2px oklch(0 0 0 / 0.3)",
+                          "0 0 0 1px var(--color-hairline-strong), 0 1px 2px oklch(0.30 0.04 265 / 0.10)",
                       }
                     : { color: "var(--color-text-3)", background: "transparent" }
                 }
@@ -49,11 +49,11 @@ export function PhaseStepper({ currentPhase }: PhaseStepperProps) {
                     isActive
                       ? {
                           background: "var(--color-accent)",
-                          color: "oklch(0.12 0 0)",
+                          color: "oklch(0.99 0 0)",
                           boxShadow: "0 0 8px -1px var(--color-accent-glow)",
                         }
                       : {
-                          background: "oklch(0.32 0.012 265)",
+                          background: "oklch(0.920 0.009 265)",
                           color: "var(--color-text-3)",
                         }
                   }
