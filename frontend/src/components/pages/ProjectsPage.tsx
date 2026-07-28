@@ -28,6 +28,7 @@ import { useProjectsStore } from "@/stores/projects-store";
 import { useAppStore } from "@/stores/app-store";
 import { useConfigStatusStore } from "@/stores/config-status-store";
 import { ArchiveDiagnosticsDialog } from "@/components/shared/ArchiveDiagnosticsDialog";
+import { CurrentUserBadge } from "@/components/auth/CurrentUserBadge";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { GlassModal } from "@/components/ui/GlassModal";
@@ -895,6 +896,7 @@ function TopBar({
               />
             ) : null}
           </button>
+          <CurrentUserBadge />
           <LogoutButton />
         </div>
       </div>

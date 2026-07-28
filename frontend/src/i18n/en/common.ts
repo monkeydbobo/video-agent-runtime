@@ -4,6 +4,7 @@ export default {
   'chinese': 'Chinese',
   'english': 'English',
   'settings': 'Settings',
+  'signed_in_as': 'Signed in as {{username}}',
   'logout': 'Logout',
   'cancel': 'Cancel',
   'conflict_modal_title': 'A file with this name already exists',

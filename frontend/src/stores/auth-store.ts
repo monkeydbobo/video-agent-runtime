@@ -13,6 +13,40 @@ interface AuthState {
   setLoading: (loading: boolean) => void;
 }
 
+function isVerifyPayload(payload: unknown): payload is { valid: boolean; username: string } {
+  return (
+    typeof payload === "object" &&
+    payload !== null &&
+    (payload as { valid?: unknown }).valid === true &&
+    typeof (payload as { username?: unknown }).username === "string" &&
+    (payload as { username: string }).username.length > 0
+  );
+}
+
+/** Resolve signed-in username from /auth/verify after a page reload. */
+function hydrateUsernameFromToken(token: string): void {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  fetch("/api/v1/auth/verify", {
+    headers: { Authorization: `Bearer ${token}` },
+    signal: controller.signal,
+  })
+    .then(async (res) => {
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const payload: unknown = await res.json();
+      if (!isVerifyPayload(payload)) {
+        throw new Error("invalid /auth/verify payload");
+      }
+      useAuthStore.setState({ username: payload.username });
+    })
+    .catch((err) => {
+      console.warn("[auth] /auth/verify fetch failed; username badge unavailable", err);
+    })
+    .finally(() => {
+      clearTimeout(timeoutId);
+    });
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   username: null,
@@ -24,6 +58,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     const token = getToken();
     if (token) {
       set({ token, isAuthenticated: true, isLoading: false });
+      // localStorage only keeps the token; refill username for the lobby badge.
+      hydrateUsernameFromToken(token);
       return;
     }
     // 无 token 时先问后端是否启用了鉴权。`AUTH_ENABLED=false` 时后端全链路
