@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { useAutoFocus } from "@/hooks/useAutoFocus";
 import { errMsg, voidPromise } from "@/utils/async";
@@ -7,18 +7,9 @@ import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/stores/auth-store";
 import { safeReturnPath } from "@/utils/safe-url";
 import type { LoginResponse, ErrorResponse } from "@/api";
+import { AuthPageShell } from "@/components/auth/AuthPageShell";
 import { FieldLabel } from "@/components/ui/FieldLabel";
-import {
-  ACCENT_BTN_CLS,
-  ACCENT_BUTTON_STYLE,
-  CARD_STYLE,
-  INPUT_CLS,
-  ambientGlowStyle,
-  posterGridStyle,
-} from "@/components/ui/darkroom-tokens";
-
-const POSTER_GRID_STYLE = posterGridStyle({ size: 44, maskShape: "60% 60% at 50% 35%", opacity: 0.05 });
-const AMBIENT_GLOW_STYLE = ambientGlowStyle();
+import { ACCENT_BTN_CLS, ACCENT_BUTTON_STYLE, INPUT_CLS } from "@/components/ui/darkroom-tokens";
 
 export function LoginPage() {
   const { t, i18n } = useTranslation(["common", "auth"]);
@@ -31,15 +22,6 @@ export function LoginPage() {
   const login = useAuthStore((s) => s.login);
   const registrationEnabled = useAuthStore((s) => s.registrationEnabled);
   const usernameRef = useAutoFocus<HTMLInputElement>();
-
-  // 登录页不展示产品品牌名；标签页标题也只用「登录」
-  useEffect(() => {
-    const prev = document.title;
-    document.title = t("auth:login");
-    return () => {
-      document.title = prev;
-    };
-  }, [t]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -80,26 +62,8 @@ export function LoginPage() {
   };
 
   return (
-    <div
-      data-testid="login-page"
-      className="relative flex min-h-screen items-center justify-center overflow-hidden bg-bg px-4 text-text"
-    >
-      <div aria-hidden className="pointer-events-none absolute inset-0" style={AMBIENT_GLOW_STYLE} />
-      <div aria-hidden className="pointer-events-none absolute inset-0" style={POSTER_GRID_STYLE} />
-
-      <div
-        className="relative w-full max-w-sm overflow-hidden rounded-2xl border border-hairline p-8 shadow-2xl"
-        style={CARD_STYLE}
-      >
-        <div className="mb-6 text-center">
-          <div className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-text-4">
-            system · login
-          </div>
-          <h1 className="font-editorial mt-1 text-[28px] tracking-tight text-text">
-            {t("auth:login")}
-          </h1>
-        </div>
-
+    <div data-testid="login-page">
+      <AuthPageShell canonicalPath="/login" pageTitle={t("auth:login")}>
         <form onSubmit={voidPromise(handleSubmit)} className="space-y-4">
           <div>
             <FieldLabel htmlFor="login-username" required>
@@ -149,17 +113,17 @@ export function LoginPage() {
             {loading ? t("auth:logging_in") : t("auth:login")}
           </button>
 
-          {registrationEnabled && (
+          {registrationEnabled ? (
             <button
               type="button"
               onClick={() => setLocation(search ? `/register?${search}` : "/register")}
-              className="w-full text-sm text-text-3 transition-colors hover:text-text"
+              className="w-full rounded-md py-1 text-sm text-text-3 transition-colors hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               {t("auth:no_account_register")}
             </button>
-          )}
+          ) : null}
         </form>
-      </div>
+      </AuthPageShell>
     </div>
   );
 }

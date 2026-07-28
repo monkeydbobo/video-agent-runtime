@@ -163,3 +163,35 @@ async def test_spa_shell_responses_are_never_cached(
         root_res = await client.get("/", headers={"accept": "text/html"})
         assert root_res.status_code == 200
         assert root_res.headers["cache-control"] == "no-store, no-cache, must-revalidate, max-age=0"
+
+
+async def test_private_frontend_routes_are_noindex_and_browser_hardened(
+    reload_app_cleanup: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    """认证与工作台页面不应进入索引，所有 HTML 入口都应声明浏览器安全边界。"""
+    dist_dir = tmp_path / "frontend" / "dist"
+    dist_dir.mkdir(parents=True)
+    (dist_dir / "index.html").write_text("<html>shell</html>", encoding="utf-8")
+    monkeypatch.setattr(lib, "PROJECT_ROOT", tmp_path)
+    importlib.reload(app_module)
+
+    transport = ASGITransport(app=app_module.app)
+    forwarded_https = {"x-forwarded-proto": "https"}
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        login_res = await client.get("/login", headers=forwarded_https)
+        projects_res = await client.get("/app/projects", headers=forwarded_https)
+        public_res = await client.get("/", headers={**forwarded_https, "accept": "text/html"})
+
+    for response in (login_res, projects_res):
+        assert response.status_code == 200
+        assert response.headers["x-robots-tag"] == "noindex, nofollow, noarchive"
+
+    assert "x-robots-tag" not in public_res.headers
+    for response in (login_res, projects_res, public_res):
+        assert response.headers["strict-transport-security"] == "max-age=31536000; includeSubDomains"
+        assert response.headers["x-content-type-options"] == "nosniff"
+        assert response.headers["x-frame-options"] == "DENY"
+        assert response.headers["referrer-policy"] == "strict-origin-when-cross-origin"
+        assert response.headers["permissions-policy"] == "camera=(), geolocation=(), microphone=()"
+        assert "form-action 'self'" in response.headers["content-security-policy"]
+        assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
