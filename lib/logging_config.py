@@ -151,6 +151,10 @@ def setup_logging(level: str | None = None, *, file: bool = True) -> None:
     # 抑制 aiosqlite 的 DEBUG 噪音（每次 SQL 操作都会输出两行日志）
     logging.getLogger("aiosqlite").setLevel(max(numeric_level, logging.INFO))
 
+    # httpx 的 INFO 访问日志会记录完整请求 URL。部分第三方 API（例如 Discord
+    # Incoming Webhook）把令牌嵌在 URL 路径中，不能让它进入平台或持久化日志。
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
 
 def attach_file_handler(formatter: logging.Formatter | None = None) -> None:
     """为 root logger 挂 TimedRotatingFileHandler（默认开启，按天切，保留 7 份）。

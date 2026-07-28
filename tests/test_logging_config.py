@@ -48,6 +48,13 @@ class TestSetupLogging:
         our_handlers = [h for h in root.handlers if getattr(h, _HANDLER_ATTR, False)]
         assert len(our_handlers) == 1
 
+    def test_suppresses_httpx_info_logs_that_can_contain_webhook_tokens(self):
+        logging.getLogger("httpx").setLevel(logging.INFO)
+
+        setup_logging()
+
+        assert logging.getLogger("httpx").level == logging.WARNING
+
     def teardown_method(self):
         """每个测试后清理 root logger handlers。"""
         root = logging.getLogger()
