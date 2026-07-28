@@ -8,6 +8,7 @@ import shutil
 import stat
 import tempfile
 import zipfile
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -236,6 +237,7 @@ class ProjectArchiveService:
         *,
         uploaded_filename: str | None = None,
         conflict_policy: str = "prompt",
+        can_replace: Callable[[str], bool] | None = None,
     ) -> ProjectImportResult:
         if conflict_policy not in {"prompt", "rename", "overwrite"}:
             raise ProjectArchiveValidationError(
@@ -280,6 +282,7 @@ class ProjectArchiveService:
                         target_name,
                         project_title=str(project.get("title") or "").strip(),
                         conflict_policy=conflict_policy,
+                        can_replace=can_replace,
                     )
 
                     self._ensure_standard_subdirs(staging_dir)
@@ -1584,6 +1587,7 @@ class ProjectArchiveService:
         *,
         project_title: str,
         conflict_policy: str,
+        can_replace: Callable[[str], bool] | None = None,
     ) -> tuple[str, str]:
         target_dir = self.project_manager.projects_root / preferred_name
         if conflict_policy == "prompt":
@@ -1603,6 +1607,14 @@ class ProjectArchiveService:
             return preferred_name, "none"
 
         if target_dir.exists():
+            # 覆盖导入前校验归属：不允许覆盖他人项目（can_replace 由路由层按当前用户注入）
+            if can_replace is not None and not can_replace(preferred_name):
+                raise ProjectArchiveValidationError(
+                    "检测到项目编号冲突",
+                    status_code=409,
+                    errors=[f"项目编号 '{preferred_name}' 已被占用，无法覆盖，请选择自动重命名导入。"],
+                    extra={"conflict_project_name": preferred_name},
+                )
             return preferred_name, "overwritten"
         return preferred_name, "none"
 

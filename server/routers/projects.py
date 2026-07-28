@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal
 if TYPE_CHECKING:
     from server.services.jianying_draft_service import JianyingDraftService
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi import Path as FastAPIPath
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
@@ -40,6 +40,15 @@ from lib.project_manager import EmptySourceError, EpisodeScriptReboundError, Sou
 from lib.status_calculator import StatusCalculator
 from lib.style_templates import is_known_template, resolve_template_prompt
 from server.auth import CurrentUser, create_download_token, verify_download_token
+from server.project_access import (
+    accessible_project_names,
+    ensure_project_access,
+    get_ownership_map,
+    is_admin,
+    register_project_owner,
+    require_project_access_by_name,
+    unregister_project,
+)
 from server.routers._reorder import full_permutation_error
 from server.routers._validators import validate_backend_value
 from server.services.project_archive import (
@@ -158,6 +167,20 @@ async def import_project_archive(
 ):
     """从 ZIP 导入项目。"""
     upload_path: str | None = None
+    # 覆盖导入前的归属判定：admin 可覆盖任何项目，普通用户只能覆盖自己的项目。
+    # 无归属记录的存量项目视为 default 用户所有。
+    can_replace: Callable[[str], bool] | None = None
+    if not is_admin(_user):
+        ownership = await get_ownership_map()
+        user_id = _user.id
+
+        def _can_replace(project_name: str) -> bool:
+            from lib.db.base import DEFAULT_USER_ID
+
+            return ownership.get(project_name, DEFAULT_USER_ID) == user_id
+
+        can_replace = _can_replace
+
     try:
         fd, upload_path = tempfile.mkstemp(prefix="arcreel-upload-", suffix=".zip")
         os.close(fd)
@@ -181,9 +204,11 @@ async def import_project_archive(
                 Path(upload_path),
                 uploaded_filename=file.filename,
                 conflict_policy=conflict_policy,
+                can_replace=can_replace,
             )
 
         result = await asyncio.to_thread(_sync)
+        await register_project_owner(result.project_name, _user)
         return {
             "success": True,
             "project_name": result.project_name,
@@ -227,6 +252,7 @@ async def create_export_token(
     scope: str = Query("full"),
 ):
     """签发短时效下载 token，用于浏览器原生下载认证。"""
+    await ensure_project_access(name, current_user, _t)
     try:
         if scope not in ("full", "current"):
             raise HTTPException(status_code=422, detail=_t("scope_invalid"))
@@ -374,13 +400,14 @@ def export_jianying_draft(
 
 @router.get("/projects")
 async def list_projects(_user: CurrentUser):
-    """列出所有项目"""
+    """列出当前用户可见的项目（admin 可见全部）"""
+    visible_names = await accessible_project_names(get_project_manager().list_projects(), _user)
 
     def _sync():
         manager = get_project_manager()
         calculator = get_status_calculator()
         projects = []
-        for name in manager.list_projects():
+        for name in visible_names:
             try:
                 # 尝试加载项目元数据
                 if manager.project_exists(name):
@@ -547,7 +574,9 @@ async def create_project(
                 )
             return {"success": True, "name": project_name, "project": project}
 
-        return await asyncio.to_thread(_sync)
+        result = await asyncio.to_thread(_sync)
+        await register_project_owner(result["name"], _user)
+        return result
     except ValueError as e:
         # 项目名 / source_kind / duration / brief 等配置校验失败，str(e) 只进日志
         logger.warning("创建项目参数错误: name=%s (%s)", req.name or req.title, e)
@@ -559,7 +588,7 @@ async def create_project(
         raise HTTPException(status_code=500, detail=_t("internal_server_error"))
 
 
-@router.get("/projects/{name}/video-capabilities")
+@router.get("/projects/{name}/video-capabilities", dependencies=[Depends(require_project_access_by_name)])
 async def get_video_capabilities(
     name: str,
     _user: CurrentUser,
@@ -583,7 +612,7 @@ async def get_video_capabilities(
         ) from exc
 
 
-@router.get("/projects/{name}")
+@router.get("/projects/{name}", dependencies=[Depends(require_project_access_by_name)])
 async def get_project(
     name: str,
     _user: CurrentUser,
@@ -640,7 +669,7 @@ async def get_project(
         raise HTTPException(status_code=500, detail=_t("internal_server_error"))
 
 
-@router.patch("/projects/{name}")
+@router.patch("/projects/{name}", dependencies=[Depends(require_project_access_by_name)])
 async def update_project(name: str, req: UpdateProjectRequest, _user: CurrentUser, _t: Translator):
     """更新项目元数据"""
     try:
@@ -815,7 +844,7 @@ async def update_project(name: str, req: UpdateProjectRequest, _user: CurrentUse
         raise HTTPException(status_code=500, detail=_t("internal_server_error"))
 
 
-@router.delete("/projects/{name}")
+@router.delete("/projects/{name}", dependencies=[Depends(require_project_access_by_name)])
 async def delete_project(name: str, _user: CurrentUser, _t: Translator):
     """删除项目"""
     try:
@@ -824,7 +853,9 @@ async def delete_project(name: str, _user: CurrentUser, _t: Translator):
             get_project_manager().delete_project_directory(name)
             return {"success": True, "message": _t("project_deleted", name=name)}
 
-        return await asyncio.to_thread(_sync)
+        result = await asyncio.to_thread(_sync)
+        await unregister_project(name)
+        return result
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=_t("project_not_found", name=name))
     except ValueError as exc:
@@ -836,7 +867,7 @@ async def delete_project(name: str, _user: CurrentUser, _t: Translator):
         raise HTTPException(status_code=500, detail=_t("internal_server_error"))
 
 
-@router.get("/projects/{name}/scripts/{script_file}")
+@router.get("/projects/{name}/scripts/{script_file}", dependencies=[Depends(require_project_access_by_name)])
 async def get_script(name: str, script_file: str, _user: CurrentUser, _t: Translator):
     """获取剧本内容"""
     try:
@@ -856,7 +887,7 @@ class UpdateSceneRequest(BaseModel):
     updates: dict
 
 
-@router.patch("/projects/{name}/script-scenes/{scene_id}")
+@router.patch("/projects/{name}/script-scenes/{scene_id}", dependencies=[Depends(require_project_access_by_name)])
 async def update_scene(name: str, scene_id: str, req: UpdateSceneRequest, _user: CurrentUser, _t: Translator):
     """更新 drama 模式剧本中的单个场景镜头（按 scene_id 定位）。
 
@@ -962,7 +993,7 @@ def _require_ad_script(script: dict, _t: Translator) -> list[dict]:
     return shots
 
 
-@router.patch("/projects/{name}/script-shots/{shot_id}")
+@router.patch("/projects/{name}/script-shots/{shot_id}", dependencies=[Depends(require_project_access_by_name)])
 async def update_shot(name: str, shot_id: str, req: UpdateShotRequest, _user: CurrentUser, _t: Translator):
     """更新 ad 模式剧本中的单个镜头（按 shot_id 定位）。
 
@@ -1015,7 +1046,7 @@ class ReorderShotsRequest(BaseModel):
     shot_ids: list[str]
 
 
-@router.post("/projects/{name}/script-shots/reorder")
+@router.post("/projects/{name}/script-shots/reorder", dependencies=[Depends(require_project_access_by_name)])
 async def reorder_shots(name: str, req: ReorderShotsRequest, _user: CurrentUser, _t: Translator):
     """按给定全排列重排 ad 剧本的 shots 顺序（与参考视频 units/reorder 同语义）。"""
     try:
@@ -1082,7 +1113,7 @@ class UpdateEpisodeRequest(BaseModel):
     title: str
 
 
-@router.patch("/projects/{name}/segments/{segment_id}")
+@router.patch("/projects/{name}/segments/{segment_id}", dependencies=[Depends(require_project_access_by_name)])
 async def update_segment(name: str, segment_id: str, req: UpdateSegmentRequest, _user: CurrentUser, _t: Translator):
     """更新说书模式片段"""
     try:
@@ -1140,7 +1171,7 @@ async def update_segment(name: str, segment_id: str, req: UpdateSegmentRequest, 
         raise HTTPException(status_code=500, detail=_t("internal_server_error"))
 
 
-@router.patch("/projects/{name}/episodes/{episode}")
+@router.patch("/projects/{name}/episodes/{episode}", dependencies=[Depends(require_project_access_by_name)])
 async def update_episode(name: str, episode: int, req: UpdateEpisodeRequest, _user: CurrentUser, _t: Translator):
     """更新分集顶层元数据（当前仅标题）。
 
@@ -1199,7 +1230,7 @@ async def update_episode(name: str, episode: int, req: UpdateEpisodeRequest, _us
 # ==================== 源文件管理 ====================
 
 
-@router.post("/projects/{name}/source")
+@router.post("/projects/{name}/source", dependencies=[Depends(require_project_access_by_name)])
 async def set_project_source(
     name: Annotated[str, FastAPIPath(pattern=r"^[a-zA-Z0-9_-]+$")],
     _user: CurrentUser,
@@ -1299,7 +1330,7 @@ async def set_project_source(
 # ==================== 项目概述管理 ====================
 
 
-@router.post("/projects/{name}/generate-overview")
+@router.post("/projects/{name}/generate-overview", dependencies=[Depends(require_project_access_by_name)])
 async def generate_overview(name: str, _user: CurrentUser, _t: Translator):
     """使用 AI 生成项目概述"""
     try:
@@ -1345,7 +1376,7 @@ async def generate_overview(name: str, _user: CurrentUser, _t: Translator):
         raise HTTPException(status_code=500, detail=_t("internal_server_error"))
 
 
-@router.patch("/projects/{name}/overview")
+@router.patch("/projects/{name}/overview", dependencies=[Depends(require_project_access_by_name)])
 async def update_overview(name: str, req: UpdateOverviewRequest, _user: CurrentUser, _t: Translator):
     """更新项目概述（手动编辑）"""
     try:

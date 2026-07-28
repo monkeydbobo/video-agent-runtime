@@ -849,6 +849,7 @@ class TaskRepository(BaseRepository):
         self,
         *,
         project_name: str | None = None,
+        project_names: list[str] | None = None,
         status: str | None = None,
         task_type: str | None = None,
         source: str | None = None,
@@ -862,6 +863,8 @@ class TaskRepository(BaseRepository):
         filters = []
         if project_name:
             filters.append(Task.project_name == project_name)
+        if project_names is not None:
+            filters.append(Task.project_name.in_(project_names))
         if status:
             filters.append(Task.status == status)
         if task_type:
@@ -891,10 +894,17 @@ class TaskRepository(BaseRepository):
             "page_size": page_size,
         }
 
-    async def get_stats(self, *, project_name: str | None = None) -> dict[str, int]:
+    async def get_stats(
+        self,
+        *,
+        project_name: str | None = None,
+        project_names: list[str] | None = None,
+    ) -> dict[str, int]:
         filters = []
         if project_name:
             filters.append(Task.project_name == project_name)
+        if project_names is not None:
+            filters.append(Task.project_name.in_(project_names))
 
         # Group by status
         stmt = select(Task.status, func.count().label("cnt")).where(*filters).group_by(Task.status)
@@ -923,12 +933,15 @@ class TaskRepository(BaseRepository):
         self,
         *,
         project_name: str | None = None,
+        project_names: list[str] | None = None,
         limit: int = 200,
     ) -> list[dict[str, Any]]:
         limit = max(1, min(1000, limit))
         stmt = select(Task)
         if project_name:
             stmt = stmt.where(Task.project_name == project_name)
+        if project_names is not None:
+            stmt = stmt.where(Task.project_name.in_(project_names))
         stmt = stmt.order_by(Task.updated_at.desc()).limit(limit)
         stmt = self._scope_query(stmt, Task)
 
@@ -941,22 +954,32 @@ class TaskRepository(BaseRepository):
         *,
         last_event_id: int,
         project_name: str | None = None,
+        project_names: list[str] | None = None,
         limit: int = 200,
     ) -> list[dict[str, Any]]:
         limit = max(1, min(1000, limit))
         stmt = select(TaskEvent).where(TaskEvent.id > last_event_id)
         if project_name:
             stmt = stmt.where(TaskEvent.project_name == project_name)
+        if project_names is not None:
+            stmt = stmt.where(TaskEvent.project_name.in_(project_names))
         stmt = stmt.order_by(TaskEvent.id.asc()).limit(limit)
 
         result = await self.session.execute(stmt)
         return [_event_to_dict(e) for e in result.scalars().all()]
 
     # NOTE: In multi-user mode, override this method to filter by user via JOIN Task
-    async def get_latest_event_id(self, *, project_name: str | None = None) -> int:
+    async def get_latest_event_id(
+        self,
+        *,
+        project_name: str | None = None,
+        project_names: list[str] | None = None,
+    ) -> int:
         stmt = select(func.max(TaskEvent.id))
         if project_name:
             stmt = stmt.where(TaskEvent.project_name == project_name)
+        if project_names is not None:
+            stmt = stmt.where(TaskEvent.project_name.in_(project_names))
         result = await self.session.execute(stmt)
         return result.scalar() or 0
 

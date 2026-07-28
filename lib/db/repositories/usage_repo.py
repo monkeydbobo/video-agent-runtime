@@ -372,6 +372,7 @@ class UsageRepository(BaseRepository):
     def _build_filters(
         *,
         project_name: str | None = None,
+        project_names: list[str] | None = None,
         provider: str | None = None,
         call_type: CallType | None = None,
         status: str | None = None,
@@ -381,6 +382,8 @@ class UsageRepository(BaseRepository):
         filters: list = []
         if project_name:
             filters.append(ApiCall.project_name == project_name)
+        if project_names is not None:
+            filters.append(ApiCall.project_name.in_(project_names))
         if provider:
             filters.append(ApiCall.provider == provider)
         if call_type:
@@ -399,12 +402,14 @@ class UsageRepository(BaseRepository):
         self,
         *,
         project_name: str | None = None,
+        project_names: list[str] | None = None,
         provider: str | None = None,
         start_date: datetime | None = None,
         end_date: datetime | None = None,
     ) -> dict[str, Any]:
         filters = self._build_filters(
             project_name=project_name,
+            project_names=project_names,
             provider=provider,
             start_date=start_date,
             end_date=end_date,
@@ -473,12 +478,14 @@ class UsageRepository(BaseRepository):
         self,
         *,
         project_name: str | None = None,
+        project_names: list[str] | None = None,
         provider: str | None = None,
         start_date: datetime | None = None,
         end_date: datetime | None = None,
     ) -> dict[str, Any]:
         filters = self._build_filters(
             project_name=project_name,
+            project_names=project_names,
             provider=provider,
             start_date=start_date,
             end_date=end_date,
@@ -597,6 +604,7 @@ class UsageRepository(BaseRepository):
         self,
         *,
         project_name: str | None = None,
+        project_names: list[str] | None = None,
         call_type: CallType | None = None,
         status: str | None = None,
         start_date: datetime | None = None,
@@ -606,6 +614,7 @@ class UsageRepository(BaseRepository):
     ) -> dict[str, Any]:
         filters = self._build_filters(
             project_name=project_name,
+            project_names=project_names,
             call_type=call_type,
             status=status,
             start_date=start_date,
@@ -698,8 +707,10 @@ class UsageRepository(BaseRepository):
             bucket[currency] = round(bucket.get(currency, 0) + total, 6)
         return result
 
-    async def get_projects_list(self) -> list[str]:
+    async def get_projects_list(self, *, project_names: list[str] | None = None) -> list[str]:
         stmt = select(ApiCall.project_name).distinct().order_by(ApiCall.project_name)
+        if project_names is not None:
+            stmt = stmt.where(ApiCall.project_name.in_(project_names))
         stmt = self._scope_query(stmt, ApiCall)
         result = await self.session.execute(stmt)
         return [row[0] for row in result.all()]
