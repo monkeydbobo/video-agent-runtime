@@ -20,6 +20,16 @@
     --color-text-3: oklch(0.54 0.012 265);
     --color-text-4: oklch(0.66 0.010 265);
 
+    /* streamdown / shadcn 兼容色 — 供 bg-muted、text-muted-foreground 等 utility */
+    --color-background: var(--color-bg-grad-a);
+    --color-foreground: var(--color-text);
+    --color-muted: oklch(0.35 0.02 265 / 0.08);
+    --color-muted-foreground: var(--color-text-3);
+    --color-border: var(--color-hairline);
+    --color-primary: var(--color-accent);
+    --color-primary-foreground: oklch(0.99 0 0);
+    --color-sidebar: var(--color-surface-2);
+
     /* Accent — 紫色（浅底上略加深以保证对比） */
     --color-accent: oklch(0.58 0.16 295);
     --color-accent-2: oklch(0.68 0.14 295);
