@@ -54,4 +54,9 @@ export default {
   contact_discord_title: "加入 Discord",
   contact_discord_body: "交流想法、获取产品动态，也一起做点好玩的东西。",
   footer_login: "进入工作台",
+  atmosphere_node_script: "剧本",
+  atmosphere_node_assets: "资产库",
+  atmosphere_node_storyboard: "分镜",
+  atmosphere_node_video: "视频生成",
+  atmosphere_node_export: "成片导出",
 } satisfies Record<keyof typeof enLanding, string>;

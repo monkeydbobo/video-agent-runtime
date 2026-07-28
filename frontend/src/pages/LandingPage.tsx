@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import { BRAND } from "@/branding";
+import { HeroAtmosphere } from "@/components/landing/HeroAtmosphere";
 import { ParticleField } from "@/components/landing/ParticleField";
 import "./LandingPage.css";
 
@@ -76,6 +77,7 @@ export function LandingPage() {
       </nav>
 
       <section className="landing-hero" aria-labelledby="landing-title">
+        <HeroAtmosphere />
         <div className="landing-hero__copy">
           <p className="landing-badge"><Sparkles aria-hidden size={13} /> {t("eyebrow")}</p>
           <h1 id="landing-title"><span>{t("title_before")}</span> <em>{t("title_emphasis")}</em>{t("title_after")}</h1>

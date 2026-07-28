@@ -52,4 +52,9 @@ export default {
   contact_discord_title: "Join Discord",
   contact_discord_body: "Ideas, product updates, and a place to make things together.",
   footer_login: "Enter studio",
+  atmosphere_node_script: "Script",
+  atmosphere_node_assets: "Asset library",
+  atmosphere_node_storyboard: "Storyboard",
+  atmosphere_node_video: "Video generation",
+  atmosphere_node_export: "Final export",
 };
