@@ -1,4 +1,4 @@
-import { ArrowDownRight, ArrowRight, Clapperboard, FileText, Layers3, MessageCircle, Pause, Play, QrCode, Sparkles, WandSparkles } from "lucide-react";
+import { ArrowDownRight, ArrowRight, Clapperboard, FileText, Layers3, MessageCircle, Pause, Play, Sparkles, WandSparkles } from "lucide-react";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
@@ -223,14 +223,6 @@ export function LandingPage() {
             </span>
             <ArrowRight aria-hidden size={20} />
           </a>
-          <div className="landing-contact__wechat">
-            <div>
-              <span className="landing-contact__icon"><QrCode aria-hidden size={22} /></span>
-              <strong>{t("contact_wechat_title")}</strong>
-              <p>{t("contact_wechat_body")}</p>
-            </div>
-            <img alt={t("contact_wechat_alt")} height="286" loading="lazy" src="/wechat-aquarius-contact.jpg" width="201" />
-          </div>
         </div>
       </section>
 

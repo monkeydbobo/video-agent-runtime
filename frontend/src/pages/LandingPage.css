@@ -290,8 +290,8 @@
   font: 600 clamp(30px, 3.4vw, 44px)/1.12 "Inter", sans-serif; letter-spacing: -.03em;
 }
 .landing-contact__intro > p:last-child { max-width: 390px; margin: 0; color: var(--lp-ink-2); font-size: 14.5px; line-height: 1.75; }
-.landing-contact__channels { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.landing-contact__discord, .landing-contact__wechat {
+.landing-contact__channels { display: grid; grid-template-columns: 1fr; }
+.landing-contact__discord {
   min-height: 242px; border: 1px solid var(--lp-line); border-radius: 24px; box-shadow: var(--lp-shadow-sm);
 }
 .landing-contact__discord {
@@ -301,25 +301,13 @@
 }
 .landing-contact__discord:hover { transform: translateY(-4px); box-shadow: 0 24px 44px rgb(90 84 224 / .28); }
 .landing-contact__discord > span:nth-child(2) { display: grid; gap: 8px; }
-.landing-contact__discord strong, .landing-contact__wechat strong { font: 600 18px/1.25 "Inter", sans-serif; letter-spacing: -.015em; }
+.landing-contact__discord strong { font: 600 18px/1.25 "Inter", sans-serif; letter-spacing: -.015em; }
 .landing-contact__discord small { color: rgb(255 255 255 / .78); font-size: 13px; line-height: 1.55; }
 .landing-contact__discord > svg { align-self: flex-end; opacity: .9; }
 .landing-contact__icon {
   display: grid; width: 44px; height: 44px; place-items: center; border-radius: 15px;
   color: currentColor; background: rgb(255 255 255 / .17); border: 1px solid rgb(255 255 255 / .20);
 }
-.landing-contact__wechat {
-  display: flex; align-items: center; justify-content: space-between; gap: 14px; overflow: hidden; padding: 18px 18px 18px 22px;
-  background: #fff;
-}
-.landing-contact__wechat > div { display: grid; align-content: center; gap: 12px; }
-.landing-contact__wechat .landing-contact__icon { color: #08a878; background: rgb(8 168 120 / .10); border-color: rgb(8 168 120 / .14); }
-.landing-contact__wechat p { margin: 0; color: var(--lp-ink-2); font-size: 12.5px; line-height: 1.6; }
-.landing-contact__wechat img {
-  width: 96px; height: 136px; flex: 0 0 auto; object-fit: cover; object-position: center;
-  border: 1px solid var(--lp-line-soft); border-radius: 14px; background: var(--lp-bg-soft);
-}
-
 /* ---------- footer ---------- */
 .landing-footer {
   display: flex; align-items: center; justify-content: space-between; padding-block: 28px;
@@ -359,7 +347,5 @@
   .landing-reel__scene { height: 260px; }
 }
 @media (max-width: 500px) {
-  .landing-contact__channels { grid-template-columns: 1fr; }
-  .landing-contact__discord, .landing-contact__wechat { min-height: 190px; }
-  .landing-contact__wechat img { width: 112px; height: 154px; }
+  .landing-contact__discord { min-height: 190px; }
 }
