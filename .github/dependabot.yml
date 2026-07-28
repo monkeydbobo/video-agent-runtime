@@ -11,7 +11,8 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-    open-pull-requests-limit: 10
+    # 设为 0：保留规则以便未来恢复，但不再创建 Dependabot 版本更新 PR。
+    open-pull-requests-limit: 0
     versioning-strategy: lockfile-only
     # 刚发布的版本先沉淀几天再开 PR，降低撞上「发布即回归」的概率
     cooldown:
@@ -116,7 +117,8 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-    open-pull-requests-limit: 10
+    # 设为 0：保留规则以便未来恢复，但不再创建 Dependabot 版本更新 PR。
+    open-pull-requests-limit: 0
     # ^ range 内的升级只动 lockfile；超出 range（major）才改 package.json 并开 PR
     versioning-strategy: increase-if-necessary
     cooldown:
@@ -220,7 +222,8 @@ updates:
     schedule:
       interval: "monthly"
       day: "monday"
-    open-pull-requests-limit: 1
+    # 设为 0：保留规则以便未来恢复，但不再创建 Dependabot 版本更新 PR。
+    open-pull-requests-limit: 0
     # github-actions 生态只支持 default-days，不支持 semver 粒度的冷却字段
     cooldown:
       default-days: 5
