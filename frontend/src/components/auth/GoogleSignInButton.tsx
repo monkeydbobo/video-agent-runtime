@@ -8,6 +8,16 @@ import { errMsg } from "@/utils/async";
 import { loadGisScript } from "@/utils/gis-loader";
 import type { ErrorResponse, LoginResponse } from "@/api";
 
+const GIS_LOCALES: Record<string, string> = {
+  zh: "zh_CN",
+  en: "en",
+  vi: "vi",
+};
+
+function gisLocale(language: string): string {
+  return GIS_LOCALES[language.split("-", 1)[0]] ?? "zh_CN";
+}
+
 interface GoogleSignInButtonProps {
   disabled?: boolean;
   onSuccess: (token: string, username: string) => void;
@@ -33,6 +43,7 @@ export function GoogleSignInButton({ disabled = false, onSuccess, onError }: Goo
     }
 
     let cancelled = false;
+    const locale = gisLocale(i18n.language);
 
     const exchangeCredential = async (credential: string) => {
       try {
@@ -74,7 +85,7 @@ export function GoogleSignInButton({ disabled = false, onSuccess, onError }: Goo
       }
     };
 
-    void loadGisScript()
+    void loadGisScript(locale)
       .then(() => {
         if (cancelled || !buttonHostRef.current || !window.google?.accounts?.id) return;
         buttonHostRef.current.innerHTML = "";
@@ -97,7 +108,7 @@ export function GoogleSignInButton({ disabled = false, onSuccess, onError }: Goo
           text: "continue_with",
           shape: "rectangular",
           width: "100%",
-          locale: i18n.language || "zh",
+          locale,
         });
       })
       .catch(() => {

@@ -28,6 +28,17 @@ describe("loadGisScript", () => {
     await expect(pending).resolves.toBeUndefined();
   });
 
+  it("loads GIS with the requested interface locale", async () => {
+    const loadGisScript = await freshLoader();
+
+    const pending = loadGisScript("en");
+    const injected = document.getElementById("google-gsi-client") as HTMLScriptElement;
+    expect(injected.src).toBe("https://accounts.google.com/gsi/client?hl=en");
+
+    window.google = { accounts: { id: {} as never } };
+    await expect(pending).resolves.toBeUndefined();
+  });
+
   it("rejects on load error and clears the cached promise so a retry can happen", async () => {
     const loadGisScript = await freshLoader();
 
