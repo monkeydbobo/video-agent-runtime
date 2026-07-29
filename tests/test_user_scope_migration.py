@@ -58,7 +58,7 @@ def test_user_scope_migration_sqlite(tmp_path: Path, monkeypatch) -> None:
     command.upgrade(cfg, "head")
     with engine.connect() as conn:
         ver = conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert ver == "f6a9c4d21b73"
+        assert ver == "b8e4c2a19f70"
 
 
 def test_user_scope_migration_downgrade_roundtrip(tmp_path: Path, monkeypatch) -> None:

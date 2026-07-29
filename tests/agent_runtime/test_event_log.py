@@ -918,6 +918,31 @@ class TestEventLogStore:
         assert await log_store.find_new_session_by_client_key("ck-mid") is None
         assert await log_store.find_new_session_by_client_key("ck-unknown") is None
 
+    async def test_find_new_session_by_client_key_is_user_scoped(self):
+        engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        factory = async_sessionmaker(engine, expire_on_commit=False)
+        alice_store = EventLogStore(session_factory=factory, user_id="alice")
+        bob_store = EventLogStore(session_factory=factory, user_id="bob")
+        await alice_store.append(
+            "alice-session",
+            [build_user_entry([{"type": "text", "text": "alice"}])],
+            client_key="same-key",
+        )
+        await bob_store.append(
+            "bob-session",
+            [build_user_entry([{"type": "text", "text": "bob"}])],
+            client_key="same-key",
+        )
+
+        alice = await alice_store.find_new_session_by_client_key("same-key")
+        bob = await bob_store.find_new_session_by_client_key("same-key")
+
+        assert alice is not None and alice[0] == "alice-session"
+        assert bob is not None and bob[0] == "bob-session"
+        await engine.dispose()
+
     async def test_has_entries(self, log_store: EventLogStore):
         assert await log_store.has_entries("s1") is False
         await log_store.append("s1", [{"type": "user", "uuid": "a"}])

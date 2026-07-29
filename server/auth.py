@@ -704,20 +704,20 @@ async def _verify_api_key(token: str) -> dict | None:
             logger.warning("API Key expires_at 值格式无法解析，忽略过期检查: %r", expires_at)
 
     # Resolve owner identity from users table; never default to admin.
-    from lib.db.base import DEFAULT_USER_ID
     from lib.db.models.user import User
 
-    owner_id = str(row.get("user_id") or DEFAULT_USER_ID)
-    role = "user"
-    username = f"apikey:{row['name']}"
+    owner_id = row.get("user_id")
+    if not owner_id:
+        _set_api_key_cache(key_hash, None)
+        return None
+    owner_id = str(owner_id)
     async with async_session_factory() as session:
         user = (await session.execute(select(User).where(User.id == owner_id))).scalar_one_or_none()
-        if user is not None:
-            if not user.is_active:
-                _set_api_key_cache(key_hash, None)
-                return None
-            role = user.role or "user"
-            username = user.username
+        if user is None or not user.is_active:
+            _set_api_key_cache(key_hash, None)
+            return None
+        role = user.role or "user"
+        username = user.username
 
     payload = {
         "sub": username,
@@ -788,8 +788,6 @@ def _payload_to_user(
     API Key payloads must carry explicit ``uid``/``role``; missing fields no longer
     silently elevate to admin/default.
     """
-    from lib.db.base import DEFAULT_USER_ID
-
     sub = payload.get("sub", "")
     via = str(payload.get("via") or "jwt")
     if via == "apikey":
@@ -803,8 +801,14 @@ def _payload_to_user(
             )
         return CurrentUserInfo(id=str(user_id), sub=sub, role=str(role), via="apikey")
 
-    user_id = payload.get("uid", DEFAULT_USER_ID)
-    role = payload.get("role", "admin")
+    user_id = payload.get("uid")
+    role = payload.get("role")
+    if not user_id or not role:
+        raise HTTPException(
+            status_code=401,
+            detail=_auth_message("token_identity_incomplete", translate),
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return CurrentUserInfo(id=str(user_id), sub=sub, role=str(role), via="jwt")
 
 

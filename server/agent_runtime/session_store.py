@@ -17,6 +17,7 @@ def _dict_to_session(d: dict) -> SessionMeta:
     return SessionMeta(
         id=d["sdk_session_id"],  # DB 内部 id 不暴露，对外统一用 sdk_session_id
         sandbox_id=d.get("sandbox_id"),
+        user_id=d.get("user_id") or DEFAULT_USER_ID,
         project_name=d["project_name"],
         title=d.get("title") or "",
         status=d["status"],

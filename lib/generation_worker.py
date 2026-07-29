@@ -337,8 +337,22 @@ async def _extract_provider(task: dict[str, Any]) -> str:
         project: dict | None = None
         if project_name:
             from lib.config.resolver import get_project_manager
+            from lib.db import async_session_factory
+            from lib.db.base import DEFAULT_USER_ID
+            from lib.db.repositories.project_repo import ProjectRepository
+            from lib.project_paths import project_user_scope
 
-            project = await asyncio.to_thread(get_project_manager().load_project, project_name)
+            user_id = task.get("user_id") or DEFAULT_USER_ID
+            async with async_session_factory() as session:
+                project_row = await ProjectRepository(session).get_by_name(user_id, project_name)
+            if project_row is not None:
+                with project_user_scope(user_id, project_name=project_name, project_id=project_row.id):
+                    project = await asyncio.to_thread(get_project_manager().load_project, project_name)
+            elif user_id == DEFAULT_USER_ID:
+                # 兼容尚未迁移进 projects 表的管理员旧项目。
+                project = await asyncio.to_thread(get_project_manager().load_project, project_name)
+            else:
+                raise FileNotFoundError(f"project not found: {project_name}")
 
         from lib.config.resolver import ConfigResolver
         from lib.db import async_session_factory

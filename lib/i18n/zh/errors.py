@@ -166,6 +166,7 @@ MESSAGES = {
     "auth_token_required": "缺少认证 token",
     "api_key_invalid": "API Key 无效、已过期或不存在",
     "api_key_identity_incomplete": "API Key 身份不完整",
+    "token_identity_incomplete": "登录令牌身份不完整，请重新登录",
     "media_token_scope_required": "project 与 asset_path 至少指定一项",
     "jwt_auth_required": "API Key 无权执行此操作，请使用 JWT 认证",
     "api_key_name_exists": "名称 '{name}' 已存在",

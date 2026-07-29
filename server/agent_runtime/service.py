@@ -32,10 +32,11 @@ from fastapi.sse import ServerSentEvent
 
 from lib.agent_profile import agent_profile_dir
 from lib.app_data_dir import app_data_dir
+from lib.db.base import DEFAULT_USER_ID
 from lib.i18n import DEFAULT_LOCALE, get_locale
 from lib.profile_manifest import VALID_CONTENT_MODES
 from lib.project_manager import ProjectManager
-from server.agent_runtime.event_log import EventLogService, EventLogStore, build_user_entry
+from server.agent_runtime.event_log import EventLogService, build_user_entry
 from server.agent_runtime.keyed_locks import KeyedLocks
 from server.agent_runtime.models import Heartbeat, LiveMessage, SessionMeta, SessionStatus, SubscriptionReady
 from server.agent_runtime.sdk_transcript_adapter import SdkTranscriptAdapter
@@ -50,20 +51,21 @@ class AssistantService:
 
         self.pm = ProjectManager(self.projects_root)
         self.meta_store = SessionMetaStore()
-        # 会话事件日志：UI 时间线唯一读源。store 与 SessionManager 共享同一实例，
-        # live 写入点（entry pipeline）与读取端（REST / SSE / 懒生成）落同一张表。
-        self.event_log_store = EventLogStore()
         self.session_manager = SessionManager(
             project_root=self.project_root,
             meta_store=self.meta_store,
             projects_root=self.projects_root,
-            event_log_store=self.event_log_store,
         )
-        # Shared with SessionManager (lazy-cached there) so reads via the
-        # adapter and writes via SDK options use the same per-user namespace.
-        # None when ARCREEL_SDK_SESSION_STORE=off.
-        self._session_store = self.session_manager._build_session_store()
-        self.transcript_adapter = SdkTranscriptAdapter(store=self._session_store)
+        # 会话事件日志：由 SessionManager 创建并绑定同一个用户 ContextVar，
+        # live 写入点与读取端共享实例，且后台 actor 继承会话所有者身份。
+        self.event_log_store = self.session_manager.event_log_store
+        # AssistantService 是全局单例；transcript store 必须按当前请求/会话用户
+        # 动态解析，不能在进程启动时固定到 DEFAULT_USER_ID。
+        self.transcript_adapter = SdkTranscriptAdapter(
+            store_provider=lambda: self.session_manager._build_session_store(
+                user_id=self.session_manager.current_user_id()
+            )
+        )
         self.event_log = EventLogService(self.event_log_store, self.transcript_adapter)
         self._startup_lock = asyncio.Lock()
         self._startup_done = False
@@ -127,12 +129,15 @@ class AssistantService:
         if not sessions or not project_name:
             return sessions
 
-        project_cwd = str(self.projects_root / project_name)
+        owner_id = user_id or sessions[0].user_id
+        self.bind_user(owner_id)
+        project_cwd = str(self.pm.get_project_path(project_name))
+        session_store = self.session_manager._build_session_store(user_id=owner_id)
         sdk_sessions: list[Any] = []
 
-        if self._session_store is not None and list_sessions_from_store is not None:
+        if session_store is not None and list_sessions_from_store is not None:
             try:
-                sdk_sessions = await list_sessions_from_store(self._session_store, directory=project_cwd)  # type: ignore[arg-type]
+                sdk_sessions = await list_sessions_from_store(session_store, directory=project_cwd)  # type: ignore[arg-type]
             except Exception:
                 logger.warning(
                     "SDK list_sessions_from_store failed, titles will be empty",
@@ -194,13 +199,15 @@ class AssistantService:
             sandbox_id=meta.sandbox_id if meta else None,
         )
 
-        if self._session_store is not None and delete_session_via_store is not None:
+        build_session_store = getattr(self.session_manager, "_build_session_store", None)
+        session_store = build_session_store(user_id=meta.user_id) if meta and build_session_store is not None else None
+        if session_store is not None and delete_session_via_store is not None:
             # SDK derives project_key from `directory`; without it the key is
             # computed from server cwd and never matches inserted rows, so the
             # delete becomes a silent no-op. Resolve project cwd from meta.
-            project_cwd = str(self.projects_root / meta.project_name) if meta else None
+            project_cwd = str(self.pm.get_project_path(meta.project_name)) if meta else None
             try:
-                await delete_session_via_store(self._session_store, session_id, directory=project_cwd)  # type: ignore[arg-type]
+                await delete_session_via_store(session_store, session_id, directory=project_cwd)  # type: ignore[arg-type]
             except Exception:
                 logger.warning(
                     "delete_session_via_store failed for %s",
@@ -358,11 +365,14 @@ class AssistantService:
         return {"status": "accepted", "session_id": session_id, "entry": entry}
 
     async def _new_session_matches_project(self, session_id: str, project_name: str) -> bool:
-        """幂等命中的新会话是否属于当前调用项目。校验依据为会话 meta 的
-        ``project_name``；meta 不存在（异常 / 已删）时不阻断命中，保持既有幂等
-        语义——跨项目串号的前提是命中会话 meta 存在且项目不同。"""
+        """幂等命中的会话必须同时属于当前用户与当前项目。"""
+        current_user_id = getattr(self.session_manager, "current_user_id", lambda: DEFAULT_USER_ID)()
         meta = await self.meta_store.get(session_id)
-        return meta is None or meta.project_name == project_name
+        # 兼容只有 transcript、尚未导入 meta 的历史会话；DB 兜底查询本身已按
+        # user_id 过滤。正常新会话都有 meta，快路径据此同时校验用户与项目。
+        if meta is None:
+            return True
+        return meta.user_id == current_user_id and meta.project_name == project_name
 
     def _record_new_session_client_key(self, client_key: str, session_id: str) -> None:
         self._new_session_client_keys[client_key] = session_id

@@ -169,6 +169,7 @@ MESSAGES = {
     "auth_token_required": "Authentication token is required",
     "api_key_invalid": "API Key is invalid, expired, or does not exist",
     "api_key_identity_incomplete": "API Key identity is incomplete",
+    "token_identity_incomplete": "Sign-in token identity is incomplete; please sign in again",
     "media_token_scope_required": "Specify at least one of project or asset_path",
     "jwt_auth_required": "API Key is not authorized to perform this action, please use JWT authentication",
     "api_key_name_exists": "Name '{name}' already exists",

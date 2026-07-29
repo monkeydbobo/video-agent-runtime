@@ -10,6 +10,7 @@ import os
 import time
 from collections import deque
 from collections.abc import AsyncIterable, AsyncIterator, Callable
+from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Optional
@@ -146,6 +147,7 @@ class ManagedSession:
 
     session_id: str  # sdk_session_id（已有会话）或临时 UUID（新会话等待中）
     actor: "SessionActor"  # per-session actor owning the SDK client
+    user_id: str = DEFAULT_USER_ID
     status: SessionStatus = "idle"
     project_name: str = ""  # 用于 _register_new_session
     sdk_id_event: asyncio.Event = field(default_factory=asyncio.Event)
@@ -288,7 +290,11 @@ class SessionManager:
         sandbox_enabled: bool = True,
         event_log_store: EventLogStore | None = None,
     ):
-        self.event_log_store = event_log_store or EventLogStore()
+        self._user_id_context: ContextVar[str] = ContextVar(
+            f"assistant_user_id_{id(self)}",
+            default=DEFAULT_USER_ID,
+        )
+        self.event_log_store = event_log_store or EventLogStore(user_id_provider=self.current_user_id)
         self.project_root = Path(project_root)
         # Tests construct SessionManager directly without going through
         # AssistantService, so we fall back to the legacy ``project_root/projects``
@@ -307,10 +313,8 @@ class SessionManager:
             E2BWorkspaceManager(projects_root=self.projects_root) if self._execution_backend == "e2b" else None
         )
         self.sessions: dict[str, ManagedSession] = {}
-        # 归属身份：凭证注入 / 用量记账 / transcript store / MCP 工具都读它。
-        # 每个请求进入路由时经 bind_user() 重绑；未绑定时按管理员默认归属运行
-        # （后台任务与直接构造 SessionManager 的场景）。
-        self._user_id: str = DEFAULT_USER_ID
+        # AssistantService 是全局单例，普通可变字段会在并发请求的 await 间串租户。
+        # ContextVar 会被新建的 actor/inbox/cleanup task 继承，且请求间彼此隔离。
         self._disconnecting: set[str] = set()
         self._session_actor_shutdown_timeout: float = 15.0  # total budget for send_disconnect + cancel fallback
         self._connect_locks: dict[str, asyncio.Lock] = {}
@@ -352,7 +356,7 @@ class SessionManager:
             max_turns_provider=lambda: self.max_turns,
             resolve_project_cwd=self._resolve_project_cwd,
             session_factory_provider=lambda: getattr(self, "_session_factory", None),
-            user_id_provider=lambda: self._user_id,
+            user_id_provider=self.current_user_id,
             execution_backend=self._execution_backend,
             e2b_workspaces=self._e2b_workspaces,
             sandbox_id_provider=self._get_persisted_sandbox_id if self._execution_backend == "e2b" else None,
@@ -371,7 +375,11 @@ class SessionManager:
         """
         if not user_id:
             raise ValueError("user_id is required")
-        self._user_id = user_id
+        self._user_id_context.set(user_id)
+
+    def current_user_id(self) -> str:
+        """返回当前请求/后台任务隔离的用户身份。"""
+        return self._user_id_context.get()
 
     def configure_sandbox_runtime(self, *, in_docker: bool, sandbox_enabled: bool) -> None:
         """startup 期注入平台运行时事实（Docker 嵌套、内核沙箱可用性）。
@@ -400,7 +408,7 @@ class SessionManager:
             from lib.db import async_session_factory
 
             async with async_session_factory() as session:
-                svc = ConfigService(session, user_id=self._user_id)
+                svc = ConfigService(session, user_id=self.current_user_id())
                 raw = await svc.get_setting("assistant_max_turns", "")
                 raw = raw.strip()
                 if raw:
@@ -431,10 +439,10 @@ class SessionManager:
             stderr=stderr,
         )
 
-    def _build_session_store(self):
+    def _build_session_store(self, *, user_id: str | None = None):
         """委派给装配器的 session store 单例。AssistantService 经此拿到与 SDK options
         同一份 store 实例（同一 per-user 命名空间），读写共享缓存。"""
-        return self._options_assembler.build_session_store()
+        return self._options_assembler.build_session_store(user_id=user_id)
 
     def _resolve_project_cwd(self, project_name: str) -> Path:
         """Resolve the current user's project directory for an agent session.
@@ -442,7 +450,15 @@ class SessionManager:
         ``ProjectManager`` is the single authority for both legacy flat projects
         and the production ``users/{user_id}/projects/{project_id}`` layout.
         """
-        return self._project_manager.get_project_path(project_name)
+        try:
+            return self._project_manager.get_project_path(project_name)
+        except ValueError:
+            # 兼容历史管理员项目名（早期允许下划线）；仍以 resolve + parent
+            # 精确校验阻止路径穿越。新用户私有项目统一使用规范化名称。
+            candidate = (self.projects_root / project_name).resolve(strict=False)
+            if candidate.parent == self.projects_root and candidate.is_dir():
+                return candidate
+            raise
 
     def _build_entry_pipeline(self, managed: "ManagedSession") -> SessionEntryPipeline:
         """构建会话的事件日志写入点管道。
@@ -589,6 +605,7 @@ class SessionManager:
         managed = ManagedSession(
             session_id=temp_id,
             actor=actor,
+            user_id=self.current_user_id(),
             status="running",
             project_name=project_name,
             assistant_model=assistant_model,
@@ -855,6 +872,7 @@ class SessionManager:
             managed = ManagedSession(
                 session_id=meta.id,  # 现在就是 sdk_session_id
                 actor=actor,
+                user_id=meta.user_id,
                 status=resumed_status,
                 project_name=meta.project_name,
                 assistant_model=assistant_model,
@@ -1071,7 +1089,11 @@ class SessionManager:
             model=resolve_assistant_model(result_msg, managed.assistant_model),
             prompt=managed.last_user_prompt[:500] if managed.last_user_prompt else None,
             provider=PROVIDER_ANTHROPIC,
-            user_id=self._user_id,
+            user_id=(
+                self.current_user_id()
+                if managed.user_id == DEFAULT_USER_ID and self.current_user_id() != DEFAULT_USER_ID
+                else managed.user_id
+            ),
             status="success" if final_status == "completed" else "failed",
             input_tokens=input_tokens,
             output_tokens=output_tokens,
@@ -1119,8 +1141,11 @@ class SessionManager:
         managed._cleanup_task = asyncio.create_task(self._cleanup_idle(session_id))
 
     async def _cleanup_idle(self, session_id: str) -> None:
+        managed = self.sessions.get(session_id)
+        if managed is None:
+            return
         try:
-            delay = await self._get_cleanup_delay()
+            delay = await self._get_cleanup_delay(managed.user_id)
             await asyncio.sleep(delay)
         except asyncio.CancelledError:
             return
@@ -1204,32 +1229,37 @@ class SessionManager:
             self._connect_locks.pop(session_id, None)
             self._disconnecting.discard(session_id)
 
-    async def _get_cleanup_delay(self) -> int:
+    async def _get_cleanup_delay(self, user_id: str | None = None) -> int:
         """返回会话清理延迟秒数，默认 300（5 分钟）。"""
         try:
             async with async_session_factory() as session:
-                svc = ConfigService(session, user_id=self._user_id)
+                svc = ConfigService(session, user_id=user_id or self.current_user_id())
                 val = await svc.get_setting("agent_session_cleanup_delay_seconds", "300")
             return max(int(val), 10)
         except Exception:
             logger.warning("读取 cleanup delay 配置失败，使用默认值", exc_info=True)
             return 300
 
-    async def _get_max_concurrent(self) -> int:
+    async def _get_max_concurrent(self, user_id: str | None = None) -> int:
         """返回最大并发会话数，默认 5。"""
         try:
             async with async_session_factory() as session:
-                svc = ConfigService(session, user_id=self._user_id)
+                svc = ConfigService(session, user_id=user_id or self.current_user_id())
                 val = await svc.get_setting("agent_max_concurrent_sessions", "5")
             return max(int(val), 1)
         except Exception:
             logger.warning("读取 max_concurrent 配置失败，使用默认值", exc_info=True)
             return 5
 
-    async def _ensure_capacity(self) -> None:
+    async def _ensure_capacity(self, user_id: str | None = None) -> None:
         """确保有空余并发槽位，必要时淘汰最久未活跃的非 running 会话。"""
-        max_concurrent = await self._get_max_concurrent()
-        active = [s for s in self.sessions.values() if s.actor is not None and s.session_id not in self._disconnecting]
+        owner_id = user_id or self.current_user_id()
+        max_concurrent = await self._get_max_concurrent(owner_id)
+        active = [
+            s
+            for s in self.sessions.values()
+            if s.user_id == owner_id and s.actor is not None and s.session_id not in self._disconnecting
+        ]
 
         if len(active) < max_concurrent:
             return
@@ -1265,11 +1295,11 @@ class SessionManager:
 
     async def _patrol_once(self) -> None:
         """单次巡检：清理所有超时的非 running 会话。"""
-        cleanup_delay = await self._get_cleanup_delay()
         now = time.monotonic()
         for sid, managed in list(self.sessions.items()):
             if managed.status == "running" or sid in self._disconnecting:
                 continue
+            cleanup_delay = await self._get_cleanup_delay(managed.user_id)
             activity_age = now - (managed.last_activity or 0)
             if activity_age > cleanup_delay * 2:
                 logger.info("巡检兜底清理会话 session_id=%s status=%s", sid, managed.status)
@@ -1471,7 +1501,7 @@ class SessionManager:
                     managed.project_name,
                     sdk_id,
                     sandbox_id=sandbox_id,
-                    user_id=self._user_id,
+                    user_id=managed.user_id,
                 ),
                 *([] if tag_coro is None else [tag_coro]),
             )

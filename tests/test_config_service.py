@@ -1,6 +1,7 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from lib.config.repository import SystemSettingRepository
 from lib.config.service import ConfigService
 from lib.db.base import DEFAULT_USER_ID, Base
 from lib.db.repositories.credential_repository import CredentialRepository
@@ -72,6 +73,15 @@ async def test_system_settings(config_service: ConfigService):
     await config_service.set_setting("default_video_backend", "gemini-vertex/veo-3.1-fast-generate-001")
     val = await config_service.get_setting("default_video_backend")
     assert val == "gemini-vertex/veo-3.1-fast-generate-001"
+
+
+async def test_user_preferences_do_not_fallback_to_legacy_system_values(session: AsyncSession):
+    await SystemSettingRepository(session).set("default_video_backend", "admin/private-model")
+    await session.commit()
+    alice = ConfigService(session, user_id="alice")
+
+    assert await alice.get_setting("default_video_backend", "public/default") == "public/default"
+    assert "default_video_backend" not in await alice.get_all_settings()
 
 
 async def test_get_default_video_backend(config_service: ConfigService):

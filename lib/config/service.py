@@ -13,7 +13,8 @@ from lib.config.repository import ProviderConfigRepository, SystemSettingReposit
 from lib.db.repositories.credential_repository import CredentialRepository
 from lib.db.repositories.user_setting_repo import UserSettingRepository
 
-# 用户偏好：优先读写 user_settings，缺失时 fallback system_settings（双读过渡）
+# 用户偏好：只读写 user_settings。迁移已把历史 system_settings 复制给默认管理员；
+# 新用户不得继承管理员的模型选择或 Agent 配置。
 _USER_PREFERENCE_KEYS = frozenset(
     {
         "default_video_backend",
@@ -247,17 +248,15 @@ class ConfigService:
         if key in user_settings:
             return user_settings[key]
         if key in _USER_PREFERENCE_KEYS:
-            return await self._setting_repo.get(key, default)
+            return default
         return await self._setting_repo.get(key, default)
 
     async def get_all_settings(self) -> dict[str, str]:
-        """合并用户偏好与系统设置（用户覆盖 > 系统 fallback）。"""
+        """返回当前用户偏好与真正全局运行参数，不暴露历史管理员偏好。"""
         system = await self._setting_repo.get_all()
         user = await self._load_user_settings()
-        merged = dict(system)
-        for key in _USER_PREFERENCE_KEYS:
-            if key in user:
-                merged[key] = user[key]
+        merged = {key: value for key, value in system.items() if key not in _USER_PREFERENCE_KEYS}
+        merged.update(user)
         return merged
 
     async def set_setting(self, key: str, value: str) -> None:

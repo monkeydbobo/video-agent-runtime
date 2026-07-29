@@ -125,9 +125,9 @@ class OptionsAssembler:
         self._e2b_workspaces = e2b_workspaces
         self._sandbox_id_provider = sandbox_id_provider
         self._sandbox_id_updater = sandbox_id_updater
-        # session store 单例缓存：每个 assembler 一份，避免每次 build 都新建 store。
-        self._cached_session_store: DbSessionStore | None = None
-        self._session_store_resolved = False
+        # SessionStore 必须按用户分桶。AssistantService 是全局单例，若这里只缓存
+        # 一个 store，首个请求用户会成为后续所有 transcript 的错误归属。
+        self._cached_session_stores: dict[str, DbSessionStore] = {}
 
     async def build_provider_env_overrides(self) -> dict[str, str]:
         """DB 凭证注入入口。默认按会话所有者 user_id 读 active credential；
@@ -214,27 +214,24 @@ class OptionsAssembler:
         ]
         return "\n".join(parts)
 
-    def build_session_store(self) -> DbSessionStore | None:
+    def build_session_store(self, *, user_id: str | None = None) -> DbSessionStore | None:
         """Return a cached per-user DbSessionStore, or None when env disables it.
 
         Set ARCREEL_SDK_SESSION_STORE=off to roll back to SDK's filesystem path.
         The result is cached on first call so every session shares one instance
         instead of allocating a fresh store per ``build`` invocation.
         """
-        if self._cached_session_store is not None or self._session_store_resolved:
-            return self._cached_session_store
-
         mode = session_store_mode()
-        store: DbSessionStore | None
         if mode == "off":
-            store = None
-        else:
-            if not is_known_session_store_mode(mode):
-                logger.warning("Unknown ARCREEL_SDK_SESSION_STORE=%r; defaulting to db", mode)
+            return None
+        if not is_known_session_store_mode(mode):
+            logger.warning("Unknown ARCREEL_SDK_SESSION_STORE=%r; defaulting to db", mode)
+        owner_id = user_id or self._user_id_provider()
+        store = self._cached_session_stores.get(owner_id)
+        if store is None:
             factory = self._session_factory_provider() or default_async_session_factory
-            store = DbSessionStore(factory, user_id=self._user_id_provider())
-        self._cached_session_store = store
-        self._session_store_resolved = True
+            store = DbSessionStore(factory, user_id=owner_id)
+            self._cached_session_stores[owner_id] = store
         return store
 
     async def build(
