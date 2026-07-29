@@ -215,3 +215,7 @@ async def test_private_frontend_routes_are_noindex_and_browser_hardened(
         assert response.headers["permissions-policy"] == "camera=(), geolocation=(), microphone=()"
         assert "form-action 'self'" in response.headers["content-security-policy"]
         assert "frame-ancestors 'none'" in response.headers["content-security-policy"]
+        assert "https://accounts.google.com/gsi/client" in response.headers["content-security-policy"]
+        assert "connect-src 'self' https://accounts.google.com/gsi/" in response.headers["content-security-policy"]
+        assert "frame-src https://accounts.google.com/gsi/" in response.headers["content-security-policy"]
+        assert "https://accounts.google.com/gsi/style" in response.headers["content-security-policy"]
