@@ -10,6 +10,8 @@ describe("auth-store initialize", () => {
       isAuthenticated: false,
       isLoading: true,
       registrationEnabled: false,
+      googleEnabled: false,
+      googleClientId: null,
     });
     vi.restoreAllMocks();
   });
@@ -20,9 +22,22 @@ describe("auth-store initialize", () => {
 
   it("hydrates username from /auth/verify when a token is present", async () => {
     localStorage.setItem("arcreel_auth_token", "tok-abc");
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ valid: true, username: "bob" }),
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/auth/verify")) {
+        return { ok: true, json: async () => ({ valid: true, username: "bob" }) };
+      }
+      if (url.includes("/auth/status")) {
+        return {
+          ok: true,
+          json: async () => ({
+            enabled: true,
+            registration_enabled: true,
+            google_enabled: true,
+            google_client_id: "cid.apps.googleusercontent.com",
+          }),
+        };
+      }
+      return { ok: false, status: 404 };
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -43,6 +58,8 @@ describe("auth-store initialize", () => {
 
     await vi.waitFor(() => {
       expect(useAuthStore.getState().username).toBe("bob");
+      expect(useAuthStore.getState().googleEnabled).toBe(true);
+      expect(useAuthStore.getState().googleClientId).toBe("cid.apps.googleusercontent.com");
     });
   });
 
@@ -64,6 +81,33 @@ describe("auth-store initialize", () => {
         isAuthenticated: true,
         isLoading: false,
         username: null,
+      });
+    });
+  });
+
+  it("stores google flags from /auth/status when unauthenticated", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          enabled: true,
+          registration_enabled: false,
+          google_enabled: false,
+          google_client_id: null,
+        }),
+      }),
+    );
+
+    useAuthStore.getState().initialize();
+
+    await vi.waitFor(() => {
+      expect(useAuthStore.getState()).toMatchObject({
+        isLoading: false,
+        isAuthenticated: false,
+        registrationEnabled: false,
+        googleEnabled: false,
+        googleClientId: null,
       });
     });
   });

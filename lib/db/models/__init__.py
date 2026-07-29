@@ -7,6 +7,7 @@ from lib.db.models.asset import Asset
 from lib.db.models.config import ProviderConfig, SystemSetting
 from lib.db.models.credential import ProviderCredential
 from lib.db.models.custom_provider import CustomProvider, CustomProviderModel
+from lib.db.models.oauth_identity import OAuthIdentity
 from lib.db.models.project import Project
 from lib.db.models.session import AgentSession
 from lib.db.models.session_event import AgentSessionEventLogEntry
@@ -26,6 +27,7 @@ __all__ = [
     "SystemSetting",
     "UserSetting",
     "User",
+    "OAuthIdentity",
     "ProviderCredential",
     "CustomProvider",
     "CustomProviderModel",

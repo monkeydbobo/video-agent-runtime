@@ -77,7 +77,14 @@ export interface LoginResponse {
 
 /** Standard error response body from backend (mirrors FastAPI HTTPException detail). */
 export interface ErrorResponse {
-  detail: string | { msg?: string }[];
+  detail:
+    | string
+    | {
+        loc?: Array<string | number>;
+        msg?: string;
+        type?: string;
+        ctx?: { min_length?: number; max_length?: number };
+      }[];
 }
 
 /**

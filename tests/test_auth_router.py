@@ -10,28 +10,40 @@ from unittest.mock import patch
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+import lib.db.models  # noqa: F401 — register metadata
 import server.auth as auth_module
+from lib import db
+from lib.db.base import Base
 from server.routers import auth as auth_router
 
 
 @pytest.fixture()
-def client():
-    """创建测试客户端，设置固定的认证环境变量"""
+async def client():
+    """创建测试客户端，设置固定的认证环境变量，并挂内存库避免撞上开发库 schema。"""
     auth_module._cached_token_secret = None
     auth_module._cached_password_hash = None
-    with patch.dict(
-        os.environ,
-        {
-            "AUTH_USERNAME": "testuser",
-            "AUTH_PASSWORD": "testpass",
-            "AUTH_TOKEN_SECRET": "test-router-secret-key-at-least-32-bytes-long",
-        },
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    with (
+        patch.dict(
+            os.environ,
+            {
+                "AUTH_USERNAME": "testuser",
+                "AUTH_PASSWORD": "testpass",
+                "AUTH_TOKEN_SECRET": "test-router-secret-key-at-least-32-bytes-long",
+            },
+        ),
+        patch.object(db, "async_session_factory", factory),
     ):
         app = FastAPI()
         app.include_router(auth_router.router, prefix="/api/v1")
         with TestClient(app) as c:
             yield c
+    await engine.dispose()
 
 
 class TestLoginRoute:
