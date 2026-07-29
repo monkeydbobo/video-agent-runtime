@@ -24,7 +24,9 @@ from lib.agent_session_store import (
 from lib.agent_session_store.store import DbSessionStore
 from lib.db.base import DEFAULT_USER_ID
 from lib.db.engine import async_session_factory as default_async_session_factory
+from lib.db.repositories.project_repo import ProjectRepository
 from lib.i18n import DEFAULT_LOCALE, LOCALE_LANGUAGE_MAP
+from lib.project_paths import bind_project_user_scope, current_project_id_scope
 from server.agent_runtime.agent_access_policy import AgentAccessPolicy
 from server.agent_runtime.backend import AgentBackend
 from server.agent_runtime.e2b_workspace import REMOTE_PROJECT_ROOT, E2BWorkspaceManager
@@ -134,6 +136,20 @@ class OptionsAssembler:
             return await self._provider_env_loader()
         return await load_provider_env_overrides(user_id=self._user_id_provider())
 
+    async def _bind_project_scope(self, project_name: str) -> str | None:
+        """从异步 DB 绑定 project_id，避免 PostgreSQL 路径解析退回 SQLite。"""
+        project_id = current_project_id_scope(project_name)
+        if project_id is not None:
+            return project_id
+        user_id = self._user_id_provider()
+        factory = self._session_factory_provider() or default_async_session_factory
+        async with factory() as session:
+            project = await ProjectRepository(session).get_by_name(user_id, project_name)
+        if project is None:
+            return None
+        bind_project_user_scope(user_id, project_ids={project_name: project.id})
+        return project.id
+
     def _build_append_prompt(self, project_name: str, locale: str = DEFAULT_LOCALE) -> str:
         """Build the append portion for SystemPromptPreset.
 
@@ -241,6 +257,7 @@ class OptionsAssembler:
 
         policy = self._access_policy_provider()
 
+        project_id = await self._bind_project_scope(project_name)
         project_cwd = self._resolve_project_cwd(project_name)
 
         # Build PreToolUse hooks — file access control MUST use hooks because
@@ -309,6 +326,7 @@ class OptionsAssembler:
             project_name=project_name,
             projects_root=self.projects_root,
             user_id=self._user_id_provider(),
+            project_id=project_id,
         )
         mcp_servers: dict[str, Any] = {"arcreel": arcreel_server}
         if self._e2b_workspaces is not None:

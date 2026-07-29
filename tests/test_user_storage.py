@@ -16,13 +16,15 @@ from fastapi.testclient import TestClient
 from lib.db.base import DEFAULT_USER_ID
 from lib.db.repositories.project_repo import ProjectRepository
 from lib.project_manager import ProjectManager
-from lib.project_paths import user_asset_relpath, user_project_root
+from lib.project_paths import project_user_scope, user_asset_relpath, user_project_root
 from lib.storage_migration import run_storage_migration
 from server.auth import (
     create_media_token,
     get_token_secret,
     verify_media_token,
 )
+
+pytestmark = pytest.mark.integration
 from server.routers import files
 
 
@@ -53,6 +55,38 @@ class TestProjectPaths:
         root = pm.get_user_assets_root("bob")
         assert root == pm.projects_root / "users" / "bob" / "assets"
         assert (root / "character").is_dir()
+
+    @pytest.mark.integration
+    def test_create_metadata_in_namespaced_project(self, pm):
+        """新建用户项目时，元数据必须直接写入已创建的 namespaced 目录。"""
+        user_id = "alice"
+        project_id = str(uuid.uuid4())
+        project_root = pm.create_project("demo", user_id=user_id, project_id=project_id)
+
+        created = pm.create_project_metadata(
+            "demo",
+            "Demo",
+            "Anime",
+            "narration",
+            user_id=user_id,
+            project_id=project_id,
+        )
+
+        assert created["title"] == "Demo"
+        assert (project_root / "project.json").is_file()
+
+    @pytest.mark.integration
+    def test_bound_project_id_resolves_without_sqlite_lookup(self, pm, monkeypatch):
+        """请求守卫已绑定 project_id 时，不依赖 SQLite，可兼容 PostgreSQL。"""
+        project_id = str(uuid.uuid4())
+        expected = pm.create_project("demo", user_id="alice", project_id=project_id)
+
+        def _unexpected_lookup(*_args, **_kwargs):
+            raise AssertionError("request-scoped path must not query SQLite")
+
+        monkeypatch.setattr("lib.project_manager.sync_lookup_project", _unexpected_lookup)
+        with project_user_scope("alice", project_name="demo", project_id=project_id):
+            assert pm.get_project_path("demo") == expected
 
 
 class TestMediaToken:
@@ -106,8 +140,25 @@ class TestStorageMigration:
 
 
 class TestFilesRouterMediaToken:
+    @pytest.mark.integration
+    def test_legacy_global_asset_is_not_shared_with_other_users(self, pm, monkeypatch):
+        legacy = pm.projects_root / "_global_assets" / "character"
+        legacy.mkdir(parents=True)
+        (legacy / "secret.png").write_bytes(b"legacy-secret")
+
+        monkeypatch.setattr(files, "get_project_manager", lambda: pm)
+        app = FastAPI()
+        app.include_router(files.router, prefix="/api/v1")
+        client = TestClient(app)
+
+        alice_path = user_asset_relpath("alice", "character", "secret.png")
+        token = create_media_token("alice", asset_path=alice_path)
+        resp = client.get(f"/api/v1/global-assets/character/secret.png?media_token={token}")
+
+        assert resp.status_code == 404
+
     def test_serve_with_media_token_without_bearer(self, tmp_path, monkeypatch, project_ownership_db, pm):
-        user_id = DEFAULT_USER_ID
+        user_id = "alice-id"
         project_id = str(uuid.uuid4())
         pm.create_project("demo", user_id=user_id, project_id=project_id)
         (pm.get_project_path("demo", user_id=user_id, project_id=project_id) / "source").mkdir(exist_ok=True)
@@ -125,6 +176,10 @@ class TestFilesRouterMediaToken:
         asyncio.run(_seed())
 
         monkeypatch.setattr(files, "get_project_manager", lambda: pm)
+        monkeypatch.setattr(
+            "lib.project_manager.sync_lookup_project",
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("must not use SQLite path lookup")),
+        )
 
         app = FastAPI()
         app.include_router(files.router, prefix="/api/v1")

@@ -15,6 +15,8 @@ from server.services.reference_video_tasks import (
     resolve_max_unit_duration,
 )
 
+pytestmark = pytest.mark.integration
+
 
 async def test_resolve_max_unit_duration_resolves_as_project_owner(monkeypatch: pytest.MonkeyPatch):
     """分组时长上限必须按项目所有者解析，不能落到 DEFAULT_USER_ID。

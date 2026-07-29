@@ -400,9 +400,20 @@ async def lifespan(app: FastAPI):
 
     # 磁盘布局迁移：扁平项目 / _global_assets → users/{owner}/projects|assets（幂等，失败不阻塞）
     try:
+        from lib.db.repositories.project_repo import ProjectRepository
+        from lib.project_paths import ProjectLocation
         from lib.storage_migration import run_storage_migration
 
-        storage_summary = await asyncio.to_thread(run_storage_migration, projects_root)
+        async with async_session_factory() as session:
+            project_rows = await ProjectRepository(session).list_all_projects()
+        project_locations = [
+            ProjectLocation(user_id=row.user_id, project_id=row.id, name=row.name) for row in project_rows
+        ]
+        storage_summary = await asyncio.to_thread(
+            run_storage_migration,
+            projects_root,
+            project_locations=project_locations,
+        )
         if (
             storage_summary.projects_migrated
             or storage_summary.projects_failed

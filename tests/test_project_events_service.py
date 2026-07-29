@@ -1073,3 +1073,15 @@ class TestProjectEventService:
             assert "demo" in service._channels
 
         await service.shutdown()
+
+    def test_same_name_projects_use_separate_user_channels(self, tmp_path):
+        service = ProjectEventService(tmp_path, poll_interval=0.05)
+        alice = service._create_channel("demo", user_id="alice", project_id="project-a")
+        bob = service._create_channel("demo", user_id="bob", project_id="project-b")
+        service._channels[("alice", "project-a")] = alice
+        service._channels[("bob", "project-b")] = bob
+
+        service._apply_hint("demo", "webui", ("project.json",), "alice", "project-a")
+
+        assert alice.scan_now.is_set()
+        assert not bob.scan_now.is_set()

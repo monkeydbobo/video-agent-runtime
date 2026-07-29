@@ -59,6 +59,15 @@ def _client(monkeypatch, pm: ProjectManager) -> TestClient:
 
     monkeypatch.setattr(proj_mod, "get_project_manager", lambda: pm)
 
+    async def _bind_owner(_name: str, user_id: str):
+        return user_id
+
+    monkeypatch.setattr(proj_mod, "bind_owned_project_scope", _bind_owner)
+    monkeypatch.setattr(
+        "lib.project_paths.sync_lookup_project",
+        lambda name, user_id=None: type("_Loc", (), {"user_id": user_id})(),
+    )
+
     from server.app import app
 
     return TestClient(app)

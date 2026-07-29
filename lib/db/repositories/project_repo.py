@@ -22,14 +22,9 @@ class ProjectRepository(BaseRepository):
             await self.session.execute(select(Project).where(Project.user_id == user_id, Project.name == name))
         ).scalar_one_or_none()
 
-    async def get_owner(self, name: str, user_id: str | None = None) -> str | None:
-        """返回项目归属的 user_id；无记录返回 None。
-
-        ``user_id`` 可选：传入时按 (user_id, name) 精确匹配；省略时按 name 查首条（兼容单租户期）。
-        """
-        stmt = select(Project).where(Project.name == name)
-        if user_id is not None:
-            stmt = stmt.where(Project.user_id == user_id)
+    async def get_owner(self, name: str, user_id: str) -> str | None:
+        """按 ``(user_id, name)`` 返回项目属主；无记录返回 ``None``。"""
+        stmt = select(Project).where(Project.name == name, Project.user_id == user_id)
         row = (await self.session.execute(stmt)).scalar_one_or_none()
         return row.user_id if row is not None else None
 
@@ -40,18 +35,10 @@ class ProjectRepository(BaseRepository):
         return project
 
     async def ensure(self, name: str, user_id: str) -> Project:
-        """存在则原样返回（不改归属），不存在则以 user_id 创建。
-
-        先按 (user_id, name) 精确匹配；若 name 已被其他用户登记则返回既有记录，
-        保证 ``register_project_owner`` 幂等且不覆盖归属。
-        """
+        """按 ``(user_id, name)`` 幂等创建，不复用其他用户的同名记录。"""
         existing = await self.get_by_name(user_id, name)
         if existing is not None:
             return existing
-        stmt = select(Project).where(Project.name == name)
-        row = (await self.session.execute(stmt)).scalar_one_or_none()
-        if row is not None:
-            return row
         return await self.create(name, user_id)
 
     async def delete(self, name: str, user_id: str | None = None) -> None:
@@ -68,7 +55,18 @@ class ProjectRepository(BaseRepository):
             stmt = stmt.where(Project.user_id == user_id)
         return list((await self.session.execute(stmt)).scalars())
 
-    async def ownership_map(self) -> dict[str, str]:
-        """返回 {项目名: user_id} 全量映射（用于列表过滤与导入冲突判定）。"""
-        rows = (await self.session.execute(select(Project.name, Project.user_id))).all()
+    async def list_projects(self, user_id: str) -> list[Project]:
+        """列出指定用户的项目记录，供请求作用域绑定不可变 project_id。"""
+        stmt = select(Project).where(Project.user_id == user_id).order_by(Project.name)
+        return list((await self.session.execute(stmt)).scalars())
+
+    async def list_all_projects(self) -> list[Project]:
+        """列出全部项目记录，仅供启动迁移等显式系统级流程。"""
+        return list((await self.session.execute(select(Project).order_by(Project.name))).scalars())
+
+    async def ownership_map(self, user_id: str) -> dict[str, str]:
+        """返回指定用户的 ``{项目名: user_id}`` 映射。"""
+        rows = (
+            await self.session.execute(select(Project.name, Project.user_id).where(Project.user_id == user_id))
+        ).all()
         return {name: user_id for name, user_id in rows}

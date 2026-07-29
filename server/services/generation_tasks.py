@@ -12,13 +12,16 @@ from typing import Any
 
 from lib.asset_types import ASSET_SPECS
 from lib.config.registry import PROVIDER_REGISTRY
+from lib.db import async_session_factory
 from lib.db.base import DEFAULT_USER_ID
+from lib.db.repositories.project_repo import ProjectRepository
 from lib.i18n import DEFAULT_LOCALE
 from lib.i18n import _ as i18n_translate
 from lib.image_backends.base import ImageCapabilityError
 from lib.path_safety import safe_exists
 from lib.project_change_hints import emit_project_change_batch, project_change_source
 from lib.project_manager import get_project_manager
+from lib.project_paths import project_user_scope
 from lib.prompt_builders import (
     append_product_fidelity_tail,
     build_character_prompt,
@@ -1514,7 +1517,15 @@ async def execute_generation_task(task: dict[str, Any]) -> dict[str, Any]:
     if executor is None:
         raise ValueError(f"unsupported task_type: {task_type}")
 
-    with project_change_source("worker"):
+    async with async_session_factory() as session:
+        project = await ProjectRepository(session).get_by_name(user_id, project_name)
+    if project is None:
+        raise ValueError(f"task project is not owned by user: {project_name}")
+
+    with (
+        project_change_source("worker"),
+        project_user_scope(user_id, project_name=project_name, project_id=project.id),
+    ):
         try:
             result = await executor(project_name, resource_id, payload, user_id=user_id, task_id=queue_task_id)
         except (ImageCapabilityError, VideoCapabilityError, ReferencePayloadFloorError) as err:

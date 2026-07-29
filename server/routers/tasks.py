@@ -24,7 +24,6 @@ from server.auth import CurrentUser, CurrentUserFlexible, CurrentUserInfo
 from server.project_access import (
     accessible_project_names,
     ensure_project_access,
-    is_admin,
     require_project_access,
 )
 
@@ -42,23 +41,18 @@ async def _resolve_task_scope(
 ) -> tuple[str | None, list[str] | None, str | None]:
     """解析全局任务视图的过滤参数 (project_name, project_names, user_id)。
 
-    指定 project_name 时校验归属后按单项目过滤；未指定时 admin 全量，
-    普通用户限定 user_id + 自己拥有的项目集合内。
+    指定 project_name 时校验归属后按单项目过滤；未指定时限定在当前用户
+    及其拥有的项目集合内。管理员普通业务查询也不隐式跨用户。
     """
     if project_name:
         await ensure_project_access(project_name, user, _t)
-        scoped_user = None if is_admin(user) else user.id
-        return project_name, None, scoped_user
-    if is_admin(user):
-        return None, None, None
+        return project_name, None, user.id
     owned = await accessible_project_names(get_project_manager().list_projects(), user)
     return None, owned, user.id
 
 
 async def _ensure_task_access(task_id: str, user: CurrentUserInfo, _t: Callable[..., str]) -> None:
     """按任务 user_id 与所属项目校验归属；任务不存在时交由后续队列操作报错。"""
-    if is_admin(user):
-        return
     task = await get_task_queue().get_task(task_id)
     if task is None:
         return
@@ -165,6 +159,7 @@ async def list_project_tasks(
     queue = get_task_queue()
     result = await queue.list_tasks(
         project_name=project_name,
+        user_id=_user.id,
         status=status,
         task_type=task_type,
         source=source,
@@ -264,14 +259,14 @@ async def cancel_task(task_id: str, _user: CurrentUser, _t: Translator):
 @router.get("/projects/{project_name}/tasks/cancel-all-preview", dependencies=[Depends(require_project_access)])
 async def cancel_all_preview(project_name: str, _user: CurrentUser):
     queue = get_task_queue()
-    queued_count = await queue.get_cancel_all_preview(project_name)
+    queued_count = await queue.get_cancel_all_preview(project_name, user_id=_user.id)
     return {"queued_count": queued_count}
 
 
 @router.post("/projects/{project_name}/tasks/cancel-all", dependencies=[Depends(require_project_access)])
 async def cancel_all_queued(project_name: str, _user: CurrentUser):
     queue = get_task_queue()
-    result = await queue.cancel_all_queued(project_name)
+    result = await queue.cancel_all_queued(project_name, user_id=_user.id)
     return result
 
 
@@ -285,11 +280,10 @@ async def get_task(
     task = await queue.get_task(task_id)
     if not task:
         raise NotFoundError("task_not_found", id=task_id)
-    if not is_admin(_user):
-        task_user = task.get("user_id")
-        if task_user and task_user != _user.id:
-            raise NotFoundError("task_not_found", id=task_id)
-        task_project = task.get("project_name")
-        if task_project:
-            await ensure_project_access(task_project, _user, _t)
+    task_user = task.get("user_id")
+    if task_user and task_user != _user.id:
+        raise NotFoundError("task_not_found", id=task_id)
+    task_project = task.get("project_name")
+    if task_project:
+        await ensure_project_access(task_project, _user, _t)
     return {"task": _localize_task(task, _t)}

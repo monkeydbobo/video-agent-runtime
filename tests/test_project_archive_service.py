@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from lib.project_manager import ProjectManager
+from lib.project_paths import project_user_scope, user_project_root
 from server.services import project_archive as project_archive_module
 from server.services.project_archive import (
     ARCHIVE_MANIFEST_NAME,
@@ -268,6 +269,41 @@ class TestProjectArchiveService:
         assert result.conflict_resolution == "none"
         assert (pm.get_project_path("demo") / "videos" / "scene_E1S01.mp4").exists()
         assert (pm.get_project_path("demo") / "drafts" / "episode_2").is_dir()
+
+    @pytest.mark.integration
+    def test_two_users_can_import_same_project_name_into_separate_namespaces(self, tmp_path):
+        pm = ProjectManager(tmp_path / "projects")
+        _create_project(pm)
+        service = ProjectArchiveService(pm)
+        archive_path, _ = service.export_project("demo")
+        shutil.rmtree(pm.get_project_path("demo"))
+
+        alice = service.import_project_archive(
+            archive_path,
+            uploaded_filename="demo.zip",
+            user_id="alice-id",
+            new_project_id="11111111-1111-1111-1111-111111111111",
+            existing_project_ids={},
+        )
+        bob = service.import_project_archive(
+            archive_path,
+            uploaded_filename="demo.zip",
+            user_id="bob-id",
+            new_project_id="22222222-2222-2222-2222-222222222222",
+            existing_project_ids={},
+        )
+
+        assert alice.project_name == bob.project_name == "demo"
+        assert alice.project_id is not None
+        assert bob.project_id is not None
+        assert alice.project_id != bob.project_id
+        alice_root = user_project_root(pm.projects_root, "alice-id", alice.project_id)
+        bob_root = user_project_root(pm.projects_root, "bob-id", bob.project_id)
+        assert alice_root.is_dir() and bob_root.is_dir()
+        with project_user_scope("alice-id", project_name="demo", project_id=alice.project_id):
+            assert pm.load_project("demo")["title"] == "Demo"
+        with project_user_scope("bob-id", project_name="demo", project_id=bob.project_id):
+            assert pm.load_project("demo")["title"] == "Demo"
 
     def test_import_manual_zip_without_manifest(self, tmp_path):
         pm = ProjectManager(tmp_path / "projects")

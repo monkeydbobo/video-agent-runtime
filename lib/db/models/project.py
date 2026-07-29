@@ -1,7 +1,7 @@
 """Project ownership model.
 
-项目文件仍存储在扁平目录（ADR 0021），本表记录 project id / 项目名 → 用户的归属关系，
-用于按用户维度隔离项目可见性与操作权限。
+本表以不可变 project id 和 ``(user_id, name)`` 记录归属；项目文件存储在
+``users/{user_id}/projects/{project_id}``，名称只作为用户作用域内的可读标识。
 """
 
 from sqlalchemy import String, UniqueConstraint

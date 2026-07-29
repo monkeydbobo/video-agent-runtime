@@ -15,6 +15,9 @@ import json
 import logging
 import os
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar, Token
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,6 +27,59 @@ USERS_DIR = "users"
 LEGACY_GLOBAL_ASSETS_DIR = "_global_assets"
 STORAGE_MIGRATION_MARKER = ".arcreel-storage-migrated"
 STORAGE_MIGRATION_MANIFEST = ".arcreel-storage-manifest.json"
+
+_PROJECT_USER_SCOPE: ContextVar[str | None] = ContextVar("project_user_scope", default=None)
+_PROJECT_ID_SCOPE: ContextVar[dict[str, str]] = ContextVar("project_id_scope", default={})
+
+
+def bind_project_user_scope(
+    user_id: str,
+    *,
+    project_ids: dict[str, str] | None = None,
+) -> None:
+    """把当前请求绑定到用户项目命名空间及已授权的项目 ID。"""
+    _PROJECT_USER_SCOPE.set(user_id)
+    _PROJECT_ID_SCOPE.set(dict(project_ids or {}))
+
+
+def current_project_user_scope() -> str | None:
+    """返回当前请求/任务绑定的用户 ID；系统级调用返回 ``None``。"""
+    return _PROJECT_USER_SCOPE.get()
+
+
+def current_project_id_scope(project_name: str) -> str | None:
+    """返回当前请求中已授权项目的不可变 ID。"""
+    return _PROJECT_ID_SCOPE.get().get(project_name)
+
+
+def current_project_ids_scope() -> dict[str, str]:
+    """返回当前请求已授权的全部项目名与 ID。"""
+    return dict(_PROJECT_ID_SCOPE.get())
+
+
+@contextmanager
+def project_user_scope(
+    user_id: str,
+    *,
+    project_name: str | None = None,
+    project_id: str | None = None,
+    project_ids: dict[str, str] | None = None,
+) -> Iterator[None]:
+    """在后台任务执行期间显式绑定项目用户，并在结束时恢复旧作用域。"""
+    if project_ids is not None and (project_name is not None or project_id is not None):
+        raise ValueError("project_ids 不能与 project_name/project_id 同时指定")
+    if (project_name is None) != (project_id is None):
+        raise ValueError("project_name 与 project_id 必须同时指定")
+    scoped_ids = dict(project_ids or {})
+    if project_name is not None and project_id is not None:
+        scoped_ids[project_name] = project_id
+    user_token: Token[str | None] = _PROJECT_USER_SCOPE.set(user_id)
+    project_token: Token[dict[str, str]] = _PROJECT_ID_SCOPE.set(scoped_ids)
+    try:
+        yield
+    finally:
+        _PROJECT_ID_SCOPE.reset(project_token)
+        _PROJECT_USER_SCOPE.reset(user_token)
 
 
 @dataclass(frozen=True)

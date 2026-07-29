@@ -8,7 +8,7 @@ import shutil
 import stat
 import tempfile
 import zipfile
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -19,6 +19,7 @@ from lib.json_io import load_json
 from lib.project_change_hints import emit_project_change_hint
 from lib.project_manager import ProjectManager, effective_mode
 from lib.project_migrations.runner import migrate_project_dir
+from lib.project_paths import project_user_scope, user_project_root
 from lib.resource_paths import resource_extension, resource_relative_path
 from lib.script_skeleton import SKELETONS, resolve_declared_kind
 from lib.source_loader.migration import migrate_project_source_encoding
@@ -121,6 +122,7 @@ class ArchiveDiagnostics:
 @dataclass(frozen=True)
 class ProjectImportResult:
     project_name: str
+    project_id: str | None
     project: dict[str, Any]
     warnings: list[str]
     conflict_resolution: str
@@ -238,7 +240,12 @@ class ProjectArchiveService:
         uploaded_filename: str | None = None,
         conflict_policy: str = "prompt",
         can_replace: Callable[[str], bool] | None = None,
+        user_id: str | None = None,
+        new_project_id: str | None = None,
+        existing_project_ids: Mapping[str, str] | None = None,
     ) -> ProjectImportResult:
+        if user_id is not None and new_project_id is None:
+            raise ValueError("user-scoped import requires new_project_id")
         if conflict_policy not in {"prompt", "rename", "overwrite"}:
             raise ProjectArchiveValidationError(
                 "无效的冲突策略",
@@ -283,7 +290,10 @@ class ProjectArchiveService:
                         project_title=str(project.get("title") or "").strip(),
                         conflict_policy=conflict_policy,
                         can_replace=can_replace,
+                        existing_names=set(existing_project_ids or {}) if user_id is not None else None,
                     )
+                    existing_project_id = (existing_project_ids or {}).get(target_name)
+                    target_project_id = existing_project_id or new_project_id
 
                     self._ensure_standard_subdirs(staging_dir)
 
@@ -308,9 +318,19 @@ class ProjectArchiveService:
                         staging_dir,
                         target_name,
                         overwrite=(conflict_policy == "overwrite"),
+                        user_id=user_id,
+                        project_id=target_project_id,
                     )
 
-                    imported_project = self.project_manager.load_project(target_name)
+                    if user_id is not None and target_project_id is not None:
+                        with project_user_scope(
+                            user_id,
+                            project_name=target_name,
+                            project_id=target_project_id,
+                        ):
+                            imported_project = self.project_manager.load_project(target_name)
+                    else:
+                        imported_project = self.project_manager.load_project(target_name)
                     emit_project_change_hint(
                         target_name,
                         source="webui",
@@ -319,6 +339,7 @@ class ProjectArchiveService:
 
                     return ProjectImportResult(
                         project_name=target_name,
+                        project_id=target_project_id,
                         project=imported_project,
                         warnings=diagnostics.warning_messages(),
                         conflict_resolution=conflict_resolution,
@@ -1588,10 +1609,12 @@ class ProjectArchiveService:
         project_title: str,
         conflict_policy: str,
         can_replace: Callable[[str], bool] | None = None,
+        existing_names: set[str] | None = None,
     ) -> tuple[str, str]:
         target_dir = self.project_manager.projects_root / preferred_name
+        target_exists = preferred_name in existing_names if existing_names is not None else target_dir.exists()
         if conflict_policy == "prompt":
-            if target_dir.exists():
+            if target_exists:
                 raise ProjectArchiveValidationError(
                     "检测到项目编号冲突",
                     status_code=409,
@@ -1601,12 +1624,12 @@ class ProjectArchiveService:
             return preferred_name, "none"
 
         if conflict_policy == "rename":
-            if target_dir.exists():
+            if target_exists:
                 generated_name = self.project_manager.generate_project_name(project_title or preferred_name)
                 return generated_name, "renamed"
             return preferred_name, "none"
 
-        if target_dir.exists():
+        if target_exists:
             # 覆盖导入前校验归属：不允许覆盖他人项目（can_replace 由路由层按当前用户注入）
             if can_replace is not None and not can_replace(preferred_name):
                 raise ProjectArchiveValidationError(
@@ -1628,8 +1651,17 @@ class ProjectArchiveService:
         project_name: str,
         *,
         overwrite: bool,
+        user_id: str | None = None,
+        project_id: str | None = None,
     ) -> None:
-        target_dir = self.project_manager.projects_root / project_name
+        if (user_id is None) != (project_id is None):
+            raise ValueError("user_id 与 project_id 必须同时指定")
+        target_dir = (
+            user_project_root(self.project_manager.projects_root, user_id, project_id)
+            if user_id is not None and project_id is not None
+            else self.project_manager.projects_root / project_name
+        )
+        target_dir.parent.mkdir(parents=True, exist_ok=True)
         backup_dir: Path | None = None
 
         try:

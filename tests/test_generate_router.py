@@ -120,6 +120,9 @@ def _client(monkeypatch, fake_pm, fake_queue):
     app = FastAPI()
     register_error_handlers(app)
     app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
+    from tests.conftest import allow_project_access
+
+    allow_project_access(app)
     app.include_router(generate.router, prefix="/api/v1")
     # raise_server_exceptions=False：500 由 app 级 Exception handler 生成响应后
     # Starlette 会 re-raise，默认配置会把它抛进测试而非返回响应
@@ -500,6 +503,9 @@ class TestUnexpectedErrorMapsTo500:
         app = FastAPI()
         register_error_handlers(app)
         app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
+        from tests.conftest import allow_project_access
+
+        allow_project_access(app)
         app.include_router(generate.router, prefix="/api/v1")
         return TestClient(app, raise_server_exceptions=False)
 

@@ -18,6 +18,7 @@ from lib.project_manager import ProjectManager
 from lib.project_paths import (
     LEGACY_GLOBAL_ASSETS_DIR,
     STORAGE_MIGRATION_MARKER,
+    ProjectLocation,
     ensure_user_asset_subdirs,
     legacy_flat_project_root,
     legacy_global_assets_root,
@@ -162,12 +163,17 @@ def _update_asset_image_paths(updates: list[tuple[str, str]]) -> int:
     return count
 
 
-def run_storage_migration(projects_root: Path) -> StorageMigrationSummary:
+def run_storage_migration(
+    projects_root: Path,
+    *,
+    project_locations: list[ProjectLocation] | None = None,
+) -> StorageMigrationSummary:
     """入口：迁移所有 DB 登记项目的磁盘目录 + legacy 全局素材库。"""
     summary = StorageMigrationSummary()
     projects_root = Path(projects_root)
 
-    for loc in sync_list_all_projects():
+    locations = project_locations if project_locations is not None else sync_list_all_projects()
+    for loc in locations:
         try:
             result = _migrate_single_project(
                 projects_root,

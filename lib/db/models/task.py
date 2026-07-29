@@ -45,6 +45,7 @@ class Task(UserOwnedMixin, Base):
         Index("idx_tasks_status_provider_queued", "status", "provider_id", "queued_at"),
         Index(
             "idx_tasks_dedupe_active",
+            "user_id",
             "project_name",
             "task_type",
             "resource_id",

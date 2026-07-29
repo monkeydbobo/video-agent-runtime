@@ -2,7 +2,7 @@
 API 调用统计路由
 
 提供调用记录查询和统计摘要接口。
-非 admin 用户的可见范围限定在自己拥有的项目内。
+所有普通业务查询的可见范围均限定在当前用户拥有的项目内。
 """
 
 from collections.abc import Callable
@@ -16,7 +16,7 @@ from lib.i18n import Translator
 from lib.project_manager import get_project_manager
 from lib.providers import CallType
 from server.auth import CurrentUser, CurrentUserInfo
-from server.project_access import accessible_project_names, ensure_project_access, is_admin
+from server.project_access import accessible_project_names, ensure_project_access
 
 router = APIRouter()
 
@@ -29,10 +29,7 @@ async def _resolve_usage_scope(
     """解析用量视图的过滤参数 (project_name, project_names, user_id)。"""
     if project_name:
         await ensure_project_access(project_name, user, _t)
-        scoped_user = None if is_admin(user) else user.id
-        return project_name, None, scoped_user
-    if is_admin(user):
-        return None, None, None
+        return project_name, None, user.id
     owned = await accessible_project_names(get_project_manager().list_projects(), user)
     return None, owned, user.id
 
@@ -107,14 +104,10 @@ async def get_calls(
 
 @router.get("/usage/projects")
 async def get_projects_list(_user: CurrentUser, _t: Translator):
-    scoped_names: list[str] | None = None
-    scoped_user: str | None = None
-    if not is_admin(_user):
-        scoped_names = await accessible_project_names(get_project_manager().list_projects(), _user)
-        scoped_user = _user.id
+    scoped_names = await accessible_project_names(get_project_manager().list_projects(), _user)
     async with async_session_factory() as session:
         projects = await UsageRepository(session).get_projects_list(
-            user_id=scoped_user,
+            user_id=_user.id,
             project_names=scoped_names,
         )
     return {"projects": projects}

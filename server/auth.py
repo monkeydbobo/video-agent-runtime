@@ -13,6 +13,7 @@ import string
 import time
 import uuid
 from collections import OrderedDict
+from collections.abc import Callable
 from datetime import UTC
 from pathlib import Path
 from typing import Annotated
@@ -25,6 +26,8 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 
 from lib import PROJECT_ROOT
+from lib.i18n import Translator
+from lib.i18n import _ as i18n_translate
 
 logger = logging.getLogger(__name__)
 
@@ -560,14 +563,21 @@ def _verify_and_get_payload(token: str) -> dict:
     return payload
 
 
-async def _verify_and_get_payload_async(token: str) -> dict:
+def _auth_message(key: str, translate: Callable[..., str] | None = None) -> str:
+    return translate(key) if translate is not None else i18n_translate(key)
+
+
+async def _verify_and_get_payload_async(
+    token: str,
+    translate: Callable[..., str] | None = None,
+) -> dict:
     """异步验证 token，支持 API Key（arc- 前缀）和 JWT 两种模式。"""
     if token.startswith(API_KEY_PREFIX):
         payload = await _verify_api_key(token)
         if payload is None:
             raise HTTPException(
                 status_code=401,
-                detail="API Key 无效、已过期或不存在",
+                detail=_auth_message("api_key_invalid", translate),
                 headers={"WWW-Authenticate": "Bearer"},
             )
         return payload
@@ -575,7 +585,10 @@ async def _verify_and_get_payload_async(token: str) -> dict:
     return _verify_and_get_payload(token)
 
 
-def _payload_to_user(payload: dict) -> CurrentUserInfo:
+def _payload_to_user(
+    payload: dict,
+    translate: Callable[..., str] | None = None,
+) -> CurrentUserInfo:
     """Convert a verified JWT/API-key payload to CurrentUserInfo.
 
     API Key payloads must carry explicit ``uid``/``role``; missing fields no longer
@@ -591,7 +604,7 @@ def _payload_to_user(payload: dict) -> CurrentUserInfo:
         if not user_id or not role:
             raise HTTPException(
                 status_code=401,
-                detail="API Key 身份不完整",
+                detail=_auth_message("api_key_identity_incomplete", translate),
                 headers={"WWW-Authenticate": "Bearer"},
             )
         return CurrentUserInfo(id=str(user_id), sub=sub, role=str(role), via="apikey")
@@ -602,6 +615,7 @@ def _payload_to_user(payload: dict) -> CurrentUserInfo:
 
 
 async def get_current_user(
+    _t: Translator,
     token: Annotated[str | None, Depends(oauth2_scheme_optional)] = None,
 ) -> CurrentUserInfo:
     """标准认证依赖 — 支持 JWT 和 API Key Bearer token。
@@ -614,14 +628,15 @@ async def get_current_user(
     if not token:
         raise HTTPException(
             status_code=401,
-            detail="未认证",
+            detail=_t("auth_required"),
             headers={"WWW-Authenticate": "Bearer"},
         )
-    payload = await _verify_and_get_payload_async(token)
-    return _payload_to_user(payload)
+    payload = await _verify_and_get_payload_async(token, _t)
+    return _payload_to_user(payload, _t)
 
 
 async def get_current_user_flexible(
+    _t: Translator,
     token: Annotated[str | None, Depends(oauth2_scheme_optional)] = None,
     query_token: str | None = Query(None, alias="token"),
 ) -> CurrentUserInfo:
@@ -635,11 +650,11 @@ async def get_current_user_flexible(
     if not raw:
         raise HTTPException(
             status_code=401,
-            detail="缺少认证 token",
+            detail=_t("auth_token_required"),
             headers={"WWW-Authenticate": "Bearer"},
         )
-    payload = await _verify_and_get_payload_async(raw)
-    return _payload_to_user(payload)
+    payload = await _verify_and_get_payload_async(raw, _t)
+    return _payload_to_user(payload, _t)
 
 
 # Type aliases for FastAPI dependency injection

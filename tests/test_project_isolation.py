@@ -1,7 +1,7 @@
 """项目用户维度隔离测试。
 
-覆盖：归属 Repository、归属守卫（admin 全通 / 属主放行 / 他人 404 /
-存量 default 归属对全体用户共享）、列表过滤、启动对账、创建/删除时的登记与清理、
+覆盖：归属 Repository、归属守卫（属主放行 / 管理员业务查询不越权 / 他人 404 /
+存量 default 仅归 default 管理员）、列表过滤、启动对账、创建/删除时的登记与清理、
 任务视图 scope 解析、导入覆盖归属校验。
 """
 
@@ -19,6 +19,8 @@ from server.error_handlers import register_error_handlers
 from server.routers import projects
 from tests.conftest import make_translator
 
+pytestmark = pytest.mark.integration
+
 ADMIN = CurrentUserInfo(id=DEFAULT_USER_ID, sub="admin", role="admin")
 ALICE = CurrentUserInfo(id="alice-id", sub="alice", role="user")
 BOB = CurrentUserInfo(id="bob-id", sub="bob", role="user")
@@ -32,9 +34,9 @@ async def _seed(factory, name: str, user_id: str) -> None:
             await ProjectRepository(session).create(name, user_id)
 
 
-async def _owner_in_db(factory, name: str) -> str | None:
+async def _owner_in_db(factory, name: str, user_id: str) -> str | None:
     async with factory() as session:
-        return await ProjectRepository(session).get_owner(name)
+        return await ProjectRepository(session).get_owner(name, user_id)
 
 
 # ---------------------------------------------------------------------------
@@ -46,29 +48,32 @@ class TestProjectRepository:
     async def test_create_get_delete(self, project_ownership_db):
         factory = project_ownership_db
         await _seed(factory, "p1", "alice-id")
-        assert await _owner_in_db(factory, "p1") == "alice-id"
-        assert await _owner_in_db(factory, "missing") is None
+        assert await _owner_in_db(factory, "p1", "alice-id") == "alice-id"
+        assert await _owner_in_db(factory, "missing", "alice-id") is None
 
         async with factory() as session:
             async with session.begin():
                 repo = ProjectRepository(session)
-                # ensure 不改已有归属
+                # ensure 按 (user_id, name) 幂等，不复用其他用户的同名记录
                 row = await repo.ensure("p1", "bob-id")
-                assert row.user_id == "alice-id"
+                assert row.user_id == "bob-id"
                 # ensure 创建缺失记录
                 row2 = await repo.ensure("p2", "bob-id")
                 assert row2.user_id == "bob-id"
 
         async with factory() as session:
             repo = ProjectRepository(session)
-            assert sorted(await repo.list_names()) == ["p1", "p2"]
+            assert sorted(await repo.list_names()) == ["p1", "p1", "p2"]
             assert await repo.list_names("alice-id") == ["p1"]
-            assert await repo.ownership_map() == {"p1": "alice-id", "p2": "bob-id"}
+            assert sorted(await repo.list_names("bob-id")) == ["p1", "p2"]
+            assert await repo.ownership_map("alice-id") == {"p1": "alice-id"}
+            assert await repo.ownership_map("bob-id") == {"p1": "bob-id", "p2": "bob-id"}
 
         async with factory() as session:
             async with session.begin():
-                await ProjectRepository(session).delete("p1")
-        assert await _owner_in_db(factory, "p1") is None
+                await ProjectRepository(session).delete("p1", user_id="alice-id")
+        assert await _owner_in_db(factory, "p1", "alice-id") is None
+        assert await _owner_in_db(factory, "p1", "bob-id") == "bob-id"
 
 
 # ---------------------------------------------------------------------------
@@ -77,9 +82,11 @@ class TestProjectRepository:
 
 
 class TestEnsureProjectAccess:
-    async def test_admin_bypasses(self, project_ownership_db):
+    async def test_admin_does_not_implicitly_bypass_owner_scope(self, project_ownership_db):
         await _seed(project_ownership_db, "alice-proj", "alice-id")
-        await project_access.ensure_project_access("alice-proj", ADMIN, _t)
+        with pytest.raises(HTTPException) as exc_info:
+            await project_access.ensure_project_access("alice-proj", ADMIN, _t)
+        assert exc_info.value.status_code == 404
 
     async def test_owner_allowed(self, project_ownership_db):
         await _seed(project_ownership_db, "alice-proj", "alice-id")
@@ -104,7 +111,7 @@ class TestEnsureProjectAccess:
         await project_access.ensure_project_access("admin-owned", default_user, _t)
         with pytest.raises(HTTPException):
             await project_access.ensure_project_access("admin-owned", ALICE, _t)
-        # admin 仍可运维
+        # default 管理员只能通过 owner 身份访问自己的项目
         await project_access.ensure_project_access("admin-owned", ADMIN, _t)
 
     async def test_accessible_project_names(self, project_ownership_db):
@@ -112,7 +119,7 @@ class TestEnsureProjectAccess:
         await _seed(project_ownership_db, "bob-proj", "bob-id")
         await _seed(project_ownership_db, "admin-proj", DEFAULT_USER_ID)
         names = ["alice-proj", "bob-proj", "admin-proj", "unknown"]
-        assert await project_access.accessible_project_names(names, ADMIN) == names
+        assert await project_access.accessible_project_names(names, ADMIN) == ["admin-proj"]
         assert await project_access.accessible_project_names(names, ALICE) == ["alice-proj"]
         default_user = CurrentUserInfo(id=DEFAULT_USER_ID, sub="local", role="user")
         assert await project_access.accessible_project_names(names, default_user) == ["admin-proj"]
@@ -121,9 +128,9 @@ class TestEnsureProjectAccess:
         await _seed(project_ownership_db, "known", "alice-id")
         registered = await project_access.reconcile_project_ownership(["known", "orphan-a", "orphan-b"])
         assert registered == 2
-        assert await _owner_in_db(project_ownership_db, "orphan-a") == DEFAULT_USER_ID
+        assert await _owner_in_db(project_ownership_db, "orphan-a", DEFAULT_USER_ID) == DEFAULT_USER_ID
         # 已有归属不被改写
-        assert await _owner_in_db(project_ownership_db, "known") == "alice-id"
+        assert await _owner_in_db(project_ownership_db, "known", "alice-id") == "alice-id"
         assert await project_access.reconcile_project_ownership(["known", "orphan-a", "orphan-b"]) == 0
 
 
@@ -228,10 +235,14 @@ class TestProjectsRouterIsolation:
             # 磁盘数据未被动过
             assert fake_pm.project_exists("alice-proj")
 
-            # admin 可见全部并可删除；删除后归属清理
+            # admin 业务查询不隐式越权，不能看见或删除 alice 的项目
             user_holder["user"] = ADMIN
             names = [p["name"] for p in client.get("/api/v1/projects").json()["projects"]]
-            assert names == ["alice-proj"]
+            assert names == []
+            assert client.delete("/api/v1/projects/alice-proj").status_code == 404
+
+            # 属主仍可删除，删除后归属清理
+            user_holder["user"] = ALICE
             assert client.delete("/api/v1/projects/alice-proj").status_code == 200
 
     def test_create_registers_owner(self, tmp_path, monkeypatch, project_ownership_db):
@@ -243,7 +254,7 @@ class TestProjectsRouterIsolation:
 
         import asyncio
 
-        owner = asyncio.new_event_loop().run_until_complete(_owner_in_db(project_ownership_db, "mine"))
+        owner = asyncio.new_event_loop().run_until_complete(_owner_in_db(project_ownership_db, "mine", "alice-id"))
         assert owner == "alice-id"
 
     def test_export_token_denied_for_non_owner(self, tmp_path, monkeypatch, project_ownership_db):
@@ -270,10 +281,12 @@ class TestProjectsRouterIsolation:
 
 
 class TestTaskScope:
-    async def test_admin_unscoped(self, project_ownership_db):
+    async def test_admin_business_view_is_owner_scoped(self, project_ownership_db):
         from server.routers.tasks import _resolve_task_scope
 
-        assert await _resolve_task_scope(ADMIN, None, _t) == (None, None, None)
+        await _seed(project_ownership_db, "admin-proj", DEFAULT_USER_ID)
+        await _seed(project_ownership_db, "alice-proj", "alice-id")
+        assert await _resolve_task_scope(ADMIN, None, _t) == (None, ["admin-proj"], DEFAULT_USER_ID)
 
     async def test_project_name_guarded(self, project_ownership_db):
         from server.routers.tasks import _resolve_task_scope
@@ -298,6 +311,28 @@ class TestTaskScope:
         assert name is None
         assert names == ["alice-proj"]
         assert user_id == "alice-id"
+
+    async def test_admin_usage_view_is_owner_scoped(self, project_ownership_db):
+        from server.routers.usage import _resolve_usage_scope
+
+        await _seed(project_ownership_db, "admin-proj", DEFAULT_USER_ID)
+        await _seed(project_ownership_db, "alice-proj", "alice-id")
+        assert await _resolve_usage_scope(ADMIN, None, _t) == (None, ["admin-proj"], DEFAULT_USER_ID)
+
+    async def test_admin_session_lookup_passes_own_user_id(self):
+        from server.routers.assistant import _validate_session_ownership
+        from tests.factories import make_session_meta
+
+        class _Service:
+            seen_user_id: str | None = None
+
+            async def get_session(self, _session_id, *, user_id=None):
+                self.seen_user_id = user_id
+                return make_session_meta(id="session-1", project_name="admin-proj")
+
+        service = _Service()
+        await _validate_session_ownership(service, "session-1", "admin-proj", ADMIN, _t)  # type: ignore[arg-type]
+        assert service.seen_user_id == DEFAULT_USER_ID
 
 
 # ---------------------------------------------------------------------------

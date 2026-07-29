@@ -24,7 +24,7 @@ from server.agent_runtime.session_manager import (
     SessionCapacityError,
 )
 from server.auth import CurrentUser, CurrentUserFlexible, CurrentUserInfo
-from server.project_access import is_admin, require_project_access
+from server.project_access import require_project_access
 
 router = APIRouter(dependencies=[Depends(require_project_access)])
 
@@ -43,8 +43,7 @@ async def _validate_session_ownership(
     _t: Callable[..., str],
 ) -> SessionMeta:
     """Validate session belongs to the specified project and user; return it."""
-    scoped_user = None if is_admin(user) else user.id
-    session = await service.get_session(session_id, user_id=scoped_user)
+    session = await service.get_session(session_id, user_id=user.id)
     if session is None:
         raise HTTPException(status_code=404, detail=_t("session_not_found", session_id=session_id))
     if session.project_name != project_name:
@@ -141,9 +140,8 @@ async def list_sessions(
 ):
     try:
         service = get_assistant_service()
-        scoped_user = None if is_admin(_user) else _user.id
         sessions = await service.list_sessions(
-            project_name=project_name, status=status, limit=limit, offset=offset, user_id=scoped_user
+            project_name=project_name, status=status, limit=limit, offset=offset, user_id=_user.id
         )
         return {"sessions": [s.model_dump() for s in sessions]}
     except HTTPException:

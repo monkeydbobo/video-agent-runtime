@@ -123,7 +123,9 @@ def test_migration_emits_change_hint(pm: ProjectManager):
     from lib.project_change_hints import register_project_change_listener
 
     events: list[tuple[str, str, tuple[str, ...]]] = []
-    unregister = register_project_change_listener(lambda name, source, paths: events.append((name, source, paths)))
+    unregister = register_project_change_listener(
+        lambda name, source, paths, _user_id, _project_id: events.append((name, source, paths))
+    )
     try:
         _write_project(pm, "p-hint", {"title": "PH", "style": "Photographic"})
         pm.load_project("p-hint")

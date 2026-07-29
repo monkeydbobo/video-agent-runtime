@@ -10,6 +10,8 @@ from sqlalchemy.exc import OperationalError
 from lib.db.base import DEFAULT_USER_ID
 from lib.script_generator import ScriptGenerator
 
+pytestmark = pytest.mark.integration
+
 STEP1_UNITS_JSON = _json.dumps(
     {
         "units": [

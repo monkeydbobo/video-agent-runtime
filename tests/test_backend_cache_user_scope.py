@@ -14,6 +14,8 @@ from lib.config.resolver import ConfigResolver
 from lib.db.repositories.credential_repository import CredentialRepository
 from server.services import generation_context
 
+pytestmark = pytest.mark.integration
+
 
 @pytest.fixture(autouse=True)
 def _clean_cache():

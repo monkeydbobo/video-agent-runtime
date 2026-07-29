@@ -23,6 +23,8 @@ from server.agent_runtime.sdk_tools.enqueue_assets import (
     list_pending_assets_tool,
 )
 from server.agent_runtime.sdk_tools.enqueue_grid import generate_grid_tool
+
+pytestmark = pytest.mark.integration
 from server.agent_runtime.sdk_tools.enqueue_image_edits import edit_images_tool
 from server.agent_runtime.sdk_tools.enqueue_storyboards import generate_storyboards_tool
 from server.agent_runtime.sdk_tools.enqueue_videos import (

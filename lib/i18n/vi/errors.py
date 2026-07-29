@@ -161,6 +161,11 @@ MESSAGES = {
     "product_not_found": "Không tìm thấy sản phẩm '{name}'",
     "product_deleted": "Đã xóa sản phẩm '{name}'",
     # API Keys
+    "auth_required": "Yêu cầu xác thực",
+    "auth_token_required": "Thiếu token xác thực",
+    "api_key_invalid": "API Key không hợp lệ, đã hết hạn hoặc không tồn tại",
+    "api_key_identity_incomplete": "Thông tin danh tính của API Key không đầy đủ",
+    "media_token_scope_required": "Phải chỉ định ít nhất project hoặc asset_path",
     "jwt_auth_required": "API Key không được phép thực hiện thao tác này, vui lòng dùng xác thực JWT",
     "api_key_name_exists": "Tên '{name}' đã tồn tại",
     "api_key_not_found": "Không tìm thấy API Key {key_id}",

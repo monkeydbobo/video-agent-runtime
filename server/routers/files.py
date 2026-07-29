@@ -22,6 +22,7 @@ from fastapi.responses import FileResponse, PlainTextResponse
 
 from lib.asset_types import GLOBAL_LIBRARY_ASSET_TYPES
 from lib.config.resolver import VisionCapabilityError
+from lib.db.base import DEFAULT_USER_ID
 from lib.episode_paths import (
     REFERENCE_VIDEO_STEP1_FILENAME,
     REFERENCE_VIDEO_STEP1_LEGACY_FILENAME,
@@ -52,7 +53,7 @@ from server.auth import (
     oauth2_scheme_optional,
     verify_media_token,
 )
-from server.project_access import ensure_project_access, get_project_owner, require_project_access
+from server.project_access import bind_owned_project_scope, ensure_project_access, require_project_access
 
 router = APIRouter()
 
@@ -93,13 +94,13 @@ async def serve_project_file(
         except (jwt.InvalidTokenError, ValueError):
             raise HTTPException(status_code=401, detail=_t("unauthorized"))
         token_uid = payload.get("uid")
-        owner = await get_project_owner(project_name)
-        if owner is not None and token_uid != owner:
+        path_user_id = str(token_uid) if token_uid else ""
+        owner = await bind_owned_project_scope(project_name, path_user_id)
+        if owner is None:
             raise HTTPException(status_code=404, detail=_t("project_not_found", name=project_name))
-        path_user_id = str(token_uid) if token_uid else None
     elif token:
-        payload = await _verify_and_get_payload_async(token)
-        user = _payload_to_user(payload)
+        payload = await _verify_and_get_payload_async(token, _t)
+        user = _payload_to_user(payload, _t)
         await ensure_project_access(project_name, user, _t)
         path_user_id = user.id
     else:
@@ -162,7 +163,7 @@ async def serve_global_asset(
         except ValueError:
             raise HTTPException(status_code=401, detail=_t("unauthorized"))
     elif token:
-        user = _payload_to_user(await _verify_and_get_payload_async(token))
+        user = _payload_to_user(await _verify_and_get_payload_async(token, _t), _t)
         user_id = user.id
     else:
         raise HTTPException(status_code=401, detail=_t("unauthorized"), headers={"WWW-Authenticate": "Bearer"})
@@ -172,7 +173,7 @@ async def serve_global_asset(
     if not path.exists() or not path.is_file():
         # 迁移窗口：legacy 全局目录回退
         legacy = get_project_manager().projects_root / "_global_assets" / asset_type / filename
-        if legacy.is_file():
+        if user_id == DEFAULT_USER_ID and legacy.is_file():
             path = legacy
             root = legacy.parent.parent
         else:
@@ -196,7 +197,7 @@ async def issue_media_token(
 ):
     """签发短时效媒体 token，供 ``<img>`` / ``<video>`` 等无法携带 Authorization 的场景。"""
     if not project and not asset_path:
-        raise HTTPException(status_code=422, detail="project 与 asset_path 至少指定一项")
+        raise HTTPException(status_code=422, detail=_t("media_token_scope_required"))
     if project:
         await ensure_project_access(project, current_user, _t)
     token = create_media_token(

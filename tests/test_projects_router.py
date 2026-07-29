@@ -12,6 +12,7 @@ from lib.i18n.zh import errors as zh_errors
 from lib.project_manager import EmptySourceError, ProjectManager
 from server.auth import CurrentUserInfo, get_current_user
 from server.error_handlers import register_error_handlers
+from server.project_access import require_project_access_by_name
 from server.routers import projects
 
 
@@ -113,6 +114,7 @@ class _FakePM:
         target_duration=None,
         brief=None,
         source_kind=None,
+        **_scope,
     ):
         payload = {
             "title": (title or name),
@@ -243,8 +245,21 @@ def _client(monkeypatch, fake_pm, fake_calc):
     monkeypatch.setattr(projects, "get_project_manager", lambda: fake_pm)
     monkeypatch.setattr(projects, "get_status_calculator", lambda: fake_calc)
 
+    async def _allow_inline_test_project(*_args, **_kwargs):
+        return None
+
+    async def _all_test_projects(names, _user):
+        return list(names)
+
+    async def _allow_test_project_dependency():
+        return None
+
+    monkeypatch.setattr(projects, "ensure_project_access", _allow_inline_test_project)
+    monkeypatch.setattr(projects, "accessible_project_names", _all_test_projects)
+
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
+    app.dependency_overrides[require_project_access_by_name] = _allow_test_project_dependency
     app.include_router(projects.router, prefix="/api/v1")
     register_error_handlers(app)
     return TestClient(app)
@@ -1732,7 +1747,16 @@ class TestUnexpectedErrorsDoNotLeak:
         sentinel = "LEAKED_SECRET_export_archive"
         client = _client(monkeypatch, _FakePM(tmp_path), _FakeCalc())
         # download_token 校验先放行，再让归档服务抛 RuntimeError 落到兜底
-        monkeypatch.setattr(projects, "verify_download_token", lambda token, name: {"sub": "u"})
+        monkeypatch.setattr(
+            projects,
+            "verify_download_token",
+            lambda token, name: {"sub": "u", "uid": "default"},
+        )
+
+        async def _default_owner(_name, _user_id):
+            return "default"
+
+        monkeypatch.setattr(projects, "bind_owned_project_scope", _default_owner)
         monkeypatch.setattr(projects, "get_archive_service", _raise(sentinel))
         with client:
             resp = client.get("/api/v1/projects/ready/export?download_token=tok&scope=full")

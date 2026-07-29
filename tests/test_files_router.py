@@ -8,12 +8,13 @@ from PIL import Image
 from lib.db.base import DEFAULT_USER_ID
 from lib.project_manager import ProjectManager
 from server.auth import CurrentUserInfo, get_current_user
+from server.project_access import require_project_access
 from server.routers import files
 
 _AUTH_HEADERS = {"Authorization": "Bearer test-token"}
 
 
-async def _fake_verify_token(_token: str):
+async def _fake_verify_token(_token: str, *_args):
     return {"sub": "testuser", "uid": DEFAULT_USER_ID, "role": "admin", "via": "jwt"}
 
 
@@ -59,8 +60,17 @@ def _client(monkeypatch, tmp_path):
     monkeypatch.setattr("lib.text_generator.create_text_backend_for_task", _fake_create_backend)
     monkeypatch.setattr(files, "_verify_and_get_payload_async", _fake_verify_token)
 
+    async def _allow_inline_test_project(*_args, **_kwargs):
+        return None
+
+    async def _allow_test_project_dependency():
+        return None
+
+    monkeypatch.setattr(files, "ensure_project_access", _allow_inline_test_project)
+
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
+    app.dependency_overrides[require_project_access] = _allow_test_project_dependency
     app.include_router(files.router, prefix="/api/v1")
     return TestClient(app), pm
 
@@ -845,8 +855,12 @@ def _client_with_pm_raising(monkeypatch, sentinel: str):
 
     monkeypatch.setattr(files, "get_project_manager", _raise)
 
+    async def _allow_test_project_dependency():
+        return None
+
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
+    app.dependency_overrides[require_project_access] = _allow_test_project_dependency
     app.include_router(files.router, prefix="/api/v1")
     return TestClient(app)
 

@@ -77,6 +77,9 @@ def _client(monkeypatch):
     app.dependency_overrides[get_current_user] = lambda: _FAKE_USER
     app.dependency_overrides[get_current_user_flexible] = lambda: _FAKE_USER
     app.dependency_overrides[get_translator] = lambda: make_translator()
+    from server.project_access import require_project_access
+
+    app.dependency_overrides[require_project_access] = lambda: None
     app.include_router(assistant.router, prefix="/api/v1/projects/{project_name}/assistant")
     register_error_handlers(app)
     return TestClient(app)
@@ -202,6 +205,9 @@ class TestAssistantRouterFull:
         app = FastAPI()
         app.dependency_overrides[get_current_user] = lambda: _FAKE_USER
         app.dependency_overrides[get_translator] = lambda: make_translator()
+        from server.project_access import require_project_access
+
+        app.dependency_overrides[require_project_access] = lambda: None
         app.include_router(assistant.router, prefix="/api/v1/projects/{project_name}/assistant")
         with TestClient(app) as client:
             resp = client.post(f"{PREFIX}/sessions/send", json={"content": "hello"})

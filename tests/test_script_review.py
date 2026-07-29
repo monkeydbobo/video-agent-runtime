@@ -18,6 +18,8 @@ from lib.project_manager import ProjectManager
 from lib.project_paths import ProjectLocation
 from server.services.script_review import ScriptReviewError, ScriptReviewService
 
+pytestmark = pytest.mark.integration
+
 
 def _bind_demo_ownership(monkeypatch: pytest.MonkeyPatch) -> None:
     """把 demo 的归属固定为 default 属主。

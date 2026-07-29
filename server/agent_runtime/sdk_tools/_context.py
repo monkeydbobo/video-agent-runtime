@@ -11,7 +11,7 @@ from typing import Any
 from lib.config.resolver import ConfigResolver
 from lib.db import async_session_factory
 from lib.project_manager import ProjectManager
-from lib.project_paths import sync_lookup_project
+from lib.project_paths import current_project_id_scope, sync_lookup_project
 
 
 class ToolContext:
@@ -28,12 +28,14 @@ class ToolContext:
         pm: ProjectManager | None = None,
         *,
         user_id: str | None = None,
+        project_id: str | None = None,
     ):
         from lib.db.base import DEFAULT_USER_ID
 
         self.project_name = project_name
         self.projects_root = projects_root
         self.user_id = user_id or DEFAULT_USER_ID
+        self.project_id = project_id or current_project_id_scope(project_name)
         # Avoid ``ProjectManager.from_cwd()`` — the server main process cwd is
         # the repo root, not ``projects/<name>/``. Tests may inject a fake pm.
         self.pm: ProjectManager = pm if pm is not None else ProjectManager(str(projects_root))
@@ -41,6 +43,12 @@ class ToolContext:
     @property
     def project_path(self) -> Path:
         self.ensure_project_owned()
+        if self.project_id is not None:
+            return self.pm.get_project_path(
+                self.project_name,
+                user_id=self.user_id,
+                project_id=self.project_id,
+            )
         loc = sync_lookup_project(self.project_name, user_id=self.user_id)
         if loc is not None:
             return self.pm.get_project_path(
@@ -52,6 +60,8 @@ class ToolContext:
 
     def ensure_project_owned(self) -> None:
         """校验 closure 绑定的项目属于 ``user_id``；失败抛 PermissionError。"""
+        if self.project_id is not None:
+            return
         loc = sync_lookup_project(self.project_name, user_id=self.user_id)
         if loc is None or loc.user_id != self.user_id:
             raise PermissionError(f"项目 '{self.project_name}' 不属于当前用户")

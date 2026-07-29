@@ -6,6 +6,14 @@ from lib.image_backends.base import ImageCapabilityError
 from server.services.generation_tasks import _SKELETON_DRIVEN_TASK_ACTIONS, _TASK_EXECUTORS
 
 
+@pytest.fixture(autouse=True)
+def _owned_task_project(monkeypatch):
+    async def _get_by_name(_repo, _user_id, _project_name):
+        return type("_Project", (), {"id": "project-id-demo"})()
+
+    monkeypatch.setattr("server.services.generation_tasks.ProjectRepository.get_by_name", _get_by_name)
+
+
 def test_task_executors_registered_for_reference_video():
     assert "reference_video" in _TASK_EXECUTORS
 

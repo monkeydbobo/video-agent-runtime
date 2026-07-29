@@ -78,8 +78,32 @@ def _create_demo_project(pm: ProjectManager) -> None:
 
 def _client(monkeypatch, pm: ProjectManager) -> TestClient:
     monkeypatch.setattr(projects, "get_project_manager", lambda: pm)
+
+    async def _allow_project(*_args, **_kwargs):
+        return None
+
+    async def _token_owner(_name, user_id):
+        return user_id
+
+    async def _ownership(_user_id):
+        return {name: "default" for name in pm.list_projects()}
+
+    async def _project_ids(_user_id):
+        return {name: f"project-id-{name}" for name in pm.list_projects()}
+
+    monkeypatch.setattr(projects, "ensure_project_access", _allow_project)
+    monkeypatch.setattr(projects, "bind_owned_project_scope", _token_owner)
+    monkeypatch.setattr(projects, "get_ownership_map", _ownership)
+    monkeypatch.setattr(projects, "get_project_id_map", _project_ids)
+    monkeypatch.setattr(
+        "lib.project_paths.sync_lookup_project",
+        lambda name, user_id=None: type("_Loc", (), {"user_id": user_id})(),
+    )
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
+    from tests.conftest import allow_project_access
+
+    allow_project_access(app)
     app.include_router(projects.router, prefix="/api/v1")
     return TestClient(app)
 

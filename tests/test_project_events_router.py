@@ -11,6 +11,14 @@ from server.routers import project_events as project_events_router
 _ADMIN = CurrentUserInfo(id="default", sub="testuser", role="admin")
 
 
+@pytest.fixture(autouse=True)
+def _allow_test_project_access(monkeypatch):
+    async def _allow(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(project_events_router, "ensure_project_access", _allow)
+
+
 def _t(key: str, **_kwargs) -> str:
     return key
 
@@ -44,7 +52,14 @@ class _FakeService:
         self.pm = _FakePM()
 
     @contextlib.asynccontextmanager
-    async def stream_events(self, project_name: str, *, idle_timeout: float = 1.0):
+    async def stream_events(
+        self,
+        project_name: str,
+        *,
+        user_id: str | None = None,
+        project_id: str | None = None,
+        idle_timeout: float = 1.0,
+    ):
         async def _iter():
             yield (
                 "snapshot",
@@ -162,7 +177,14 @@ async def test_stream_project_events_breaks_on_disconnect_during_continuous_even
             self.pm = _FakePM()
 
         @contextlib.asynccontextmanager
-        async def stream_events(self, project_name: str, *, idle_timeout: float = 1.0):
+        async def stream_events(
+            self,
+            project_name: str,
+            *,
+            user_id: str | None = None,
+            project_id: str | None = None,
+            idle_timeout: float = 1.0,
+        ):
             async def _iter():
                 yield ("snapshot", {"project_name": project_name, "fingerprint": "fp-0"})
                 # 持续吐真事件,不吐 _idle。
@@ -205,7 +227,14 @@ async def test_stream_project_events_ends_naturally_after_project_deleted_event(
             self.pm = _FakePM()
 
         @contextlib.asynccontextmanager
-        async def stream_events(self, project_name: str, *, idle_timeout: float = 1.0):
+        async def stream_events(
+            self,
+            project_name: str,
+            *,
+            user_id: str | None = None,
+            project_id: str | None = None,
+            idle_timeout: float = 1.0,
+        ):
             async def _iter():
                 yield ("snapshot", {"project_name": project_name, "fingerprint": "fp-0"})
                 yield ("project_deleted", {"project_name": project_name})

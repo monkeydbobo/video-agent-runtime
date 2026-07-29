@@ -9,6 +9,8 @@ from sqlalchemy import select
 from lib.db.models import Task
 from lib.db.repositories.base import BaseRepository, UserScopedRepository
 
+pytestmark = pytest.mark.integration
+
 
 class TestBaseRepository:
     def test_scope_query_noop(self):

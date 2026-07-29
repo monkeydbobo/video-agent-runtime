@@ -65,6 +65,9 @@ def _client(monkeypatch, **patches):
         monkeypatch.setattr(grids, name, fn)
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
+    from tests.conftest import allow_project_access
+
+    allow_project_access(app)
     app.include_router(grids.router, prefix="/api/v1")
     register_error_handlers(app)
     # app 级 Exception handler 已把未预期异常收口为 500；关闭 TestClient 的默认重抛，

@@ -15,6 +15,19 @@ def make_translator(locale: str = "zh") -> Callable[..., str]:
     return translate
 
 
+def allow_project_access(app) -> None:
+    """普通路由单测显式绕过归属守卫；隔离测试不得使用此 helper。"""
+    from server.project_access import (
+        require_project_access,
+        require_project_access_by_name,
+        require_project_access_flexible,
+    )
+
+    app.dependency_overrides[require_project_access] = lambda: None
+    app.dependency_overrides[require_project_access_by_name] = lambda: None
+    app.dependency_overrides[require_project_access_flexible] = lambda: None
+
+
 import os
 import subprocess
 from pathlib import Path

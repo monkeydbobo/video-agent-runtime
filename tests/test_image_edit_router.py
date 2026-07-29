@@ -77,6 +77,9 @@ def _client(monkeypatch, fake_pm, fake_queue, *, i2i_ready=True):
     app = FastAPI()
     register_error_handlers(app)
     app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
+    from tests.conftest import allow_project_access
+
+    allow_project_access(app)
     app.include_router(generate.router, prefix="/api/v1")
     return TestClient(app, raise_server_exceptions=False)
 

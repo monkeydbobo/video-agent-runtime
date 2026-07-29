@@ -9,7 +9,7 @@ import asyncio
 from pathlib import Path
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from lib.db.base import DEFAULT_USER_ID
@@ -25,6 +25,8 @@ from server.auth import (
     verify_media_token,
 )
 from server.error_handlers import register_error_handlers
+
+pytestmark = pytest.mark.integration
 
 ADMIN = CurrentUserInfo(id=DEFAULT_USER_ID, sub="admin", role="admin")
 ALICE = CurrentUserInfo(id="alice-id", sub="alice", role="user")
@@ -50,6 +52,44 @@ class TestSameNameAcrossUsers:
         assert alice.id != bob.id
         assert alice.user_id == "alice-id"
         assert bob.user_id == "bob-id"
+
+    @pytest.mark.integration
+    async def test_same_project_name_loads_from_each_user_namespace(self, tmp_path, project_ownership_db):
+        factory = project_ownership_db
+        await _seed_project(factory, "shared-name", "alice-id")
+        await _seed_project(factory, "shared-name", "bob-id")
+
+        async with factory() as session:
+            alice = await ProjectRepository(session).get_by_name("alice-id", "shared-name")
+            bob = await ProjectRepository(session).get_by_name("bob-id", "shared-name")
+        assert alice is not None and bob is not None
+
+        pm = ProjectManager(tmp_path / "projects")
+        pm.create_project("shared-name", user_id="alice-id", project_id=alice.id)
+        pm.create_project_metadata(
+            "shared-name",
+            "Alice project",
+            "",
+            "narration",
+            user_id="alice-id",
+            project_id=alice.id,
+        )
+        pm.create_project("shared-name", user_id="bob-id", project_id=bob.id)
+        pm.create_project_metadata(
+            "shared-name",
+            "Bob project",
+            "",
+            "narration",
+            user_id="bob-id",
+            project_id=bob.id,
+        )
+
+        from lib.project_paths import project_user_scope
+
+        with project_user_scope("alice-id"):
+            assert pm.load_project("shared-name")["title"] == "Alice project"
+        with project_user_scope("bob-id"):
+            assert pm.load_project("shared-name")["title"] == "Bob project"
 
     async def test_same_asset_name_per_user(self, project_ownership_db):
         factory = project_ownership_db
@@ -148,7 +188,7 @@ class TestMediaTokenMatrix:
 
         monkeypatch.setattr(files_router, "get_project_manager", lambda: pm)
 
-        async def _bob_payload(_token: str):
+        async def _bob_payload(_token: str, *_args):
             return {"sub": "bob", "uid": "bob-id", "role": "user", "via": "jwt"}
 
         monkeypatch.setattr(files_router, "_verify_and_get_payload_async", _bob_payload)
@@ -229,10 +269,12 @@ class TestUnauthenticatedDenied:
             assert resp.status_code in (401, 403)
 
 
-class TestAdminBypass:
-    async def test_admin_can_access_alice_project(self, project_ownership_db):
+class TestAdminBusinessScope:
+    async def test_admin_cannot_implicitly_access_alice_project(self, project_ownership_db):
         from server import project_access
         from tests.conftest import make_translator
 
         await _seed_project(project_ownership_db, "alice-proj", "alice-id")
-        await project_access.ensure_project_access("alice-proj", ADMIN, make_translator())
+        with pytest.raises(HTTPException) as exc_info:
+            await project_access.ensure_project_access("alice-proj", ADMIN, make_translator())
+        assert exc_info.value.status_code == 404

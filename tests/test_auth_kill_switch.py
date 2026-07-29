@@ -11,6 +11,10 @@ from fastapi import HTTPException
 import server.auth as auth_module
 
 
+def _t(key: str, **_kwargs) -> str:
+    return key
+
+
 @pytest.fixture(autouse=True)
 def _isolated_auth_env():
     """Clear cached secret/password hash per-test so env tweaks take effect."""
@@ -119,14 +123,14 @@ class TestGetCurrentUserKillSwitch:
     @pytest.mark.asyncio
     async def test_disabled_returns_anonymous_admin_without_token(self):
         with patch.dict(os.environ, {"AUTH_ENABLED": "false"}):
-            user = await auth_module.get_current_user(token=None)
+            user = await auth_module.get_current_user(_t, token=None)
         assert user.role == "admin"
         assert user.sub == "local"
 
     @pytest.mark.asyncio
     async def test_disabled_returns_anonymous_admin_even_with_invalid_token(self):
         with patch.dict(os.environ, {"AUTH_ENABLED": "false"}):
-            user = await auth_module.get_current_user(token="anything-goes")
+            user = await auth_module.get_current_user(_t, token="anything-goes")
         assert user.sub == "local"
 
     @pytest.mark.asyncio
@@ -136,13 +140,13 @@ class TestGetCurrentUserKillSwitch:
         env["AUTH_TOKEN_SECRET"] = "test-secret-key-that-is-at-least-32-bytes"
         with patch.dict(os.environ, env, clear=True):
             with pytest.raises(HTTPException) as exc_info:
-                await auth_module.get_current_user(token=None)
+                await auth_module.get_current_user(_t, token=None)
             assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
     async def test_flexible_disabled_returns_anonymous_without_token(self):
         with patch.dict(os.environ, {"AUTH_ENABLED": "false"}):
-            user = await auth_module.get_current_user_flexible(token=None, query_token=None)
+            user = await auth_module.get_current_user_flexible(_t, token=None, query_token=None)
         assert user.sub == "local"
 
     @pytest.mark.asyncio
@@ -152,7 +156,7 @@ class TestGetCurrentUserKillSwitch:
         env["AUTH_TOKEN_SECRET"] = "test-secret-key-that-is-at-least-32-bytes"
         with patch.dict(os.environ, env, clear=True):
             with pytest.raises(HTTPException) as exc_info:
-                await auth_module.get_current_user_flexible(token=None, query_token=None)
+                await auth_module.get_current_user_flexible(_t, token=None, query_token=None)
             assert exc_info.value.status_code == 401
 
 

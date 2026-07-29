@@ -12,6 +12,9 @@ from server.routers import cost_estimation
 def _make_app():
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
+    from tests.conftest import allow_project_access
+
+    allow_project_access(app)
     app.include_router(cost_estimation.router, prefix="/api/v1")
     return app
 

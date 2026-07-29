@@ -7,8 +7,8 @@
 - 项目名在 request body 中的端点，在解析 body 后调用 :func:`ensure_project_access`。
 
 规则：
-- ``role == "admin"`` 可跨用户运维（显式管理员能力）；
-- 普通用户必须 ``owner == user.id``；
+- 普通业务查询始终要求 ``owner == user.id``，不因 ``role=admin`` 隐式放行；
+- 管理员跨用户运维必须走独立、显式的管理端能力；
 - ``default`` 仅表示管理员所有者，**不再**对全体用户共享。
 
 对不可见项目返回 404（复用 ``project_not_found`` 文案），避免通过状态码探测他人项目名。
@@ -26,6 +26,7 @@ from lib.db import async_session_factory
 from lib.db.base import DEFAULT_USER_ID
 from lib.db.repositories.project_repo import ProjectRepository
 from lib.i18n import Translator
+from lib.project_paths import bind_project_user_scope
 from server.auth import CurrentUser, CurrentUserFlexible, CurrentUserInfo
 
 ADMIN_ROLE = "admin"
@@ -35,32 +36,55 @@ def is_admin(user: CurrentUserInfo) -> bool:
     return user.role == ADMIN_ROLE
 
 
-async def get_project_owner(name: str) -> str | None:
-    """查询项目归属 user_id；无记录返回 None。"""
+async def get_project_owner(name: str, user_id: str) -> str | None:
+    """按 ``(user_id, name)`` 查询项目归属；无记录返回 ``None``。"""
     async with async_session_factory() as session:
-        return await ProjectRepository(session).get_owner(name)
+        return await ProjectRepository(session).get_owner(name, user_id)
 
 
-async def get_ownership_map() -> dict[str, str]:
-    """返回 {项目名: user_id} 全量映射。"""
+async def get_ownership_map(user_id: str) -> dict[str, str]:
+    """返回指定用户的 ``{项目名: user_id}`` 映射。"""
     async with async_session_factory() as session:
-        return await ProjectRepository(session).ownership_map()
+        return await ProjectRepository(session).ownership_map(user_id)
+
+
+async def get_project_id_map(user_id: str) -> dict[str, str]:
+    """返回当前用户的 ``{项目名: project_id}``，兼容 SQLite/PostgreSQL。"""
+    async with async_session_factory() as session:
+        rows = await ProjectRepository(session).list_projects(user_id)
+    return {row.name: row.id for row in rows}
+
+
+async def bind_owned_project_scope(name: str, user_id: str) -> str | None:
+    """按用户查询项目并绑定不可变 ID；不存在时返回 ``None``。"""
+    async with async_session_factory() as session:
+        project = await ProjectRepository(session).get_by_name(user_id, name)
+    if project is None:
+        return None
+    bind_project_user_scope(user_id, project_ids={name: project.id})
+    return project.user_id
 
 
 async def accessible_project_names(names: Iterable[str], user: CurrentUserInfo) -> list[str]:
-    """从 names 中筛出当前用户可见的项目名（admin 全量；普通用户仅属主）。"""
-    names = list(names)
-    if is_admin(user):
-        return names
-    ownership = await get_ownership_map()
-    return [n for n in names if ownership.get(n) == user.id]
+    """从 names 中筛出当前用户拥有的项目名。"""
+    del names  # DB 是用户项目清单的真相源；磁盘枚举在 PostgreSQL 下不可用。
+    project_ids = await get_project_id_map(user.id)
+    bind_project_user_scope(user.id, project_ids=project_ids)
+    return sorted(project_ids)
 
 
-async def register_project_owner(name: str, user: CurrentUserInfo) -> None:
-    """项目创建/导入成功后登记归属（已存在记录则保持原归属不变）。"""
+async def register_project_owner(
+    name: str,
+    user: CurrentUserInfo,
+    *,
+    project_id: str | None = None,
+) -> None:
+    """项目创建/导入成功后登记归属，并保留磁盘使用的不可变项目 ID。"""
     async with async_session_factory() as session:
         async with session.begin():
-            await ProjectRepository(session).ensure(name, user.id)
+            existing = await ProjectRepository(session).get_by_name(user.id, name)
+            if existing is None:
+                await ProjectRepository(session).create(name, user.id, project_id=project_id)
 
 
 async def unregister_project(name: str, user_id: str | None = None) -> None:
@@ -92,10 +116,8 @@ async def ensure_project_access(name: str, user: CurrentUserInfo, _t: Callable[.
 
     ``_t`` 为路由注入的 Translator 可调用对象。
     """
-    if is_admin(user):
-        return
-    owner = await get_project_owner(name)
-    if owner is not None and owner == user.id:
+    owner = await bind_owned_project_scope(name, user.id)
+    if owner is not None:
         return
     raise HTTPException(status_code=404, detail=_t("project_not_found", name=name))
 

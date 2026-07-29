@@ -44,10 +44,10 @@ from lib.style_templates import is_known_template, resolve_template_prompt
 from server.auth import CurrentUser, create_download_token, verify_download_token
 from server.project_access import (
     accessible_project_names,
+    bind_owned_project_scope,
     ensure_project_access,
     get_ownership_map,
-    get_project_owner,
-    is_admin,
+    get_project_id_map,
     register_project_owner,
     require_project_access_by_name,
     unregister_project,
@@ -58,8 +58,9 @@ from server.routers._validators import validate_backend_value
 
 async def _verify_export_download_token(download_token: str, project_name: str, _t: Translator) -> None:
     """校验 download_token 的 purpose/project/uid 与项目 DB 属主一致（async 路由用）。"""
-    _verify_export_download_token_payload(download_token, project_name, _t)
-    owner = await get_project_owner(project_name)
+    payload = _verify_export_download_token_payload(download_token, project_name, _t)
+    token_uid = str(payload.get("uid") or "")
+    owner = await bind_owned_project_scope(project_name, token_uid)
     _assert_download_token_owner(download_token, project_name, owner, _t)
 
 
@@ -85,17 +86,15 @@ def _assert_download_token_owner(
 ) -> None:
     payload = verify_download_token(download_token, project_name)
     token_uid = payload.get("uid")
-    if owner is not None and token_uid != owner:
+    if owner is None or token_uid != owner:
         raise HTTPException(status_code=403, detail=_t("download_token_mismatch"))
 
 
-def _verify_export_download_token_sync(download_token: str, project_name: str, _t: Translator) -> None:
-    """同步导出端点用：JWT + sync DB 归属交叉校验。"""
-    _verify_export_download_token_payload(download_token, project_name, _t)
-    from lib.project_paths import sync_lookup_project
-
-    loc = sync_lookup_project(project_name)
-    owner = loc.user_id if loc is not None else None
+async def _verify_export_download_token_for_draft(download_token: str, project_name: str, _t: Translator) -> None:
+    """剪映导出端点用：异步校验 DB 归属并绑定项目 ID。"""
+    payload = _verify_export_download_token_payload(download_token, project_name, _t)
+    token_uid = str(payload.get("uid") or "")
+    owner = await bind_owned_project_scope(project_name, token_uid)
     _assert_download_token_owner(download_token, project_name, owner, _t)
 
 
@@ -215,21 +214,15 @@ async def import_project_archive(
 ):
     """从 ZIP 导入项目。"""
     upload_path: str | None = None
-    # 覆盖导入前的归属判定：admin 可覆盖任何项目，普通用户只能覆盖自己的项目。
-    # 无归属记录的存量项目视为 default 用户所有。
-    can_replace: Callable[[str], bool] | None = None
-    if not is_admin(_user):
-        ownership = await get_ownership_map()
-        user_id = _user.id
+    # 普通业务导入始终限制在当前用户作用域；跨用户运维须走独立管理端能力。
+    ownership = await get_ownership_map(_user.id)
+    project_ids = await get_project_id_map(_user.id)
+    new_project_id = str(uuid.uuid4())
 
-        def _can_replace(project_name: str) -> bool:
-            from lib.db.base import DEFAULT_USER_ID
+    def _can_replace(project_name: str) -> bool:
+        return project_name in ownership
 
-            owner = ownership.get(project_name, DEFAULT_USER_ID)
-            # default 归属的存量/共享项目允许全体用户覆盖导入
-            return owner == user_id or owner == DEFAULT_USER_ID
-
-        can_replace = _can_replace
+    can_replace: Callable[[str], bool] = _can_replace
 
     try:
         fd, upload_path = tempfile.mkstemp(prefix="arcreel-upload-", suffix=".zip")
@@ -255,10 +248,13 @@ async def import_project_archive(
                 uploaded_filename=file.filename,
                 conflict_policy=conflict_policy,
                 can_replace=can_replace,
+                user_id=_user.id,
+                new_project_id=new_project_id,
+                existing_project_ids=project_ids,
             )
 
         result = await asyncio.to_thread(_sync)
-        await register_project_owner(result.project_name, _user)
+        await register_project_owner(result.project_name, _user, project_id=result.project_id)
         return {
             "success": True,
             "project_name": result.project_name,
@@ -380,7 +376,7 @@ def _validate_draft_path(draft_path: str, _t: Callable[..., str]) -> str:
 
 
 @router.get("/projects/{name}/export/jianying-draft")
-def export_jianying_draft(
+async def export_jianying_draft(
     name: str,
     _t: Translator,
     episode: int = Query(..., description="集数编号"),
@@ -389,7 +385,7 @@ def export_jianying_draft(
     jianying_version: str = Query("6", description="剪映版本：6 或 5"),
 ):
     """导出指定集的剪映草稿 ZIP"""
-    _verify_export_download_token_sync(download_token, name, _t)
+    await _verify_export_download_token_for_draft(download_token, name, _t)
 
     # 2. 校验 draft_path
     draft_path = _validate_draft_path(draft_path, _t)
@@ -519,11 +515,16 @@ async def create_project(
     user_id = _user.id
     project_id = str(uuid.uuid4())
     try:
+        manual_name = (req.name or "").strip()
+        if manual_name:
+            async with async_session_factory() as session:
+                existing = await ProjectRepository(session).get_by_name(user_id, manual_name)
+            if existing is not None:
+                raise HTTPException(status_code=400, detail=_t("project_exists", name=manual_name))
 
         def _sync():
             manager = get_project_manager()
             title = (req.title or "").strip()
-            manual_name = (req.name or "").strip()
             if not title and not manual_name:
                 raise HTTPException(status_code=400, detail=_t("title_required"))
             project_name = manual_name or manager.generate_project_name(title)
@@ -608,6 +609,8 @@ async def create_project(
                     target_duration=req.target_duration,
                     brief=req.brief,
                     source_kind=req.source_kind,
+                    user_id=user_id,
+                    project_id=project_id,
                 )
             return {"success": True, "name": project_name, "project": project}
 
@@ -885,9 +888,9 @@ async def update_project(name: str, req: UpdateProjectRequest, _user: CurrentUse
 
 @router.delete("/projects/{name}", dependencies=[Depends(require_project_access_by_name)])
 async def delete_project(name: str, _user: CurrentUser, _t: Translator):
-    """删除项目（属主范围；admin 可跨用户删除）。"""
+    """删除当前用户拥有的项目。"""
     try:
-        scoped_user_id = None if is_admin(_user) else _user.id
+        scoped_user_id = _user.id
 
         def _sync():
             get_project_manager().delete_project_directory(name, user_id=scoped_user_id)

@@ -25,6 +25,7 @@ from lib.project_change_hints import (
     register_project_change_listener,
 )
 from lib.project_manager import ProjectManager, effective_mode
+from lib.project_paths import project_user_scope
 from lib.script_skeleton import (
     SKELETON_ANCHOR_TYPES,
     SKELETON_ENTITY_TYPES,
@@ -57,6 +58,9 @@ def _fingerprint(value: Any) -> str:
 @dataclass
 class _ProjectChannel:
     sse: SseChannel
+    project_name: str
+    user_id: str | None = None
+    project_id: str | None = None
     ready_event: asyncio.Event = field(default_factory=asyncio.Event)
     scan_now: asyncio.Event = field(default_factory=asyncio.Event)
     pending_sources: set[ProjectChangeSource] = field(default_factory=set)
@@ -81,7 +85,7 @@ class ProjectEventService:
         )
         self.pm = ProjectManager(projects_dir)
         self.poll_interval = max(0.1, float(poll_interval))
-        self._channels: dict[str, _ProjectChannel] = {}
+        self._channels: dict[str | tuple[str, str], _ProjectChannel] = {}
         self._listener_unregister = None
         self._batch_listener_unregister = None
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -114,7 +118,17 @@ class ProjectEventService:
         self._channels.clear()
         self._loop = None
 
-    def _create_channel(self, project_name: str) -> _ProjectChannel:
+    @staticmethod
+    def _channel_key(project_name: str, user_id: str | None, project_id: str | None) -> str | tuple[str, str]:
+        return (user_id, project_id) if user_id is not None and project_id is not None else project_name
+
+    def _create_channel(
+        self,
+        project_name: str,
+        *,
+        user_id: str | None = None,
+        project_id: str | None = None,
+    ) -> _ProjectChannel:
         """构造项目通道：溢出策略「移除订阅者」，首/末订阅者钩子启停后台扫描。"""
         sse = SseChannel(
             overflow=DropSubscriber(
@@ -124,18 +138,18 @@ class ProjectEventService:
                     project_name,
                 ),
             ),
-            on_first_subscriber=lambda: self._start_watch(project_name),
-            on_last_subscriber=lambda: self._stop_watch(project_name),
+            on_first_subscriber=lambda: self._start_watch(project_name, user_id=user_id, project_id=project_id),
+            on_last_subscriber=lambda: self._stop_watch(project_name, user_id=user_id, project_id=project_id),
         )
-        return _ProjectChannel(sse=sse)
+        return _ProjectChannel(sse=sse, project_name=project_name, user_id=user_id, project_id=project_id)
 
-    def _start_watch(self, project_name: str) -> None:
+    def _start_watch(self, project_name: str, *, user_id: str | None, project_id: str | None) -> None:
         """首订阅者钩子：启动（或重启已自行退出的）后台扫描任务。
 
         溢出移除掉最后一个订阅者时 watch task 经 ``while has_subscribers`` 自行
         退出而通道仍留在注册表，故重启条件是「任务不在跑」而非仅「首次订阅」。
         """
-        channel = self._channels.get(project_name)
+        channel = self._channels.get(self._channel_key(project_name, user_id, project_id))
         if channel is None:
             return
         if channel.task is not None and not channel.task.done():
@@ -148,14 +162,14 @@ class ProjectEventService:
             name=f"project-events-{project_name}",
         )
 
-    async def _stop_watch(self, project_name: str) -> None:
+    async def _stop_watch(self, project_name: str, *, user_id: str | None, project_id: str | None) -> None:
         """末订阅者钩子：停止后台扫描任务并注销通道。
 
         先从注册表摘除通道再 await watch task 退出——摘除与取回之间无让出点，
         摘的正是当前通道。收尾期间让出事件循环时，并发进入的新订阅者取不到这个
         将死通道，会新建独立通道注册入表，不会被本次收尾的删除连带摘掉。
         """
-        channel = self._channels.pop(project_name, None)
+        channel = self._channels.pop(self._channel_key(project_name, user_id, project_id), None)
         if channel is None:
             return
         task = channel.task
@@ -163,17 +177,28 @@ class ProjectEventService:
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
 
-    async def _subscribe(self, project_name: str) -> tuple[SseChannel, asyncio.Queue, dict[str, Any]]:
+    async def _subscribe(
+        self,
+        project_name: str,
+        *,
+        user_id: str | None = None,
+        project_id: str | None = None,
+    ) -> tuple[SseChannel, asyncio.Queue, dict[str, Any]]:
         """Register a queue for *project_name* and return it with the initial snapshot.
 
         Private: the only consumer is :meth:`stream_events`, which owns the
         deterministic unsubscribe via its context-manager ``__aexit__``.
         """
-        await asyncio.to_thread(self.pm.get_project_path, project_name)
-        channel = self._channels.get(project_name)
+        if user_id is not None and project_id is not None:
+            with project_user_scope(user_id, project_name=project_name, project_id=project_id):
+                await asyncio.to_thread(self.pm.get_project_path, project_name)
+        else:
+            await asyncio.to_thread(self.pm.get_project_path, project_name)
+        key = self._channel_key(project_name, user_id, project_id)
+        channel = self._channels.get(key)
         if channel is None:
-            channel = self._create_channel(project_name)
-            self._channels[project_name] = channel
+            channel = self._create_channel(project_name, user_id=user_id, project_id=project_id)
+            self._channels[key] = channel
 
         # 队列在首次扫描启动前注册(首订阅者钩子在注册后触发)，否则会漏掉
         # 扫描完成到注册之间广播的事件。
@@ -188,20 +213,32 @@ class ProjectEventService:
             # 收尾自理。
             if channel.sse.unsubscribe_nowait(queue) and channel.task is not None:
                 channel.task.cancel()
-                self._channels.pop(project_name, None)
+                self._channels.pop(key, None)
             raise
         return channel.sse, queue, self._build_snapshot_payload(project_name, channel)
 
-    async def _unsubscribe(self, project_name: str, queue: asyncio.Queue) -> None:
+    async def _unsubscribe(
+        self,
+        project_name: str,
+        queue: asyncio.Queue,
+        *,
+        user_id: str | None = None,
+        project_id: str | None = None,
+    ) -> None:
         """Remove a queue; the last-subscriber hook stops the watch task."""
-        channel = self._channels.get(project_name)
+        channel = self._channels.get(self._channel_key(project_name, user_id, project_id))
         if channel is None:
             return
         await channel.sse.unsubscribe(queue)
 
     @contextlib.asynccontextmanager
     async def stream_events(
-        self, project_name: str, *, idle_timeout: float = 1.0
+        self,
+        project_name: str,
+        *,
+        user_id: str | None = None,
+        project_id: str | None = None,
+        idle_timeout: float = 1.0,
     ) -> AsyncIterator[AsyncIterator[tuple[str, Any] | dict[str, Any]]]:
         """Subscribe to a project's events as a self-cleaning async iterator.
 
@@ -218,7 +255,11 @@ class ProjectEventService:
         carried by ``__aexit__`` (see ADR-0005). Consume as
         ``async with stream_events(...) as stream: async for item in stream``.
         """
-        sse, queue, snapshot = await self._subscribe(project_name)
+        sse, queue, snapshot = await self._subscribe(
+            project_name,
+            user_id=user_id,
+            project_id=project_id,
+        )
 
         async def _iter() -> AsyncIterator[tuple[str, Any] | dict[str, Any]]:
             # NOTE: intentionally NO ``finally: _unsubscribe`` here — cleanup is owned
@@ -233,13 +274,20 @@ class ProjectEventService:
         try:
             yield _iter()
         finally:
-            await self._unsubscribe(project_name, queue)
+            await self._unsubscribe(
+                project_name,
+                queue,
+                user_id=user_id,
+                project_id=project_id,
+            )
 
     def _on_hint(
         self,
         project_name: str,
         source: ProjectChangeSource,
         changed_paths: tuple[str, ...],
+        user_id: str | None = None,
+        project_id: str | None = None,
     ) -> None:
         loop = self._loop
         if loop is None or loop.is_closed():
@@ -249,6 +297,8 @@ class ProjectEventService:
             project_name,
             source,
             changed_paths,
+            user_id,
+            project_id,
         )
 
     def _on_batch_hint(
@@ -256,6 +306,8 @@ class ProjectEventService:
         project_name: str,
         source: ProjectChangeSource,
         changes: tuple[ProjectChangeBatch, ...],
+        user_id: str | None = None,
+        project_id: str | None = None,
     ) -> None:
         loop = self._loop
         if loop is None or loop.is_closed():
@@ -265,6 +317,8 @@ class ProjectEventService:
             project_name,
             source,
             changes,
+            user_id,
+            project_id,
         )
 
     def _apply_hint(
@@ -272,8 +326,10 @@ class ProjectEventService:
         project_name: str,
         source: ProjectChangeSource,
         changed_paths: tuple[str, ...],
+        user_id: str | None = None,
+        project_id: str | None = None,
     ) -> None:
-        channel = self._channels.get(project_name)
+        channel = self._channels.get(self._channel_key(project_name, user_id, project_id))
         if channel is None:
             return
         channel.pending_sources.add(source)
@@ -290,8 +346,10 @@ class ProjectEventService:
         project_name: str,
         source: ProjectChangeSource,
         changes: tuple[ProjectChangeBatch, ...],
+        user_id: str | None = None,
+        project_id: str | None = None,
     ) -> None:
-        channel = self._channels.get(project_name)
+        channel = self._channels.get(self._channel_key(project_name, user_id, project_id))
         if channel is None or not changes:
             return
 
@@ -314,7 +372,7 @@ class ProjectEventService:
     ) -> None:
         """文件 I/O 在线程中执行，状态更新和广播在事件循环线程中执行。"""
         try:
-            snapshot, fingerprint = await asyncio.to_thread(self._rebuild_snapshot, project_name)
+            snapshot, fingerprint = await asyncio.to_thread(self._rebuild_snapshot, project_name, channel)
         except FileNotFoundError:
             await self._handle_scan_file_not_found(
                 project_name, channel, log_message="构建显式项目事件快照失败 project=%s"
@@ -339,13 +397,22 @@ class ProjectEventService:
         }
         channel.sse.broadcast(("changes", payload))
 
-    def _rebuild_snapshot(self, project_name: str) -> tuple[dict[str, Any], str]:
+    def _rebuild_snapshot(self, project_name: str, channel: _ProjectChannel) -> tuple[dict[str, Any], str]:
         """同步方法（在线程池中执行）：重建快照并返回 (snapshot, fingerprint)。"""
-        self._ensure_script_index_synced(project_name)
-        snapshot = self._build_snapshot(project_name)
+        if channel.user_id is not None and channel.project_id is not None:
+            with project_user_scope(
+                channel.user_id,
+                project_name=project_name,
+                project_id=channel.project_id,
+            ):
+                self._ensure_script_index_synced(project_name)
+                snapshot = self._build_snapshot(project_name)
+        else:
+            self._ensure_script_index_synced(project_name)
+            snapshot = self._build_snapshot(project_name)
         return snapshot, _fingerprint(snapshot)
 
-    def _project_directory_gone(self, project_name: str) -> bool:
+    def _project_directory_gone(self, project_name: str, channel: _ProjectChannel) -> bool:
         """判定项目目录当前是否确已不存在（``get_project_path`` 语义）。
 
         供扫描 / hint 重建路径捕获 ``FileNotFoundError`` 后做一次独立的现状复核，
@@ -356,7 +423,15 @@ class ProjectEventService:
         起点检查会误判为「未删除」；复核反映的是异常发生后的当前实况。
         """
         try:
-            self.pm.get_project_path(project_name)
+            if channel.user_id is not None and channel.project_id is not None:
+                with project_user_scope(
+                    channel.user_id,
+                    project_name=project_name,
+                    project_id=channel.project_id,
+                ):
+                    self.pm.get_project_path(project_name)
+            else:
+                self.pm.get_project_path(project_name)
         except FileNotFoundError:
             return True
         return False
@@ -368,9 +443,10 @@ class ProjectEventService:
         按「本通道是否仍是注册表现行通道」判定是否为首次终止，避免重复广播/
         重复日志，也避免误杀同名项目重建后已注册的新通道。
         """
-        if self._channels.get(project_name) is not channel:
+        key = self._channel_key(project_name, channel.user_id, channel.project_id)
+        if self._channels.get(key) is not channel:
             return
-        self._channels.pop(project_name, None)
+        self._channels.pop(key, None)
         channel.sse.broadcast((PROJECT_DELETED_EVENT, {"project_name": project_name}))
         logger.info("项目已被删除，终止事件流 project=%s", project_name)
         task = channel.task
@@ -386,7 +462,7 @@ class ProjectEventService:
         供 :meth:`_async_rebuild_and_broadcast` 与 :meth:`_watch_project` 两条独立路径
         共用，避免各自维护一份相同判定逻辑、日后修改判定条件时漏改其中一处。
         """
-        if await asyncio.to_thread(self._project_directory_gone, project_name):
+        if await asyncio.to_thread(self._project_directory_gone, project_name, channel):
             self._handle_project_deleted(project_name, channel)
             return True
         logger.exception(log_message, project_name)
@@ -397,7 +473,7 @@ class ProjectEventService:
             while channel.sse.has_subscribers:
                 try:
                     # 仅文件 I/O 在线程中执行
-                    snapshot, fingerprint = await asyncio.to_thread(self._rebuild_snapshot, project_name)
+                    snapshot, fingerprint = await asyncio.to_thread(self._rebuild_snapshot, project_name, channel)
                     # 状态更新和广播在事件循环线程中执行（线程安全）
                     self._apply_scan_result(project_name, channel, snapshot, fingerprint)
                 except asyncio.CancelledError:

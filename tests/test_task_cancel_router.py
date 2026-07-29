@@ -6,12 +6,22 @@
   - POST /projects/{project_name}/tasks/cancel-all
 """
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from server.auth import CurrentUserInfo, get_current_user
 from server.error_handlers import register_error_handlers
 from server.routers import tasks as tasks_router
+
+
+@pytest.fixture(autouse=True)
+def _allow_test_project_access(monkeypatch):
+    async def _allow(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(tasks_router, "ensure_project_access", _allow)
+
 
 # ---------------------------------------------------------------------------
 # Fake queue helpers
@@ -42,6 +52,9 @@ class _FakeQueue:
         self._cancel_task_result.setdefault("cancelling", [])
         self._cancel_task_result.setdefault("skipped_terminal", [])
 
+    async def get_task(self, _task_id: str):
+        return None
+
     async def get_cancel_preview(self, task_id: str):
         if self._cancel_preview_error:
             raise ValueError(self._cancel_preview_error)
@@ -52,10 +65,10 @@ class _FakeQueue:
             raise ValueError(self._cancel_task_error)
         return self._cancel_task_result
 
-    async def get_cancel_all_preview(self, project_name: str) -> int:
+    async def get_cancel_all_preview(self, project_name: str, *, user_id: str | None = None) -> int:
         return self._cancel_all_preview_count
 
-    async def cancel_all_queued(self, project_name: str):
+    async def cancel_all_queued(self, project_name: str, *, user_id: str | None = None):
         return self._cancel_all_result
 
 
@@ -68,6 +81,9 @@ def _make_app() -> FastAPI:
     """构建用于测试的最小 FastAPI 应用，注入假用户。"""
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
+    from tests.conftest import allow_project_access
+
+    allow_project_access(app)
     app.include_router(tasks_router.router, prefix="/api/v1")
     register_error_handlers(app)
     return app

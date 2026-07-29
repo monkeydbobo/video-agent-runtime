@@ -164,6 +164,7 @@ class TaskRepository(BaseRepository):
             result = await self.session.execute(
                 select(Task)
                 .where(
+                    Task.user_id == user_id,
                     Task.project_name == project_name,
                     Task.task_type == task_type,
                     Task.resource_id == resource_id,
@@ -750,24 +751,33 @@ class TaskRepository(BaseRepository):
         await self.session.commit()
         return {"rows": 1 if data is not None else 0, "cancelling": cancelling}
 
-    async def get_cancel_all_preview(self, project_name: str) -> int:
+    async def get_cancel_all_preview(self, project_name: str, *, user_id: str | None = None) -> int:
         """返回项目中当前 queued 状态的任务数量。"""
-        result = await self.session.execute(
-            select(func.count()).select_from(Task).where(Task.project_name == project_name, Task.status == "queued")
+        stmt = (
+            select(func.count())
+            .select_from(Task)
+            .where(
+                Task.project_name == project_name,
+                Task.status == "queued",
+            )
         )
+        if user_id is not None:
+            stmt = stmt.where(Task.user_id == user_id)
+        result = await self.session.execute(stmt)
         return result.scalar_one()
 
-    async def cancel_all_queued(self, project_name: str) -> dict[str, Any]:
+    async def cancel_all_queued(self, project_name: str, *, user_id: str | None = None) -> dict[str, Any]:
         """取消项目中所有 queued 任务。"""
-        queued_result = await self.session.execute(
-            select(Task).where(Task.project_name == project_name, Task.status == "queued")
-        )
+        scope = [Task.project_name == project_name, Task.status == "queued"]
+        if user_id is not None:
+            scope.append(Task.user_id == user_id)
+        queued_result = await self.session.execute(select(Task).where(*scope))
         queued_tasks = list(queued_result.scalars().all())
 
         now = utc_now()
         stmt = (
             update(Task)
-            .where(Task.project_name == project_name, Task.status == "queued")
+            .where(*scope)
             .values(
                 status="cancelled",
                 cancelled_by="user",

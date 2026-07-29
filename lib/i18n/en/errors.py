@@ -161,6 +161,11 @@ MESSAGES = {
     "product_not_found": "Product '{name}' not found",
     "product_deleted": "Product '{name}' deleted",
     # API Keys
+    "auth_required": "Authentication required",
+    "auth_token_required": "Authentication token is required",
+    "api_key_invalid": "API Key is invalid, expired, or does not exist",
+    "api_key_identity_incomplete": "API Key identity is incomplete",
+    "media_token_scope_required": "Specify at least one of project or asset_path",
     "jwt_auth_required": "API Key is not authorized to perform this action, please use JWT authentication",
     "api_key_name_exists": "Name '{name}' already exists",
     "api_key_not_found": "API Key {key_id} not found",

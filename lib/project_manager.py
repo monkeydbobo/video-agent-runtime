@@ -43,6 +43,9 @@ from lib.profile_manifest import (
 from lib.project_change_hints import emit_project_change_hint
 from lib.project_paths import (
     USERS_DIR,
+    current_project_id_scope,
+    current_project_ids_scope,
+    current_project_user_scope,
     legacy_flat_project_root,
     legacy_global_assets_root,
     sync_list_project_names,
@@ -197,11 +200,12 @@ class ProjectManager:
     def generate_project_name(self, title: str | None = None) -> str:
         """Generate a unique internal project identifier."""
         prefix = self._slugify_project_title(title or "")
+        scoped_user_id = current_project_user_scope()
         while True:
             candidate = f"{prefix}-{secrets.token_hex(4)}"
-            if candidate in sync_list_project_names():
+            if candidate in sync_list_project_names(scoped_user_id):
                 continue
-            if legacy_flat_project_root(self.projects_root, candidate).exists():
+            if scoped_user_id is None and legacy_flat_project_root(self.projects_root, candidate).exists():
                 continue
             return candidate
 
@@ -270,15 +274,19 @@ class ProjectManager:
 
     def list_projects(self) -> list[str]:
         """列出合法项目名：DB 登记 + 迁移窗口内扁平目录的并集。"""
-        names: set[str] = set(sync_list_project_names())
-        for d in self.projects_root.iterdir():
-            if (
-                d.is_dir()
-                and not d.name.startswith((".", "_"))
-                and d.name != USERS_DIR
-                and PROJECT_NAME_PATTERN.fullmatch(d.name)
-            ):
-                names.add(d.name)
+        scoped_user_id = current_project_user_scope()
+        if scoped_user_id is not None:
+            return sorted(current_project_ids_scope())
+        names: set[str] = set(sync_list_project_names(scoped_user_id))
+        if scoped_user_id is None:
+            for d in self.projects_root.iterdir():
+                if (
+                    d.is_dir()
+                    and not d.name.startswith((".", "_"))
+                    and d.name != USERS_DIR
+                    and PROJECT_NAME_PATTERN.fullmatch(d.name)
+                ):
+                    names.add(d.name)
         return sorted(names)
 
     def create_project(
@@ -496,6 +504,10 @@ class ProjectManager:
         """
         name = self.normalize_project_name(name)
         base = os.path.realpath(self.projects_root) + os.sep
+        if user_id is None:
+            user_id = current_project_user_scope()
+        if project_id is None:
+            project_id = current_project_id_scope(name)
 
         if user_id is None or project_id is None:
             loc = sync_lookup_project(name, user_id=user_id)
@@ -510,6 +522,12 @@ class ProjectManager:
                 if not real.startswith(base):
                     raise ValueError(f"非法项目名称: '{name}'")
                 return Path(real)
+
+        if user_id is not None:
+            from lib.db.base import DEFAULT_USER_ID
+
+            if user_id != DEFAULT_USER_ID:
+                raise FileNotFoundError(f"项目 '{name}' 不存在")
 
         legacy = legacy_flat_project_root(self.projects_root, name)
         real = os.path.realpath(legacy)
@@ -1339,9 +1357,15 @@ class ProjectManager:
 
     # ==================== 项目级元数据管理 ====================
 
-    def _get_project_file_path(self, project_name: str) -> Path:
+    def _get_project_file_path(
+        self,
+        project_name: str,
+        *,
+        user_id: str | None = None,
+        project_id: str | None = None,
+    ) -> Path:
         """获取项目元数据文件路径"""
-        return self.get_project_path(project_name) / self.PROJECT_FILE
+        return self.get_project_path(project_name, user_id=user_id, project_id=project_id) / self.PROJECT_FILE
 
     def project_exists(self, project_name: str) -> bool:
         """检查项目元数据文件是否存在"""
@@ -1401,13 +1425,19 @@ class ProjectManager:
         return project
 
     @contextmanager
-    def _project_lock(self, project_name: str):
+    def _project_lock(
+        self,
+        project_name: str,
+        *,
+        user_id: str | None = None,
+        project_id: str | None = None,
+    ):
         """通过隐藏 lock file 获取项目文件的排他锁。
 
         使用独立的 .project.json.lock 而非数据文件本身，避免 os.replace
         更换 inode 后锁失效的问题。
         """
-        project_file = self._get_project_file_path(project_name)
+        project_file = self._get_project_file_path(project_name, user_id=user_id, project_id=project_id)
         lock_path = project_file.parent / f".{project_file.name}.lock"
         lock_path.touch(exist_ok=True)
         with portalocker.Lock(lock_path, flags=portalocker.LOCK_EX):
@@ -1436,7 +1466,14 @@ class ProjectManager:
         with portalocker.Lock(lock_path, flags=portalocker.LOCK_EX):
             yield
 
-    def save_project(self, project_name: str, project: dict) -> Path:
+    def save_project(
+        self,
+        project_name: str,
+        project: dict,
+        *,
+        user_id: str | None = None,
+        project_id: str | None = None,
+    ) -> Path:
         """
         保存项目元数据
 
@@ -1447,12 +1484,12 @@ class ProjectManager:
         Returns:
             保存的文件路径
         """
-        project_file = self._get_project_file_path(project_name)
+        project_file = self._get_project_file_path(project_name, user_id=user_id, project_id=project_id)
 
         self._migrate_legacy_resolution_on_save(project)
         self._touch_metadata(project)
 
-        with self._project_lock(project_name):
+        with self._project_lock(project_name, user_id=user_id, project_id=project_id):
             atomic_write_json(project_file, project)
 
         emit_project_change_hint(
@@ -1551,6 +1588,9 @@ class ProjectManager:
         target_duration: int | None = None,
         brief: str | None = None,
         source_kind: str | None = None,
+        *,
+        user_id: str | None = None,
+        project_id: str | None = None,
     ) -> dict:
         """
         创建新的项目元数据文件
@@ -1635,7 +1675,7 @@ class ProjectManager:
                 raise ValueError(f"extras 不允许覆盖核心字段: {sorted(forbidden)}")
             project.update(extras)
 
-        self.save_project(project_name, project)
+        self.save_project(project_name, project, user_id=user_id, project_id=project_id)
         return project
 
     def add_episode(self, project_name: str, episode: int, title: str, script_file: str) -> dict:
