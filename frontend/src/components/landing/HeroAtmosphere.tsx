@@ -16,7 +16,7 @@ export function HeroAtmosphere() {
         {Array.from({ length: BAR_COUNT }, (_, index) => {
           const progress = index / (BAR_COUNT - 1);
           // 包络线：sin 主峰叠加一层低频起伏，避免机械的对称拱形
-          const envelope = 0.34 + Math.sin(progress * Math.PI) ** 1.4 * 0.52 + Math.sin(progress * Math.PI * 5) * 0.07;
+          const envelope = 0.3 + Math.sin(progress * Math.PI) ** 1.3 * 0.56 + Math.sin(progress * Math.PI * 3) * 0.05;
           const style = {
             "--bar-progress": progress.toFixed(3),
             "--bar-peak": `${(envelope * 100).toFixed(1)}%`,

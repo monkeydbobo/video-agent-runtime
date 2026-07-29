@@ -117,26 +117,27 @@
 
 /* 光柱铺满整个视口宽度，两端与顶部用遮罩收成雾化边缘，避免生硬的裁切线 */
 .hero-atmosphere__flames {
-  position: absolute; left: 50%; bottom: 0; width: 100vw; height: clamp(180px, 30vh, 280px);
+  position: absolute; left: 50%; bottom: 0; width: 100vw; height: clamp(112px, 17vh, 172px);
   transform: translateX(-50%);
-  display: flex; align-items: flex-end; gap: clamp(3px, .58vw, 10px);
-  opacity: .8; mix-blend-mode: multiply;
-  mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
+  display: flex; align-items: flex-end; gap: clamp(4px, .72vw, 13px);
+  opacity: .62; mix-blend-mode: multiply;
+  mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
 }
 .hero-atmosphere__bar {
   /* 横向色相推移：iris-2 → 珊瑚，由 --bar-progress 插值 */
   --bar-tint: color-mix(in oklab, var(--lp-iris-2), var(--lp-coral) calc(var(--bar-progress, 0) * 100%));
   flex: 1; min-width: 2px;
-  height: calc(var(--bar-peak, 60%) * .22);
+  height: calc(var(--bar-peak, 60%) * .72);
   border-radius: 999px;
-  background: linear-gradient(180deg, transparent, var(--bar-tint) 46%, color-mix(in oklab, var(--bar-tint), #fff 14%) 100%);
-  filter: blur(3px);
+  background: linear-gradient(180deg, transparent, var(--bar-tint) 52%, color-mix(in oklab, var(--bar-tint), #fff 16%) 100%);
+  filter: blur(2px);
   animation: hero-flame-rise var(--bar-duration, 4s) cubic-bezier(.45, 0, .55, 1) infinite var(--bar-delay, 0s);
 }
+/* 呼吸幅度刻意压小，让包络线本身的连绵轮廓主导构图，而不是逐柱乱跳的音浪 */
 @keyframes hero-flame-rise {
-  0%, 100% { height: calc(var(--bar-peak, 60%) * .2); opacity: .5; }
-  50% { height: var(--bar-peak, 60%); opacity: .92; }
+  0%, 100% { height: calc(var(--bar-peak, 60%) * .6); opacity: .74; }
+  50% { height: var(--bar-peak, 60%); opacity: 1; }
 }
 
 /* 地平线：一条贴底的细光带，把光柱锚在同一基准面上 */
