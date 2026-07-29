@@ -356,6 +356,18 @@ class GoogleRegistrationClosedError(Exception):
     """Raised when a new Google user cannot be created because registration is disabled."""
 
 
+def _reject_google_token(reason: str, *, error: Exception | None = None) -> GoogleIdTokenError:
+    """Log a non-sensitive rejection reason before returning the public error.
+
+    Never log the ID token or its claims: both can contain credentials or PII.
+    """
+    if error is None:
+        logger.warning("Google ID token 被拒绝: reason=%s", reason)
+    else:
+        logger.warning("Google ID token 被拒绝: reason=%s error_type=%s", reason, type(error).__name__)
+    return GoogleIdTokenError("google_token_invalid")
+
+
 def verify_google_id_token(id_token: str) -> dict:
     """Verify a Google GIS ID token and return the claims dict.
 
@@ -370,7 +382,7 @@ def verify_google_id_token(id_token: str) -> dict:
         from google.auth.transport import requests as google_requests
         from google.oauth2 import id_token as google_id_token
     except ImportError as exc:  # pragma: no cover - google-auth is a declared dependency
-        raise GoogleIdTokenError("google_token_invalid") from exc
+        raise _reject_google_token("verification_library_unavailable", error=exc) from exc
 
     try:
         claims = google_id_token.verify_oauth2_token(
@@ -379,22 +391,22 @@ def verify_google_id_token(id_token: str) -> dict:
             audience=client_id,
         )
     except Exception as exc:
-        logger.warning("Google ID token 校验失败: %s", exc)
-        raise GoogleIdTokenError("google_token_invalid") from exc
+        raise _reject_google_token("google_verifier_rejected", error=exc) from exc
 
     if not isinstance(claims, dict):
-        raise GoogleIdTokenError("google_token_invalid")
+        raise _reject_google_token("claims_not_dict")
 
     iss = str(claims.get("iss") or "")
     if iss not in {"accounts.google.com", "https://accounts.google.com"}:
-        raise GoogleIdTokenError("google_token_invalid")
+        raise _reject_google_token("unexpected_issuer")
 
     sub = str(claims.get("sub") or "").strip()
     email = str(claims.get("email") or "").strip().lower()
     email_verified = claims.get("email_verified")
     if not sub or not email:
-        raise GoogleIdTokenError("google_token_invalid")
+        raise _reject_google_token("missing_subject_or_email")
     if email_verified is not True and str(email_verified).lower() != "true":
+        logger.warning("Google ID token 被拒绝: reason=email_not_verified")
         raise GoogleIdTokenError("google_email_unverified")
 
     return {"sub": sub, "email": email, "name": str(claims.get("name") or "").strip()}
