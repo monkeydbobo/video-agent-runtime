@@ -448,8 +448,16 @@ async def login_or_register_google_user(claims: dict) -> tuple[CurrentUserInfo, 
             if identity.email != email:
                 identity.email = email
             if user.email != email:
+                email_owner = (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
+                if email_owner is not None and email_owner.id != user.id:
+                    raise GoogleIdTokenError("google_email_taken")
                 user.email = email
-            await session.commit()
+            try:
+                await session.commit()
+            except IntegrityError as exc:
+                # Another request may have claimed the email between the check and the commit.
+                await session.rollback()
+                raise GoogleIdTokenError("google_email_taken") from exc
             return CurrentUserInfo(id=user.id, sub=user.username, role=user.role), False
 
         if not is_registration_enabled():

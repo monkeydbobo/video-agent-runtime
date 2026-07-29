@@ -128,6 +128,95 @@ async def test_google_login_rejects_new_user_when_registration_disabled(client, 
     assert resp.status_code == 403
 
 
+@pytest.mark.asyncio
+async def test_google_login_existing_identity_rejects_email_owned_by_other_user(client, db_factory, monkeypatch):
+    """A Google identity whose email now belongs to another account must not 500."""
+    import uuid
+
+    from lib.db.models.oauth_identity import OAuthIdentity
+    from lib.db.models.user import User
+
+    async with db_factory() as session:
+        linked = User(id=str(uuid.uuid4()), username="linked", email="old@example.com", role="user")
+        other = User(id=str(uuid.uuid4()), username="other", email="taken@example.com", role="user")
+        session.add_all(
+            [
+                linked,
+                other,
+                OAuthIdentity(
+                    id=str(uuid.uuid4()),
+                    user_id=linked.id,
+                    provider="google",
+                    subject="google-sub-conflict",
+                    email="old@example.com",
+                ),
+            ]
+        )
+        await session.commit()
+
+    claims = {
+        "sub": "google-sub-conflict",
+        "email": "taken@example.com",
+        "email_verified": True,
+        "iss": "https://accounts.google.com",
+    }
+    monkeypatch.setattr(auth_router, "verify_google_id_token", lambda _token: claims)
+
+    resp = client.post("/api/v1/auth/google", json={"id_token": "fake-token-" + ("c" * 20)})
+    assert resp.status_code == 403
+
+    async with db_factory() as session:
+        from sqlalchemy import select
+
+        refreshed = (await session.execute(select(User).where(User.username == "linked"))).scalar_one()
+        assert refreshed.email == "old@example.com"
+
+
+@pytest.mark.asyncio
+async def test_google_login_existing_identity_updates_email_when_free(client, db_factory, monkeypatch):
+    import uuid
+
+    from sqlalchemy import select
+
+    from lib.db.models.oauth_identity import OAuthIdentity
+    from lib.db.models.user import User
+
+    async with db_factory() as session:
+        linked = User(id=str(uuid.uuid4()), username="mover", email="before@example.com", role="user")
+        session.add_all(
+            [
+                linked,
+                OAuthIdentity(
+                    id=str(uuid.uuid4()),
+                    user_id=linked.id,
+                    provider="google",
+                    subject="google-sub-move",
+                    email="before@example.com",
+                ),
+            ]
+        )
+        await session.commit()
+
+    claims = {
+        "sub": "google-sub-move",
+        "email": "after@example.com",
+        "email_verified": True,
+        "iss": "https://accounts.google.com",
+    }
+    monkeypatch.setattr(auth_router, "verify_google_id_token", lambda _token: claims)
+
+    resp = client.post("/api/v1/auth/google", json={"id_token": "fake-token-" + ("d" * 20)})
+    assert resp.status_code == 200
+
+    async with db_factory() as session:
+        refreshed = (await session.execute(select(User).where(User.username == "mover"))).scalar_one()
+        assert refreshed.email == "after@example.com"
+        identity = (
+            await session.execute(select(OAuthIdentity).where(OAuthIdentity.subject == "google-sub-move"))
+        ).scalar_one()
+        assert identity.email == "after@example.com"
+
+
 def test_username_from_google_email_sanitizes():
     assert auth_module._username_from_google_email("Foo.Bar+tag@gmail.com") == "foo.bartag"
     assert auth_module._username_from_google_email("___@x.com") == "user"
