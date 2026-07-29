@@ -52,8 +52,10 @@ class SessionRepository(BaseRepository):
         await self.session.refresh(row)
         return _row_to_dict(row)
 
-    async def get(self, session_id: str) -> dict[str, Any] | None:
+    async def get(self, session_id: str, *, user_id: str | None = None) -> dict[str, Any] | None:
         stmt = select(AgentSession).where(AgentSession.sdk_session_id == session_id)
+        if user_id:
+            stmt = stmt.where(AgentSession.user_id == user_id)
         stmt = self._scope_query(stmt, AgentSession)
         result = await self.session.execute(stmt)
         row = result.scalar_one_or_none()
@@ -62,12 +64,15 @@ class SessionRepository(BaseRepository):
     async def list(
         self,
         *,
+        user_id: str | None = None,
         project_name: str | None = None,
         status: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
         stmt = select(AgentSession)
+        if user_id:
+            stmt = stmt.where(AgentSession.user_id == user_id)
         if project_name:
             stmt = stmt.where(AgentSession.project_name == project_name)
         if status:

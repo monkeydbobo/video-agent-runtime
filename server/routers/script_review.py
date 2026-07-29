@@ -8,16 +8,17 @@ drama（utterances + source_text）与 narration（结构化 novel_text）共用
 import asyncio
 import logging
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 
 from lib.i18n import Translator
 from lib.project_manager import get_project_manager
 from server.auth import CurrentUser
+from server.project_access import require_project_access
 from server.services.script_review import ScriptReviewError, ScriptReviewService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_project_access)])
 
 # gate 领域错误码 → (HTTP 状态, i18n key)。invalid_content / episode_not_found 带参数另行注入。
 _ERROR_STATUS: dict[str, int] = {

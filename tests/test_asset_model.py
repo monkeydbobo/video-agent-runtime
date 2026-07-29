@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import lib.db.models  # noqa: F401 — ensure all models registered for Base.metadata
-from lib.db.base import Base
+from lib.db.base import DEFAULT_USER_ID, Base
 from lib.db.models.asset import Asset
 
 
@@ -52,10 +52,14 @@ async def test_asset_create_and_fetch(session):
 async def test_asset_unique_type_name(engine):
     factory = async_sessionmaker(engine, expire_on_commit=False)
     async with factory() as session:
-        session.add(Asset(id="id-1", type="prop", name="玉佩", description=""))
+        session.add(Asset(id="id-1", user_id=DEFAULT_USER_ID, type="prop", name="玉佩", description=""))
         await session.commit()
 
     async with factory() as session:
-        session.add(Asset(id="id-2", type="prop", name="玉佩", description=""))
+        session.add(Asset(id="id-2", user_id=DEFAULT_USER_ID, type="prop", name="玉佩", description=""))
         with pytest.raises(IntegrityError):
             await session.commit()
+
+    async with factory() as session:
+        session.add(Asset(id="id-3", user_id="other-user", type="prop", name="玉佩", description=""))
+        await session.commit()

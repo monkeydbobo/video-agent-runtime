@@ -13,7 +13,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from lib.config.service import ConfigService, ProviderStatus
-from lib.db.base import Base
+from lib.db.base import DEFAULT_USER_ID, Base
 from lib.db.repositories.custom_provider_repo import CustomProviderRepository
 from server.routers.system_config import _build_options
 
@@ -68,7 +68,7 @@ def _make_mock_svc(ready_providers: list[str] | None = None) -> ConfigService:
 class TestBuildOptionsCustomModels:
     async def test_includes_enabled_text_model(self, session):
         db_session, factory = session
-        repo = CustomProviderRepository(db_session)
+        repo = CustomProviderRepository(db_session, user_id=DEFAULT_USER_ID)
         provider = await repo.create_provider(
             display_name="My LLM",
             discovery_format="openai",
@@ -87,7 +87,7 @@ class TestBuildOptionsCustomModels:
         await db_session.commit()
 
         mock_svc = _make_mock_svc()
-        options = await _build_options(mock_svc, db_session)
+        options = await _build_options(mock_svc, db_session, DEFAULT_USER_ID)
 
         expected = f"custom-{provider.id}/gpt-4o"
         assert expected in options["text_backends"]
@@ -96,7 +96,7 @@ class TestBuildOptionsCustomModels:
 
     async def test_includes_enabled_image_model(self, session):
         db_session, factory = session
-        repo = CustomProviderRepository(db_session)
+        repo = CustomProviderRepository(db_session, user_id=DEFAULT_USER_ID)
         provider = await repo.create_provider(
             display_name="My Image Provider",
             discovery_format="openai",
@@ -115,14 +115,14 @@ class TestBuildOptionsCustomModels:
         await db_session.commit()
 
         mock_svc = _make_mock_svc()
-        options = await _build_options(mock_svc, db_session)
+        options = await _build_options(mock_svc, db_session, DEFAULT_USER_ID)
 
         expected = f"custom-{provider.id}/dall-e-3"
         assert expected in options["image_backends"]
 
     async def test_includes_enabled_video_model(self, session):
         db_session, factory = session
-        repo = CustomProviderRepository(db_session)
+        repo = CustomProviderRepository(db_session, user_id=DEFAULT_USER_ID)
         provider = await repo.create_provider(
             display_name="My Video Provider",
             discovery_format="openai",
@@ -141,14 +141,14 @@ class TestBuildOptionsCustomModels:
         await db_session.commit()
 
         mock_svc = _make_mock_svc()
-        options = await _build_options(mock_svc, db_session)
+        options = await _build_options(mock_svc, db_session, DEFAULT_USER_ID)
 
         expected = f"custom-{provider.id}/sora-preview"
         assert expected in options["video_backends"]
 
     async def test_excludes_disabled_model(self, session):
         db_session, factory = session
-        repo = CustomProviderRepository(db_session)
+        repo = CustomProviderRepository(db_session, user_id=DEFAULT_USER_ID)
         provider = await repo.create_provider(
             display_name="My Provider",
             discovery_format="openai",
@@ -167,14 +167,14 @@ class TestBuildOptionsCustomModels:
         await db_session.commit()
 
         mock_svc = _make_mock_svc()
-        options = await _build_options(mock_svc, db_session)
+        options = await _build_options(mock_svc, db_session, DEFAULT_USER_ID)
 
         excluded = f"custom-{provider.id}/disabled-model"
         assert excluded not in options["text_backends"]
 
     async def test_multiple_providers_and_models(self, session):
         db_session, factory = session
-        repo = CustomProviderRepository(db_session)
+        repo = CustomProviderRepository(db_session, user_id=DEFAULT_USER_ID)
         p1 = await repo.create_provider(
             display_name="Provider A",
             discovery_format="openai",
@@ -215,7 +215,7 @@ class TestBuildOptionsCustomModels:
         await db_session.commit()
 
         mock_svc = _make_mock_svc()
-        options = await _build_options(mock_svc, db_session)
+        options = await _build_options(mock_svc, db_session, DEFAULT_USER_ID)
 
         assert f"custom-{p1.id}/model-text" in options["text_backends"]
         assert f"custom-{p2.id}/model-image" in options["image_backends"]
@@ -226,7 +226,7 @@ class TestBuildOptionsCustomModels:
         db_session, _factory = session
 
         mock_svc = _make_mock_svc(ready_providers=[])
-        options = await _build_options(mock_svc, db_session)
+        options = await _build_options(mock_svc, db_session, DEFAULT_USER_ID)
 
         # No custom- entries
         for key in ("video_backends", "image_backends", "text_backends"):
@@ -240,7 +240,7 @@ class TestBuildOptionsCustomModels:
         mock_session = MagicMock(spec=AsyncSession)
         mock_session.execute = AsyncMock(side_effect=RuntimeError("db unavailable"))
 
-        options = await _build_options(mock_svc, mock_session)
+        options = await _build_options(mock_svc, mock_session, DEFAULT_USER_ID)
 
         # Should still return valid dict with empty lists (no ready preset providers)
         assert "video_backends" in options
@@ -250,7 +250,7 @@ class TestBuildOptionsCustomModels:
     async def test_preset_providers_still_included_alongside_custom(self, session):
         """Preset ready providers + custom models both appear in options."""
         db_session, factory = session
-        repo = CustomProviderRepository(db_session)
+        repo = CustomProviderRepository(db_session, user_id=DEFAULT_USER_ID)
         provider = await repo.create_provider(
             display_name="Custom Text",
             discovery_format="openai",
@@ -270,7 +270,7 @@ class TestBuildOptionsCustomModels:
 
         # gemini-aistudio as a ready preset provider
         mock_svc = _make_mock_svc(ready_providers=["gemini-aistudio"])
-        options = await _build_options(mock_svc, db_session)
+        options = await _build_options(mock_svc, db_session, DEFAULT_USER_ID)
 
         # Preset models present
         assert any("gemini-aistudio/" in v for v in options["video_backends"])
@@ -279,7 +279,7 @@ class TestBuildOptionsCustomModels:
 
     async def test_ready_atlascloud_only_exposes_image_model(self, session):
         db_session, _factory = session
-        options = await _build_options(_make_mock_svc(ready_providers=["atlascloud"]), db_session)
+        options = await _build_options(_make_mock_svc(ready_providers=["atlascloud"]), db_session, DEFAULT_USER_ID)
 
         assert "atlascloud/gpt-image-2" in options["image_backends"]
         assert not any(value.startswith("atlascloud/") for value in options["video_backends"])
@@ -295,7 +295,7 @@ class TestBuildOptionsProviderNames:
     async def test_returns_provider_names_for_custom_providers(self, session):
         """provider_names 应包含自定义供应商的 ID→display_name 映射。"""
         db_session, factory = session
-        repo = CustomProviderRepository(db_session)
+        repo = CustomProviderRepository(db_session, user_id=DEFAULT_USER_ID)
         provider = await repo.create_provider(
             display_name="我的 LLM 服务",
             discovery_format="openai",
@@ -314,14 +314,14 @@ class TestBuildOptionsProviderNames:
         await db_session.commit()
 
         mock_svc = _make_mock_svc()
-        options = await _build_options(mock_svc, db_session)
+        options = await _build_options(mock_svc, db_session, DEFAULT_USER_ID)
 
         assert "provider_names" in options
         assert options["provider_names"][f"custom-{provider.id}"] == "我的 LLM 服务"
 
     async def test_multiple_providers_all_have_names(self, session):
         db_session, factory = session
-        repo = CustomProviderRepository(db_session)
+        repo = CustomProviderRepository(db_session, user_id=DEFAULT_USER_ID)
         p1 = await repo.create_provider(
             display_name="Provider A",
             discovery_format="openai",
@@ -355,7 +355,7 @@ class TestBuildOptionsProviderNames:
         await db_session.commit()
 
         mock_svc = _make_mock_svc()
-        options = await _build_options(mock_svc, db_session)
+        options = await _build_options(mock_svc, db_session, DEFAULT_USER_ID)
 
         assert options["provider_names"][f"custom-{p1.id}"] == "Provider A"
         assert options["provider_names"][f"custom-{p2.id}"] == "Provider B"
@@ -363,14 +363,14 @@ class TestBuildOptionsProviderNames:
     async def test_empty_provider_names_when_no_custom_providers(self, session):
         db_session, _factory = session
         mock_svc = _make_mock_svc()
-        options = await _build_options(mock_svc, db_session)
+        options = await _build_options(mock_svc, db_session, DEFAULT_USER_ID)
 
         assert options["provider_names"] == {}
 
     async def test_disabled_models_provider_not_in_names(self, session):
         """如果供应商所有模型都被禁用，则不出现在 provider_names 中。"""
         db_session, factory = session
-        repo = CustomProviderRepository(db_session)
+        repo = CustomProviderRepository(db_session, user_id=DEFAULT_USER_ID)
         await repo.create_provider(
             display_name="All Disabled",
             discovery_format="openai",
@@ -389,6 +389,6 @@ class TestBuildOptionsProviderNames:
         await db_session.commit()
 
         mock_svc = _make_mock_svc()
-        options = await _build_options(mock_svc, db_session)
+        options = await _build_options(mock_svc, db_session, DEFAULT_USER_ID)
 
         assert options["provider_names"] == {}

@@ -11,6 +11,40 @@ from lib.config.env_keys import ANTHROPIC_ENV_KEYS
 from lib.config.registry import PROVIDER_REGISTRY
 from lib.config.repository import ProviderConfigRepository, SystemSettingRepository
 from lib.db.repositories.credential_repository import CredentialRepository
+from lib.db.repositories.user_setting_repo import UserSettingRepository
+
+# 用户偏好：优先读写 user_settings，缺失时 fallback system_settings（双读过渡）
+_USER_PREFERENCE_KEYS = frozenset(
+    {
+        "default_video_backend",
+        "default_image_backend",
+        "default_image_backend_t2i",
+        "default_image_backend_i2i",
+        "default_text_backend",
+        "default_audio_backend",
+        "narration_voice",
+        "narration_speed",
+        "video_generate_audio",
+        "text_backend_simple",
+        "text_backend_complex",
+        "anthropic_api_key",
+        "anthropic_base_url",
+        "anthropic_model",
+        "anthropic_default_haiku_model",
+        "anthropic_default_opus_model",
+        "anthropic_default_sonnet_model",
+        "claude_code_subagent_model",
+    }
+)
+
+# 真正全局运行参数：仅 system_settings
+_GLOBAL_SYSTEM_KEYS = frozenset(
+    {
+        "agent_session_cleanup_delay_seconds",
+        "agent_max_concurrent_sessions",
+        "assistant_max_turns",
+    }
+)
 
 _DEFAULT_VIDEO_BACKEND = "gemini-aistudio/veo-3.1-lite-generate-preview"
 _DEFAULT_IMAGE_BACKEND = "gemini-aistudio/gemini-3.1-flash-image-preview"
@@ -64,22 +98,25 @@ assert set(_ANTHROPIC_ENV_MAP.values()) == set(ANTHROPIC_ENV_KEYS), (
 )
 
 
-async def build_anthropic_env_dict(session: AsyncSession) -> dict[str, str]:
+async def build_anthropic_env_dict(session: AsyncSession, *, user_id: str) -> dict[str, str]:
     """从 DB 读 active credential，返回 {ENV_KEY: value} dict，**不写 os.environ**。
 
     返回值由 OptionsAssembler 的凭证注入（load_provider_env_overrides）注入到
     ClaudeAgentOptions.env。
 
-    双轨期 fallback：active credential 字段为空时从 system_settings 兜底。
+    双轨期 fallback：active credential 字段为空时从用户/系统 setting 兜底。
     """
+    if not user_id:
+        raise ValueError("user_id is required for build_anthropic_env_dict")
     # 局部 import 避免循环依赖（agent_credential_repo → agent_credential model → base）
     from lib.db.repositories.agent_credential_repo import AgentCredentialRepository
 
+    svc = ConfigService(session, user_id=user_id)
     repo = AgentCredentialRepository(session)
-    cred = await repo.get_active()
+    cred = await repo.get_active(user_id)
 
     if cred is not None:
-        settings = await SystemSettingRepository(session).get_all()
+        settings = await svc.get_all_settings()
         return {
             "ANTHROPIC_API_KEY": cred.api_key or "",
             "ANTHROPIC_BASE_URL": cred.base_url or "",
@@ -92,8 +129,8 @@ async def build_anthropic_env_dict(session: AsyncSession) -> dict[str, str]:
             "CLAUDE_CODE_SUBAGENT_MODEL": cred.subagent_model or settings.get("claude_code_subagent_model", "").strip(),
         }
 
-    # 无 active credential — 回退 system_settings（双轨期兼容）
-    settings = await SystemSettingRepository(session).get_all()
+    # 无 active credential — 回退 user/system settings（双轨期兼容）
+    settings = await svc.get_all_settings()
     return {env_key: settings.get(db_key, "").strip() for db_key, env_key in _ANTHROPIC_ENV_MAP.items()}
 
 
@@ -112,9 +149,14 @@ class ProviderStatus:
 
 
 class ConfigService:
-    def __init__(self, session: AsyncSession) -> None:
-        self._provider_repo = ProviderConfigRepository(session)
+    def __init__(self, session: AsyncSession, *, user_id: str) -> None:
+        if not user_id:
+            raise ValueError("user_id is required for ConfigService")
+        self._user_id = user_id
+        self._provider_repo = ProviderConfigRepository(session, user_id=user_id)
         self._setting_repo = SystemSettingRepository(session)
+        self._user_setting_repo = UserSettingRepository(session, user_id=user_id)
+        self._user_settings_cache: dict[str, str] | None = None
 
     async def get_provider_config(self, provider: str) -> dict[str, str]:
         self._validate_provider(provider)
@@ -150,7 +192,7 @@ class ConfigService:
 
     async def get_all_providers_status(self) -> list[ProviderStatus]:
         all_configured = await self._provider_repo.get_all_configured_keys_bulk()
-        cred_repo = CredentialRepository(self._provider_repo.session)
+        cred_repo = CredentialRepository(self._provider_repo.session, user_id=self._user_id)
         active_creds = await cred_repo.get_active_credentials_bulk()
         statuses = []
         for name, meta in PROVIDER_REGISTRY.items():
@@ -193,18 +235,41 @@ class ConfigService:
         self._validate_provider(provider)
         return await self._provider_repo.get_all_masked(provider)
 
+    async def _load_user_settings(self) -> dict[str, str]:
+        if self._user_settings_cache is None:
+            self._user_settings_cache = await self._user_setting_repo.get_all()
+        return self._user_settings_cache
+
     async def get_setting(self, key: str, default: str = "") -> str:
+        if key in _GLOBAL_SYSTEM_KEYS:
+            return await self._setting_repo.get(key, default)
+        user_settings = await self._load_user_settings()
+        if key in user_settings:
+            return user_settings[key]
+        if key in _USER_PREFERENCE_KEYS:
+            return await self._setting_repo.get(key, default)
         return await self._setting_repo.get(key, default)
 
     async def get_all_settings(self) -> dict[str, str]:
-        """Get all system settings in a single query."""
-        return await self._setting_repo.get_all()
+        """合并用户偏好与系统设置（用户覆盖 > 系统 fallback）。"""
+        system = await self._setting_repo.get_all()
+        user = await self._load_user_settings()
+        merged = dict(system)
+        for key in _USER_PREFERENCE_KEYS:
+            if key in user:
+                merged[key] = user[key]
+        return merged
 
     async def set_setting(self, key: str, value: str) -> None:
-        await self._setting_repo.set(key, value)
+        if key in _GLOBAL_SYSTEM_KEYS:
+            await self._setting_repo.set(key, value)
+            return
+        await self._user_setting_repo.set(key, value)
+        if self._user_settings_cache is not None:
+            self._user_settings_cache[key] = value
 
     async def get_default_video_backend(self) -> tuple[str, str]:
-        raw = await self._setting_repo.get("default_video_backend", _DEFAULT_VIDEO_BACKEND)
+        raw = await self.get_setting("default_video_backend", _DEFAULT_VIDEO_BACKEND)
         return self._parse_backend(raw, _DEFAULT_VIDEO_BACKEND)
 
     async def get_default_image_backend(self) -> tuple[str, str]:
@@ -214,7 +279,7 @@ class ConfigService:
         与 resolver._resolve_default_image_backend 语义一致：新 key 存在但为空 = 显式清空，
         不再回退 legacy；新 key 不存在才尝试 legacy。
         """
-        settings = await self._setting_repo.get_all()
+        settings = await self.get_all_settings()
         if "default_image_backend_t2i" in settings:
             raw = settings["default_image_backend_t2i"]
         else:
@@ -222,22 +287,22 @@ class ConfigService:
         return self._parse_backend(raw or _DEFAULT_IMAGE_BACKEND, _DEFAULT_IMAGE_BACKEND)
 
     async def get_default_text_backend(self) -> tuple[str, str]:
-        raw = await self._setting_repo.get("default_text_backend", _DEFAULT_TEXT_BACKEND)
+        raw = await self.get_setting("default_text_backend", _DEFAULT_TEXT_BACKEND)
         return self._parse_backend(raw, _DEFAULT_TEXT_BACKEND)
 
     async def get_default_audio_backend(self) -> tuple[str, str]:
-        raw = await self._setting_repo.get("default_audio_backend", _DEFAULT_AUDIO_BACKEND)
+        raw = await self.get_setting("default_audio_backend", _DEFAULT_AUDIO_BACKEND)
         return self._parse_backend(raw, _DEFAULT_AUDIO_BACKEND)
 
     async def get_narration_voice(self) -> str:
         # 空白 setting 视为未配置，与项目级覆盖的 strip 语义一致，避免空音色进 TTS 请求
-        raw = await self._setting_repo.get("narration_voice", "")
+        raw = await self.get_setting("narration_voice", "")
         voice = raw.strip()
         return voice or _DEFAULT_NARRATION_VOICE
 
     async def get_narration_speed(self) -> float | None:
         """旁白语速（全局 setting）。未设置/损坏值返回 None，由各 audio backend 按自身能力处理。"""
-        raw = await self._setting_repo.get("narration_speed", "")
+        raw = await self.get_setting("narration_speed", "")
         return self.parse_narration_speed(raw)
 
     @staticmethod

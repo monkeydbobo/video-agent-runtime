@@ -257,7 +257,7 @@ class _CursorCapturingService:
         self.captured_after = None
         self.meta = make_session_meta(id=SESSION_ID, status="idle", project_name=PROJECT)
 
-    async def get_session(self, session_id):
+    async def get_session(self, session_id, *, user_id=None):
         return self.meta if session_id == SESSION_ID else None
 
     async def stream_entry_events(self, session_id, *, meta=None, request=None, after_seq=-1):

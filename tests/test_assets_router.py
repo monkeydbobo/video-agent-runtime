@@ -199,7 +199,7 @@ class TestFromProject:
         )
         assert r.status_code == 200, r.text
         ip = r.json()["asset"]["image_path"]
-        assert ip and ip.startswith("_global_assets/character/")
+        assert ip and ip.startswith("users/default/assets/character/")
         # 落盘文件与源文件相同字节
         assert (pm.projects_root / ip).read_bytes() == b"img"
 

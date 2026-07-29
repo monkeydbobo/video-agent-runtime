@@ -1,10 +1,3 @@
-/**
- * API 调用封装 (TypeScript)
- *
- * Typed API layer for all backend endpoints.
- * Import: import { API } from '@/api';
- */
-
 import type {
   ProjectData,
   ProjectSummary,
@@ -66,6 +59,12 @@ import type {
   UpdateAgentCredentialRequest,
 } from "@/types/agent-credential";
 import { getToken, clearToken } from "@/utils/auth";
+import {
+  ensureProjectMediaToken as fetchProjectMediaToken,
+  getGlobalAssetUrlSync,
+  getProjectFileUrlSync,
+  resolveAssetImageUrl,
+} from "@/lib/mediaUrl";
 import i18n from "./i18n";
 
 // ==================== Helper types ====================
@@ -952,12 +951,12 @@ class API {
     path: string,
     cacheBust?: number | string | null
   ): string {
-    const base = `${API_BASE}/files/${encodeURIComponent(projectName)}/${path}`;
-    if (cacheBust == null || cacheBust === "") {
-      return base;
-    }
+    return getProjectFileUrlSync(projectName, path, cacheBust);
+  }
 
-    return `${base}?v=${encodeURIComponent(String(cacheBust))}`;
+  /** 预取项目级 media_token（进入项目时调用）。 */
+  static ensureProjectMediaToken(projectName: string): Promise<string | null> {
+    return fetchProjectMediaToken(projectName);
   }
 
   // ==================== Source 文件管理 ====================
@@ -2073,14 +2072,18 @@ class API {
     });
   }
 
-  static getGlobalAssetUrl(path: string | null, fp?: string | null): string | null {
-    if (!path) return null;
-    const parts = path.split("/");
-    if (parts.length < 3 || parts[0] !== "_global_assets") return null;
-    const type = parts[1];
-    const filename = parts.slice(2).join("/");
-    const qs = fp ? `?fp=${encodeURIComponent(fp)}` : "";
-    return `${API_BASE}/global-assets/${type}/${filename}${qs}`;
+  static getGlobalAssetUrl(path: string | null, fp?: string | null, mediaToken?: string | null): string | null {
+    return getGlobalAssetUrlSync(path, fp, mediaToken);
+  }
+
+  /** 解析资产 API 响应中的 image_url + media_token。 */
+  static resolveAssetImageUrl(asset: {
+    image_path: string | null;
+    image_url?: string | null;
+    media_token?: string | null;
+    updated_at?: string | null;
+  }): string | null {
+    return resolveAssetImageUrl(asset);
   }
 
   // ==================== Reference-to-Video API ====================

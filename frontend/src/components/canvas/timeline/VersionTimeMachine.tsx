@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, History } from "lucide-react";
 import { API, type VersionInfo } from "@/api";
+import { PrivateMediaImg, PrivateMediaVideo } from "@/components/ui/PrivateMedia";
 import { useAppStore } from "@/stores/app-store";
 import { useProjectsStore } from "@/stores/projects-store";
 import { errMsg } from "@/utils/async";
@@ -42,6 +43,21 @@ function getScrollParents(el: HTMLElement): HTMLElement[] {
   return parents;
 }
 
+function resolveVersionPreviewUrl(fileUrl: string | undefined): string | null {
+  if (!fileUrl) return null;
+  try {
+    const url = new URL(fileUrl, "http://local");
+    const pathMatch = url.pathname.match(/\/api\/v1\/files\/([^/]+)\/(.+)/);
+    if (!pathMatch) return fileUrl;
+    const project = decodeURIComponent(pathMatch[1]);
+    const relPath = pathMatch[2];
+    const cacheBust = url.searchParams.get("v");
+    return API.getFileUrl(project, relPath, cacheBust);
+  } catch {
+    return fileUrl;
+  }
+}
+
 export function VersionTimeMachine({
   projectName,
   resourceType,
@@ -70,6 +86,15 @@ export function VersionTimeMachine({
   const [loadedOnce, setLoadedOnce] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
   const [restoringVersion, setRestoringVersion] = useState<number | null>(null);
+
+  const selectedInfo =
+    selectedVersion != null
+      ? versions.find((v) => v.version === selectedVersion) ?? null
+      : null;
+  const selectedPreviewUrl = useMemo(
+    () => resolveVersionPreviewUrl(selectedInfo?.file_url),
+    [selectedInfo?.file_url],
+  );
 
   // Reset version list when the underlying resource changes so it's re-fetched
   // on next open. Do NOT close the panel — if it's open and a new generation
@@ -192,12 +217,6 @@ export function VersionTimeMachine({
   }, [open, close, computeTop]);
 
   if (!resourceId) return null;
-
-  // Derive the selected version's full info from the latest `versions` array
-  const selectedInfo =
-    selectedVersion != null
-      ? versions.find((v) => v.version === selectedVersion) ?? null
-      : null;
 
   return (
     <div>
@@ -334,11 +353,10 @@ export function VersionTimeMachine({
                     </div>
 
                     {/* Media preview */}
-                    {selectedInfo.file_url &&
+                    {selectedPreviewUrl &&
                       (resourceType === "videos" || resourceType === "reference_videos" ? (
-                        // eslint-disable-next-line jsx-a11y/media-has-caption -- 生成式预览视频暂无字幕源，将来如引入字幕生成则移除此 disable
-                        <video
-                          src={selectedInfo.file_url}
+                        <PrivateMediaVideo
+                          src={selectedPreviewUrl}
                           className="mb-2 w-full rounded-lg border border-gray-800 bg-black object-contain"
                           controls
                           playsInline
@@ -348,8 +366,8 @@ export function VersionTimeMachine({
                         <div
                           className={`mb-2 flex w-full items-center justify-center rounded-lg border border-gray-800 bg-gray-900/70 p-2 ${getImagePreviewHeightClass(resourceType)}`}
                         >
-                          <img
-                            src={selectedInfo.file_url}
+                          <PrivateMediaImg
+                            src={selectedPreviewUrl}
                             alt={t("version_preview_alt", { version: selectedInfo.version })}
                             className="max-h-full w-full object-contain"
                           />

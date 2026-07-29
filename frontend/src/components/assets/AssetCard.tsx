@@ -21,7 +21,7 @@ export const AssetCard = memo(AssetCardImpl);
 function AssetCardImpl({ asset, onEdit, onDelete }: Props) {
   const { t, i18n } = useTranslation("assets");
   const Icon = TYPE_ICON[asset.type];
-  const imageUrl = API.getGlobalAssetUrl(asset.image_path, asset.updated_at);
+  const imageUrl = API.resolveAssetImageUrl(asset);
   const formattedDate = asset.updated_at
     ? formatDate(asset.updated_at, i18n.language, SHORT_DATE_OPTS, "")
     : "";

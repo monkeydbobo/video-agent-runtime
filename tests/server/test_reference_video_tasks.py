@@ -12,7 +12,29 @@ from server.services.reference_video_tasks import (
     _apply_provider_constraints,
     _render_unit_prompt,
     _resolve_unit_references,
+    resolve_max_unit_duration,
 )
+
+
+async def test_resolve_max_unit_duration_resolves_as_project_owner(monkeypatch: pytest.MonkeyPatch):
+    """分组时长上限必须按项目所有者解析，不能落到 DEFAULT_USER_ID。
+
+    落到管理员分片会让分组按别人的模型上限切分 unit，与 executor 按任务所有者
+    clamp 的口径背离（该函数 docstring 声称二者同口径）。
+    """
+    captured: dict[str, object] = {}
+
+    class _StubResolver:
+        def __init__(self, _factory, *, user_id: str):
+            captured["user_id"] = user_id
+
+        async def video_capabilities_for_project(self, _project: dict) -> dict:
+            return {"max_duration": 12}
+
+    monkeypatch.setattr("server.services.reference_video_tasks.ConfigResolver", _StubResolver)
+
+    assert await resolve_max_unit_duration({"title": "T"}, user_id="alice-id") == 12
+    assert captured["user_id"] == "alice-id"
 
 
 def _load_project_and_unit(proj_dir: Path, unit_id: str) -> tuple[dict, dict]:

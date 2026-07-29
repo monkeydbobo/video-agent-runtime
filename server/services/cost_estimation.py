@@ -37,9 +37,16 @@ def _merge_breakdowns(a: CostBreakdown, b: CostBreakdown) -> CostBreakdown:
 
 
 class CostEstimationService:
-    def __init__(self, resolver: ConfigResolver, session_factory: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(
+        self,
+        resolver: ConfigResolver,
+        session_factory: async_sessionmaker[AsyncSession],
+        *,
+        user_id: str,
+    ) -> None:
         self._resolver = resolver
         self._session_factory = session_factory
+        self._user_id = user_id
 
     async def compute(
         self,
@@ -89,7 +96,7 @@ class CostEstimationService:
         # Get actual costs + 自定义供应商价格（缺则预估恒为零，需与实际记账同源预查 DB 单价）
         async with self._session_factory() as session:
             actual_by_segment = await UsageRepository(session).get_actual_costs_by_segment(project_name)
-            custom_repo = CustomProviderRepository(session)
+            custom_repo = CustomProviderRepository(session, user_id=self._user_id)
             image_price = await custom_repo.resolve_price(image_provider, image_model)
             video_price = await custom_repo.resolve_price(video_provider, video_model)
             audio_price = await custom_repo.resolve_price(audio_provider, audio_model)

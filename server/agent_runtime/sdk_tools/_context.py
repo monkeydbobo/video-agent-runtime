@@ -1,4 +1,7 @@
-"""Per-session context shared by ArcReel SDK MCP tool handlers."""
+"""Per-session context shared by ArcReel SDK MCP tool handlers.
+
+作者: wanghaobo
+"""
 
 from __future__ import annotations
 
@@ -8,6 +11,7 @@ from typing import Any
 from lib.config.resolver import ConfigResolver
 from lib.db import async_session_factory
 from lib.project_manager import ProjectManager
+from lib.project_paths import sync_lookup_project
 
 
 class ToolContext:
@@ -17,16 +21,40 @@ class ToolContext:
     to ``project_name`` via ``build_arcreel_mcp_server(project_name=...)``.
     """
 
-    def __init__(self, project_name: str, projects_root: Path, pm: ProjectManager | None = None):
+    def __init__(
+        self,
+        project_name: str,
+        projects_root: Path,
+        pm: ProjectManager | None = None,
+        *,
+        user_id: str | None = None,
+    ):
+        from lib.db.base import DEFAULT_USER_ID
+
         self.project_name = project_name
         self.projects_root = projects_root
+        self.user_id = user_id or DEFAULT_USER_ID
         # Avoid ``ProjectManager.from_cwd()`` — the server main process cwd is
         # the repo root, not ``projects/<name>/``. Tests may inject a fake pm.
         self.pm: ProjectManager = pm if pm is not None else ProjectManager(str(projects_root))
 
     @property
     def project_path(self) -> Path:
-        return self.pm.get_project_path(self.project_name)
+        self.ensure_project_owned()
+        loc = sync_lookup_project(self.project_name, user_id=self.user_id)
+        if loc is not None:
+            return self.pm.get_project_path(
+                self.project_name,
+                user_id=loc.user_id,
+                project_id=loc.project_id,
+            )
+        return self.pm.get_project_path(self.project_name, user_id=self.user_id)
+
+    def ensure_project_owned(self) -> None:
+        """校验 closure 绑定的项目属于 ``user_id``；失败抛 PermissionError。"""
+        loc = sync_lookup_project(self.project_name, user_id=self.user_id)
+        if loc is None or loc.user_id != self.user_id:
+            raise PermissionError(f"项目 '{self.project_name}' 不属于当前用户")
 
 
 def tool_error(name: str, exc: BaseException, log: list[str] | None = None) -> dict[str, Any]:
@@ -36,7 +64,7 @@ def tool_error(name: str, exc: BaseException, log: list[str] | None = None) -> d
     return {"content": [{"type": "text", "text": text}], "is_error": True}
 
 
-async def fetch_video_caps(project: dict[str, Any]) -> tuple[int | None, list[int]]:
+async def fetch_video_caps(project: dict[str, Any], *, user_id: str) -> tuple[int | None, list[int]]:
     """Resolve ``(default_duration, supported_durations)`` for an MCP tool call.
 
     Single source of truth for video model capability lookup across SDK MCP
@@ -44,7 +72,7 @@ async def fetch_video_caps(project: dict[str, Any]) -> tuple[int | None, list[in
     Returns the raw resolved durations; callers decide whether an empty result
     is a hard error (video generation) or a soft fallback (script normalization).
     """
-    resolver = ConfigResolver(async_session_factory)
+    resolver = ConfigResolver(async_session_factory, user_id=user_id)
     caps = await resolver.video_capabilities_for_project(project)
     durations = [int(d) for d in caps.get("supported_durations") or []]
     default = caps.get("default_duration")

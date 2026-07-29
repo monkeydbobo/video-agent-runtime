@@ -28,7 +28,7 @@ function deriveStyleValue(project: Record<string, unknown>, projectName: string)
       templateId: null,
       activeCategory: "live",
       uploadedFile: null,
-      uploadedPreview: `/api/v1/files/${encodeURIComponent(projectName)}/${styleImage}`,
+      uploadedPreview: API.getFileUrl(projectName, styleImage),
     };
   }
   const effectiveId = templateId ?? DEFAULT_TEMPLATE_ID;

@@ -10,7 +10,7 @@ from lib.agent_session_store.store import DbSessionStore
 from server.agent_runtime.session_manager import SessionManager
 
 
-async def _fake_provider_env():
+async def _fake_provider_env(**_kwargs):
     """Stub: 跳过 DB 访问，返回空 dict（不影响 session_store/flush 字段断言）。"""
     return {}
 
@@ -63,7 +63,7 @@ def test_store_uses_session_factory_seam(monkeypatch, tmp_path):
 
     sentinel = object()
     sm._session_factory = sentinel  # type: ignore[attr-defined]
-    sm._user_id = "test-user"  # type: ignore[attr-defined]
+    sm.bind_user("test-user")
 
     store = sm._build_session_store()
     assert isinstance(store, DbSessionStore)

@@ -12,7 +12,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, File, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, Field
 
 from lib.asset_types import BUCKET_KEY
@@ -31,6 +31,7 @@ from lib.resource_paths import resource_relative_path
 from lib.script_editor import ScriptEditError
 from lib.version_manager import VersionManager
 from server.auth import CurrentUser
+from server.project_access import require_project_access
 from server.routers._reorder import full_permutation_error
 from server.services.generation_tasks import emit_generation_success_batch
 from server.services.reference_video_tasks import _finalize_reference_video_unit, resolve_max_unit_duration
@@ -46,6 +47,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/projects/{project_name}/reference-videos",
     tags=["reference-videos"],
+    dependencies=[Depends(require_project_access)],
 )
 
 # ============ 请求模型 ============
@@ -241,7 +243,7 @@ async def derive_units(
     project, _script, _sf = _load_episode_script(project_name, episode, _t)
     _require_ad_project(project, True, _t)
     # 供应商时长上限在锁外解析（异步 I/O 不进项目锁临界区）
-    max_unit_duration = await resolve_max_unit_duration(project)
+    max_unit_duration = await resolve_max_unit_duration(project, user_id=_user.id)
 
     with _locked_episode_script(project_name, _episode_script_resolver(episode, _t, require_ad=True), _t) as script:
         units = sync_ad_reference_units(script, episode=episode, max_unit_duration=max_unit_duration)

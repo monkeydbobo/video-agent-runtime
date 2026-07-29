@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT))
 
 from lib import config  # noqa: E402,F401  # 先初始化 config 以打破 db.repositories 的循环导入
 from lib.db import async_session_factory  # noqa: E402
+from lib.db.base import DEFAULT_USER_ID  # noqa: E402
 from lib.db.repositories.credential_repository import CredentialRepository  # noqa: E402
 from lib.image_backends.base import ImageGenerationRequest  # noqa: E402
 from lib.image_backends.grok import GrokImageBackend  # noqa: E402
@@ -71,7 +72,7 @@ SUBJECTS: dict[str, str] = {
 
 async def load_grok_api_key() -> str:
     async with async_session_factory() as session:
-        cred = await CredentialRepository(session).get_active("grok")
+        cred = await CredentialRepository(session, user_id=DEFAULT_USER_ID).get_active("grok")
     if cred is None or not cred.api_key:
         raise RuntimeError("未找到 grok 活跃凭证（provider_credential 表）")
     return cred.api_key

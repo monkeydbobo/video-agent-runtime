@@ -35,6 +35,8 @@ class CurrentUserInfo(BaseModel):
     id: str
     sub: str
     role: str = "admin"
+    # "jwt" | "apikey" | "anonymous" — used to reject elevated/self-management via API keys
+    via: str = "jwt"
 
     model_config = ConfigDict(frozen=True)
 
@@ -77,7 +79,7 @@ def _anonymous_user() -> "CurrentUserInfo":
     """关闭认证时返回的固定匿名用户。"""
     from lib.db.base import DEFAULT_USER_ID
 
-    return CurrentUserInfo(id=DEFAULT_USER_ID, sub=_ANONYMOUS_USER_SUB, role="admin")
+    return CurrentUserInfo(id=DEFAULT_USER_ID, sub=_ANONYMOUS_USER_SUB, role="admin", via="anonymous")
 
 
 # OAuth2 scheme
@@ -154,13 +156,76 @@ def verify_token(token: str) -> dict | None:
 
 
 DOWNLOAD_TOKEN_EXPIRY_SECONDS = 300  # 5 分钟
+MEDIA_TOKEN_EXPIRY_SECONDS = 300  # 5 分钟 — 禁止复用 7 天 JWT 作媒体 query token
 
 
-def create_download_token(username: str, project_name: str) -> str:
-    """签发短时效下载 token，用于浏览器原生下载认证"""
+def create_media_token(
+    user_id: str,
+    *,
+    project_name: str | None = None,
+    asset_path: str | None = None,
+    purpose: str = "media",
+    expires: int = MEDIA_TOKEN_EXPIRY_SECONDS,
+) -> str:
+    """签发短时效媒体访问 token（独立于长期登录 JWT）。"""
+    if purpose != "media":
+        raise ValueError("media token purpose 必须为 'media'")
+    if not project_name and not asset_path:
+        raise ValueError("project_name 与 asset_path 至少指定一项")
+    now = time.time()
+    payload: dict[str, str | int | float] = {
+        "uid": user_id,
+        "purpose": purpose,
+        "iat": now,
+        "exp": now + expires,
+    }
+    if project_name:
+        payload["project"] = project_name
+    if asset_path:
+        payload["asset_path"] = asset_path
+    return jwt.encode(payload, get_token_secret(), algorithm="HS256")
+
+
+def verify_media_token(
+    token: str,
+    *,
+    user_id: str | None = None,
+    project_name: str | None = None,
+    asset_path: str | None = None,
+) -> dict:
+    """验证媒体 token 的 uid / purpose / 资源范围。"""
+    if not is_auth_enabled():
+        out: dict[str, str] = {"purpose": "media"}
+        if user_id:
+            out["uid"] = user_id
+        if project_name:
+            out["project"] = project_name
+        if asset_path:
+            out["asset_path"] = asset_path
+        return out
+
+    payload = jwt.decode(token, get_token_secret(), algorithms=["HS256"])
+    if payload.get("purpose") != "media":
+        raise ValueError("token purpose 不匹配")
+    token_uid = payload.get("uid")
+    if user_id is not None and token_uid != user_id:
+        raise ValueError("token uid 不匹配")
+    if project_name is not None and payload.get("project") != project_name:
+        raise ValueError("token project 不匹配")
+    if asset_path is not None and payload.get("asset_path") != asset_path:
+        raise ValueError("token asset_path 不匹配")
+    return payload
+
+
+def create_download_token(user_id: str, project_name: str, *, username: str | None = None) -> str:
+    """签发短时效下载 token，用于浏览器原生下载认证。
+
+    ``uid`` 绑定项目属主，导出端点须与 DB 归属交叉校验。
+    """
     now = time.time()
     payload = {
-        "sub": username,
+        "uid": user_id,
+        "sub": username or user_id,
         "project": project_name,
         "purpose": "download",
         "iat": now,
@@ -169,7 +234,7 @@ def create_download_token(username: str, project_name: str) -> str:
     return jwt.encode(payload, get_token_secret(), algorithm="HS256")
 
 
-def verify_download_token(token: str, project_name: str) -> dict:
+def verify_download_token(token: str, project_name: str, *, user_id: str | None = None) -> dict:
     """验证下载 token
 
     Returns:
@@ -178,19 +243,25 @@ def verify_download_token(token: str, project_name: str) -> dict:
     Raises:
         jwt.ExpiredSignatureError: token 已过期
         jwt.InvalidTokenError: token 无效
-        ValueError: purpose 或 project 不匹配
+        ValueError: purpose / project / uid 不匹配
     """
     if not is_auth_enabled():
-        return {
+        out: dict[str, str] = {
             "sub": _ANONYMOUS_USER_SUB,
             "project": project_name,
             "purpose": "download",
         }
+        if user_id:
+            out["uid"] = user_id
+        return out
     payload = jwt.decode(token, get_token_secret(), algorithms=["HS256"])
     if payload.get("purpose") != "download":
         raise ValueError("token purpose 不匹配")
     if payload.get("project") != project_name:
         raise ValueError("token project 不匹配")
+    token_uid = payload.get("uid")
+    if user_id is not None and token_uid != user_id:
+        raise ValueError("token uid 不匹配")
     return payload
 
 
@@ -435,7 +506,29 @@ async def _verify_api_key(token: str) -> dict | None:
         except (ValueError, TypeError):
             logger.warning("API Key expires_at 值格式无法解析，忽略过期检查: %r", expires_at)
 
-    payload = {"sub": f"apikey:{row['name']}", "via": "apikey"}
+    # Resolve owner identity from users table; never default to admin.
+    from lib.db.base import DEFAULT_USER_ID
+    from lib.db.models.user import User
+
+    owner_id = str(row.get("user_id") or DEFAULT_USER_ID)
+    role = "user"
+    username = f"apikey:{row['name']}"
+    async with async_session_factory() as session:
+        user = (await session.execute(select(User).where(User.id == owner_id))).scalar_one_or_none()
+        if user is not None:
+            if not user.is_active:
+                _set_api_key_cache(key_hash, None)
+                return None
+            role = user.role or "user"
+            username = user.username
+
+    payload = {
+        "sub": username,
+        "uid": owner_id,
+        "role": role,
+        "via": "apikey",
+        "apikey_name": row["name"],
+    }
     _set_api_key_cache(key_hash, payload, expires_at_ts=expires_at_monotonic)
 
     # 异步更新 last_used_at（不阻塞，保存引用防止 GC）
@@ -483,13 +576,29 @@ async def _verify_and_get_payload_async(token: str) -> dict:
 
 
 def _payload_to_user(payload: dict) -> CurrentUserInfo:
-    """Convert a verified JWT/API-key payload to CurrentUserInfo."""
+    """Convert a verified JWT/API-key payload to CurrentUserInfo.
+
+    API Key payloads must carry explicit ``uid``/``role``; missing fields no longer
+    silently elevate to admin/default.
+    """
     from lib.db.base import DEFAULT_USER_ID
 
     sub = payload.get("sub", "")
+    via = str(payload.get("via") or "jwt")
+    if via == "apikey":
+        user_id = payload.get("uid")
+        role = payload.get("role")
+        if not user_id or not role:
+            raise HTTPException(
+                status_code=401,
+                detail="API Key 身份不完整",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return CurrentUserInfo(id=str(user_id), sub=sub, role=str(role), via="apikey")
+
     user_id = payload.get("uid", DEFAULT_USER_ID)
     role = payload.get("role", "admin")
-    return CurrentUserInfo(id=str(user_id), sub=sub, role=str(role))
+    return CurrentUserInfo(id=str(user_id), sub=sub, role=str(role), via="jwt")
 
 
 async def get_current_user(

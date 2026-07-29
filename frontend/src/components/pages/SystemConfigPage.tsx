@@ -163,6 +163,9 @@ export function SystemConfigPage() {
                 {t("dashboard:system_config_title")}
               </span>
             </h1>
+            <p className="mt-1 text-[12px] leading-[1.55] text-text-3">
+              {t("dashboard:user_settings_scope_hint")}
+            </p>
           </div>
           <button
             type="button"

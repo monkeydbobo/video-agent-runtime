@@ -19,6 +19,7 @@ async def session():
 
 async def test_provider_config_crud(session: AsyncSession):
     row = ProviderConfig(
+        user_id="default",
         provider="gemini-aistudio",
         key="api_key",
         value="AIza-test",
@@ -36,8 +37,8 @@ async def test_provider_config_crud(session: AsyncSession):
 
 
 async def test_provider_config_unique_constraint(session: AsyncSession):
-    row1 = ProviderConfig(provider="gemini-aistudio", key="api_key", value="v1", is_secret=True)
-    row2 = ProviderConfig(provider="gemini-aistudio", key="api_key", value="v2", is_secret=True)
+    row1 = ProviderConfig(user_id="default", provider="gemini-aistudio", key="api_key", value="v1", is_secret=True)
+    row2 = ProviderConfig(user_id="default", provider="gemini-aistudio", key="api_key", value="v2", is_secret=True)
     session.add(row1)
     await session.flush()
     session.add(row2)

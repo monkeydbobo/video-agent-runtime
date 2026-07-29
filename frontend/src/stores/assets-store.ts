@@ -8,6 +8,7 @@ interface AssetsStore {
   addAsset: (asset: Asset) => void;
   updateAsset: (asset: Asset) => void;
   deleteAsset: (id: string, type: AssetType) => Promise<void>;
+  reset: () => void;
 }
 
 export const useAssetsStore = create<AssetsStore>((set) => ({
@@ -33,4 +34,5 @@ export const useAssetsStore = create<AssetsStore>((set) => ({
       byType: { ...s.byType, [type]: s.byType[type].filter((a) => a.id !== id) },
     }));
   },
+  reset: () => set({ byType: { character: [], scene: [], prop: [] } }),
 }));

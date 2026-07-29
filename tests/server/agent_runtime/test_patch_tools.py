@@ -12,6 +12,7 @@ from typing import Any
 
 import pytest
 
+from lib.db.base import DEFAULT_USER_ID
 from lib.project_manager import ProjectManager
 from server.agent_runtime.sdk_tools._context import ToolContext
 from server.agent_runtime.sdk_tools.patch_episode_meta import patch_episode_meta_tool
@@ -974,7 +975,7 @@ class TestPatchProjectNarrationSettings:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         try:
-            resolver = ConfigResolver(async_sessionmaker(engine, expire_on_commit=False))
+            resolver = ConfigResolver(async_sessionmaker(engine, expire_on_commit=False), user_id=DEFAULT_USER_ID)
             assert await resolver.resolve_narration_voice(project) == "Ethan"
             assert await resolver.resolve_narration_speed(project) == 1.2
         finally:

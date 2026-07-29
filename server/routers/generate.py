@@ -11,7 +11,7 @@
 
 import asyncio
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from lib.api_errors import BadRequestError, NotFoundError
@@ -27,9 +27,10 @@ from lib.storyboard_sequence import (
     get_storyboard_items,
 )
 from server.auth import CurrentUser
+from server.project_access import require_project_access
 from server.services.image_edit_tasks import EDITABLE_RESOURCE_TYPES, resolve_current_image_rel
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_project_access)])
 
 # ==================== 请求模型 ====================
 
@@ -214,7 +215,7 @@ async def generate_video(
 # ==================== 旁白配音（TTS）生成 ====================
 
 
-async def _require_audio_provider_configured(project: dict) -> str:
+async def _require_audio_provider_configured(project: dict, *, user_id: str) -> str:
     """未配置任何 audio 供应商时直接 400，让用户在生成入口就看到清晰提示。
 
     解析失败（无全局默认且 auto-resolve 找不到 ready 的 audio 供应商）即视为未配置；
@@ -224,7 +225,7 @@ async def _require_audio_provider_configured(project: dict) -> str:
     from lib.db import async_session_factory
 
     try:
-        resolved = await ConfigResolver(async_session_factory).resolve_audio_backend(project, None)
+        resolved = await ConfigResolver(async_session_factory, user_id=user_id).resolve_audio_backend(project, None)
     except ValueError:
         raise BadRequestError("audio_provider_not_configured")
     return resolved.provider_id
@@ -292,7 +293,7 @@ async def generate_tts(
     if not _narration_text(segment):
         raise BadRequestError("tts_novel_text_missing", segment_id=segment_id)
 
-    provider_id = await _require_audio_provider_configured(project)
+    provider_id = await _require_audio_provider_configured(project, user_id=_user.id)
 
     result = await _enqueue_tts_segment(
         project_name=project_name,
@@ -341,7 +342,7 @@ async def generate_tts_batch(
     if not missing_ids:
         return {"success": True, "task_ids": [], "deduped": False, "message": _t("tts_batch_none_missing")}
 
-    provider_id = await _require_audio_provider_configured(project)
+    provider_id = await _require_audio_provider_configured(project, user_id=_user.id)
 
     task_ids: list[str] = []
     deduped_flags: list[bool] = []
@@ -505,7 +506,7 @@ async def generate_product(
 # ==================== 图片指令式编辑（image edit） ====================
 
 
-async def _require_i2i_image_provider_configured(project: dict) -> str:
+async def _require_i2i_image_provider_configured(project: dict, *, user_id: str) -> str:
     """项目 i2i 槽解析不出可用供应商时直接 400，不创建任务。
 
     图片编辑必然 i2i 且入队即知（唯一例外，见 ``docs/adr/0001`` 与 CONTEXT.md「图片编辑」），
@@ -515,7 +516,9 @@ async def _require_i2i_image_provider_configured(project: dict) -> str:
     from lib.db import async_session_factory
 
     try:
-        resolved = await ConfigResolver(async_session_factory).resolve_image_backend(project, None, capability="i2i")
+        resolved = await ConfigResolver(async_session_factory, user_id=user_id).resolve_image_backend(
+            project, None, capability="i2i"
+        )
     except ValueError:
         raise BadRequestError("image_edit_i2i_unavailable")
     return resolved.provider_id
@@ -560,7 +563,7 @@ async def edit_image(
 
     project = await asyncio.to_thread(_sync)
 
-    provider_id = await _require_i2i_image_provider_configured(project)
+    provider_id = await _require_i2i_image_provider_configured(project, user_id=_user.id)
 
     # 结构校验 + 构造经单一守卫点（与 SDK 入队同源，规则不分叉）
     spec = TaskSpec.from_request(

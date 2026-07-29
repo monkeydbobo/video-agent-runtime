@@ -4,7 +4,15 @@ from types import SimpleNamespace
 import pytest
 
 from lib.api_errors import BadRequestError, NotFoundError
+from server.auth import CurrentUserInfo
 from server.routers import project_events as project_events_router
+
+# SSE 订阅前的归属校验需要身份与 Translator；本文件聚焦流式行为，用管理员身份放行。
+_ADMIN = CurrentUserInfo(id="default", sub="testuser", role="admin")
+
+
+def _t(key: str, **_kwargs) -> str:
+    return key
 
 
 class _FakeRequest:
@@ -26,7 +34,7 @@ class _FakeRequest:
 
 
 class _FakePM:
-    def get_project_path(self, project_name: str):
+    def get_project_path(self, project_name: str, *, user_id=None, project_id=None):
         return f"/projects/{project_name}"
 
 
@@ -72,7 +80,7 @@ async def test_project_events_service_raises_not_found_when_project_missing():
     """项目不存在(FileNotFoundError)-> NotFoundError,须在流开始前抛出。"""
 
     class _MissingPM:
-        def get_project_path(self, project_name: str):
+        def get_project_path(self, project_name: str, *, user_id=None, project_id=None):
             raise FileNotFoundError(project_name)
 
     service = SimpleNamespace(pm=_MissingPM())
@@ -80,7 +88,7 @@ async def test_project_events_service_raises_not_found_when_project_missing():
     request = _FakeRequest(app)
 
     with pytest.raises(NotFoundError):
-        await project_events_router._project_events_service("missing", request)
+        await project_events_router._project_events_service("missing", request, _ADMIN, _t)
 
 
 @pytest.mark.asyncio
@@ -88,7 +96,7 @@ async def test_project_events_service_raises_bad_request_for_invalid_project_nam
     """非法项目名(路径穿越等,ValueError)-> BadRequestError,而非「不存在」。"""
 
     class _InvalidNamePM:
-        def get_project_path(self, project_name: str):
+        def get_project_path(self, project_name: str, *, user_id=None, project_id=None):
             raise ValueError(project_name)
 
     service = SimpleNamespace(pm=_InvalidNamePM())
@@ -96,7 +104,7 @@ async def test_project_events_service_raises_bad_request_for_invalid_project_nam
     request = _FakeRequest(app)
 
     with pytest.raises(BadRequestError):
-        await project_events_router._project_events_service("../etc", request)
+        await project_events_router._project_events_service("../etc", request, _ADMIN, _t)
 
 
 @pytest.mark.asyncio
@@ -105,7 +113,7 @@ async def test_stream_project_events_emits_snapshot_and_changes():
     app = SimpleNamespace(state=SimpleNamespace(project_event_service=service))
     request = _FakeRequest(app)
 
-    resolved = await project_events_router._project_events_service("demo", request)
+    resolved = await project_events_router._project_events_service("demo", request, _ADMIN, _t)
     assert resolved is service
 
     stream = project_events_router.stream_project_events("demo", request, _user={"sub": "testuser"}, service=service)

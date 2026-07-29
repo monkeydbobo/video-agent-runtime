@@ -13,6 +13,7 @@ import math
 import os
 import shutil
 import tempfile
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal
@@ -33,6 +34,7 @@ from lib.api_errors import ApiError, BadRequestError
 from lib.asset_fingerprints import compute_asset_fingerprints
 from lib.config.resolver import ConfigResolver
 from lib.db import async_session_factory
+from lib.db.repositories.project_repo import ProjectRepository
 from lib.i18n import Translator
 from lib.profile_manifest import ContentMode
 from lib.project_change_hints import project_change_source
@@ -44,6 +46,7 @@ from server.project_access import (
     accessible_project_names,
     ensure_project_access,
     get_ownership_map,
+    get_project_owner,
     is_admin,
     register_project_owner,
     require_project_access_by_name,
@@ -51,6 +54,51 @@ from server.project_access import (
 )
 from server.routers._reorder import full_permutation_error
 from server.routers._validators import validate_backend_value
+
+
+async def _verify_export_download_token(download_token: str, project_name: str, _t: Translator) -> None:
+    """校验 download_token 的 purpose/project/uid 与项目 DB 属主一致（async 路由用）。"""
+    _verify_export_download_token_payload(download_token, project_name, _t)
+    owner = await get_project_owner(project_name)
+    _assert_download_token_owner(download_token, project_name, owner, _t)
+
+
+def _verify_export_download_token_payload(download_token: str, project_name: str, _t: Translator) -> dict:
+    """校验 JWT 签名与 purpose/project；返回 payload。"""
+    import jwt as pyjwt
+
+    try:
+        return verify_download_token(download_token, project_name)
+    except pyjwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail=_t("download_expired")) from None
+    except ValueError:
+        raise HTTPException(status_code=403, detail=_t("download_token_mismatch")) from None
+    except pyjwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail=_t("download_token_invalid")) from None
+
+
+def _assert_download_token_owner(
+    download_token: str,
+    project_name: str,
+    owner: str | None,
+    _t: Translator,
+) -> None:
+    payload = verify_download_token(download_token, project_name)
+    token_uid = payload.get("uid")
+    if owner is not None and token_uid != owner:
+        raise HTTPException(status_code=403, detail=_t("download_token_mismatch"))
+
+
+def _verify_export_download_token_sync(download_token: str, project_name: str, _t: Translator) -> None:
+    """同步导出端点用：JWT + sync DB 归属交叉校验。"""
+    _verify_export_download_token_payload(download_token, project_name, _t)
+    from lib.project_paths import sync_lookup_project
+
+    loc = sync_lookup_project(project_name)
+    owner = loc.user_id if loc is not None else None
+    _assert_download_token_owner(download_token, project_name, owner, _t)
+
+
 from server.services.project_archive import (
     ProjectArchiveService,
     ProjectArchiveValidationError,
@@ -265,8 +313,7 @@ async def create_export_token(
             return get_archive_service().get_export_diagnostics(name, scope=scope)
 
         diagnostics = await asyncio.to_thread(_sync)
-        username = current_user.sub
-        download_token = create_download_token(username, name)
+        download_token = create_download_token(current_user.id, name, username=current_user.sub)
         return {
             "download_token": download_token,
             "expires_in": 300,
@@ -290,17 +337,8 @@ async def export_project_archive(
     if scope not in ("full", "current"):
         raise HTTPException(status_code=422, detail=_t("scope_invalid"))
 
-    # 验证 download_token
-    import jwt as pyjwt
-
-    try:
-        verify_download_token(download_token, name)
-    except pyjwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail=_t("download_expired"))
-    except ValueError:
-        raise HTTPException(status_code=403, detail=_t("download_token_mismatch"))
-    except pyjwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail=_t("download_token_invalid"))
+    # 验证 download_token（含 uid 与项目属主交叉校验）
+    await _verify_export_download_token(download_token, name, _t)
 
     try:
         archive_path, download_name = await asyncio.to_thread(
@@ -351,17 +389,7 @@ def export_jianying_draft(
     jianying_version: str = Query("6", description="剪映版本：6 或 5"),
 ):
     """导出指定集的剪映草稿 ZIP"""
-    import jwt as pyjwt
-
-    # 1. 验证 download_token
-    try:
-        verify_download_token(download_token, name)
-    except pyjwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail=_t("download_expired"))
-    except ValueError:
-        raise HTTPException(status_code=403, detail=_t("download_token_mismatch"))
-    except pyjwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail=_t("download_token_invalid"))
+    _verify_export_download_token_sync(download_token, name, _t)
 
     # 2. 校验 draft_path
     draft_path = _validate_draft_path(draft_path, _t)
@@ -488,6 +516,8 @@ async def create_project(
     _t: Translator,
 ):
     """创建新项目"""
+    user_id = _user.id
+    project_id = str(uuid.uuid4())
     try:
 
         def _sync():
@@ -540,7 +570,12 @@ async def create_project(
                     validate_backend_value(value, field_name, _t)
 
             try:
-                manager.create_project(project_name, content_mode=req.content_mode or "narration")
+                manager.create_project(
+                    project_name,
+                    content_mode=req.content_mode or "narration",
+                    user_id=user_id,
+                    project_id=project_id,
+                )
             except FileExistsError:
                 raise HTTPException(status_code=400, detail=_t("project_exists", name=project_name))
             extras = {
@@ -577,7 +612,9 @@ async def create_project(
             return {"success": True, "name": project_name, "project": project}
 
         result = await asyncio.to_thread(_sync)
-        await register_project_owner(result["name"], _user)
+        async with async_session_factory() as session:
+            async with session.begin():
+                await ProjectRepository(session).create(result["name"], user_id, project_id=project_id)
         return result
     except ValueError as e:
         # 项目名 / source_kind / duration / brief 等配置校验失败，str(e) 只进日志
@@ -602,7 +639,7 @@ async def get_video_capabilities(
     并派生 `max_duration`；同时带回 `project.json.default_duration`（用户偏好）。
     所有 generation_mode（storyboard/grid/reference_video）都可复用。
     """
-    resolver = ConfigResolver(async_session_factory)
+    resolver = ConfigResolver(async_session_factory, user_id=_user.id)
     try:
         return await resolver.video_capabilities(name)
     except FileNotFoundError as exc:
@@ -848,15 +885,16 @@ async def update_project(name: str, req: UpdateProjectRequest, _user: CurrentUse
 
 @router.delete("/projects/{name}", dependencies=[Depends(require_project_access_by_name)])
 async def delete_project(name: str, _user: CurrentUser, _t: Translator):
-    """删除项目"""
+    """删除项目（属主范围；admin 可跨用户删除）。"""
     try:
+        scoped_user_id = None if is_admin(_user) else _user.id
 
         def _sync():
-            get_project_manager().delete_project_directory(name)
+            get_project_manager().delete_project_directory(name, user_id=scoped_user_id)
             return {"success": True, "message": _t("project_deleted", name=name)}
 
         result = await asyncio.to_thread(_sync)
-        await unregister_project(name)
+        await unregister_project(name, user_id=scoped_user_id)
         return result
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=_t("project_not_found", name=name))
@@ -1305,7 +1343,7 @@ async def set_project_source(
         if generate_overview:
             try:
                 with project_change_source("webui"):
-                    overview = await manager.generate_overview(name)
+                    overview = await manager.generate_overview(name, user_id=_user.id)
                 result["overview"] = overview
             except Exception as ov_err:
                 # 概览生成是上传的可选后续步骤，失败仅降级回传提示、不影响上传成功。
@@ -1350,7 +1388,7 @@ async def generate_overview(name: str, _user: CurrentUser, _t: Translator):
         raise HTTPException(status_code=500, detail=_t("internal_server_error"))
     try:
         with project_change_source("webui"):
-            overview = await get_project_manager().generate_overview(name)
+            overview = await get_project_manager().generate_overview(name, user_id=_user.id)
         return {"success": True, "overview": overview}
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=_t("project_not_found", name=name))

@@ -91,23 +91,31 @@ class TestEnsureProjectAccess:
             await project_access.ensure_project_access("alice-proj", BOB, _t)
         assert exc_info.value.status_code == 404
 
-    async def test_legacy_project_shared_with_all_users(self, project_ownership_db):
-        """无归属记录 / default 归属的存量项目对全体认证用户开放。"""
+    async def test_legacy_and_default_projects_not_shared(self, project_ownership_db):
+        """无归属记录 / default 归属不再对全体用户共享；仅属主或 admin 可访问。"""
         default_user = CurrentUserInfo(id=DEFAULT_USER_ID, sub="local", role="user")
-        await project_access.ensure_project_access("legacy-proj", default_user, _t)
-        await project_access.ensure_project_access("legacy-proj", ALICE, _t)
-        await project_access.ensure_project_access("legacy-proj", BOB, _t)
-        await _seed(project_ownership_db, "shared-proj", DEFAULT_USER_ID)
-        await project_access.ensure_project_access("shared-proj", ALICE, _t)
+        with pytest.raises(HTTPException) as exc_info:
+            await project_access.ensure_project_access("legacy-proj", default_user, _t)
+        assert exc_info.value.status_code == 404
+        with pytest.raises(HTTPException):
+            await project_access.ensure_project_access("legacy-proj", ALICE, _t)
+
+        await _seed(project_ownership_db, "admin-owned", DEFAULT_USER_ID)
+        await project_access.ensure_project_access("admin-owned", default_user, _t)
+        with pytest.raises(HTTPException):
+            await project_access.ensure_project_access("admin-owned", ALICE, _t)
+        # admin 仍可运维
+        await project_access.ensure_project_access("admin-owned", ADMIN, _t)
 
     async def test_accessible_project_names(self, project_ownership_db):
         await _seed(project_ownership_db, "alice-proj", "alice-id")
         await _seed(project_ownership_db, "bob-proj", "bob-id")
-        names = ["alice-proj", "bob-proj", "legacy-proj"]
+        await _seed(project_ownership_db, "admin-proj", DEFAULT_USER_ID)
+        names = ["alice-proj", "bob-proj", "admin-proj", "unknown"]
         assert await project_access.accessible_project_names(names, ADMIN) == names
-        assert await project_access.accessible_project_names(names, ALICE) == ["alice-proj", "legacy-proj"]
+        assert await project_access.accessible_project_names(names, ALICE) == ["alice-proj"]
         default_user = CurrentUserInfo(id=DEFAULT_USER_ID, sub="local", role="user")
-        assert await project_access.accessible_project_names(names, default_user) == ["legacy-proj"]
+        assert await project_access.accessible_project_names(names, default_user) == ["admin-proj"]
 
     async def test_reconcile_registers_missing_and_is_idempotent(self, project_ownership_db):
         await _seed(project_ownership_db, "known", "alice-id")
@@ -156,7 +164,7 @@ class _IsolationPM:
     def generate_project_name(self, title):
         return f"gen-{title}"
 
-    def create_project(self, name, content_mode="narration"):
+    def create_project(self, name, content_mode="narration", **kwargs):
         if name in self.data:
             raise FileExistsError(name)
         self._add(name)
@@ -166,7 +174,7 @@ class _IsolationPM:
         self.data[name] = {"title": title, "style": style, "episodes": []}
         return self.data[name]
 
-    def delete_project_directory(self, name):
+    def delete_project_directory(self, name, *, user_id=None):
         if name not in self.data:
             raise FileNotFoundError(name)
         del self.data[name]
@@ -265,13 +273,13 @@ class TestTaskScope:
     async def test_admin_unscoped(self, project_ownership_db):
         from server.routers.tasks import _resolve_task_scope
 
-        assert await _resolve_task_scope(ADMIN, None, _t) == (None, None)
+        assert await _resolve_task_scope(ADMIN, None, _t) == (None, None, None)
 
     async def test_project_name_guarded(self, project_ownership_db):
         from server.routers.tasks import _resolve_task_scope
 
         await _seed(project_ownership_db, "alice-proj", "alice-id")
-        assert await _resolve_task_scope(ALICE, "alice-proj", _t) == ("alice-proj", None)
+        assert await _resolve_task_scope(ALICE, "alice-proj", _t) == ("alice-proj", None, "alice-id")
         with pytest.raises(HTTPException):
             await _resolve_task_scope(BOB, "alice-proj", _t)
 
@@ -286,9 +294,10 @@ class TestTaskScope:
         await _seed(project_ownership_db, "alice-proj", "alice-id")
         await _seed(project_ownership_db, "bob-proj", "bob-id")
 
-        name, names = await tasks_module._resolve_task_scope(ALICE, None, _t)
+        name, names, user_id = await tasks_module._resolve_task_scope(ALICE, None, _t)
         assert name is None
         assert names == ["alice-proj"]
+        assert user_id == "alice-id"
 
 
 # ---------------------------------------------------------------------------
@@ -339,3 +348,159 @@ class TestArchiveOverwriteGuard:
             can_replace=None,
         )
         assert (name, resolution) == ("old", "overwritten")
+
+
+# ---------------------------------------------------------------------------
+# Task / Usage / Session 跨用户隔离
+# ---------------------------------------------------------------------------
+
+
+class TestResourceClosure:
+    async def _seed_task(self, factory, *, user_id: str, project_name: str) -> None:
+        from lib.db.repositories.task_repo import TaskRepository
+
+        async with factory() as session:
+            await TaskRepository(session).enqueue(
+                project_name=project_name,
+                task_type="storyboard",
+                media_type="image",
+                resource_id="seg-1",
+                user_id=user_id,
+            )
+
+    async def _seed_api_call(self, factory, *, user_id: str, project_name: str) -> None:
+        from lib.db.repositories.usage_repo import UsageRepository
+
+        async with factory() as session:
+            await UsageRepository(session).start_call(
+                project_name=project_name,
+                call_type="text",
+                model="test",
+                provider="anthropic",
+                user_id=user_id,
+            )
+
+    async def _seed_session(self, factory, *, user_id: str, project_name: str, session_id: str) -> None:
+        from lib.db.repositories.session_repo import SessionRepository
+
+        async with factory() as session:
+            await SessionRepository(session).create(
+                project_name=project_name,
+                sdk_session_id=session_id,
+                user_id=user_id,
+            )
+
+    async def test_bob_cannot_list_alice_tasks(self, project_ownership_db, monkeypatch):
+        factory = project_ownership_db
+        await _seed(factory, "alice-proj", "alice-id")
+        await self._seed_task(factory, user_id="alice-id", project_name="alice-proj")
+
+        from server.routers import tasks as tasks_module
+
+        class _PM:
+            def list_projects(self):
+                return ["alice-proj"]
+
+        monkeypatch.setattr(tasks_module, "get_project_manager", lambda: _PM())
+
+        import lib.generation_queue as gq
+
+        queue = gq.GenerationQueue(session_factory=factory)
+        monkeypatch.setattr(gq, "_QUEUE_INSTANCE", queue)
+        monkeypatch.setattr(tasks_module, "get_task_queue", lambda: queue)
+
+        name, names, user_id = await tasks_module._resolve_task_scope(BOB, None, _t)
+        assert name is None
+        assert names == []
+        assert user_id == "bob-id"
+
+        queue = tasks_module.get_task_queue()
+        result = await queue.list_tasks(user_id="bob-id", project_names=[])
+        assert result["total"] == 0
+
+    async def test_bob_cannot_access_alice_task_by_id(self, project_ownership_db, monkeypatch):
+        factory = project_ownership_db
+        await _seed(factory, "alice-proj", "alice-id")
+        await self._seed_task(factory, user_id="alice-id", project_name="alice-proj")
+
+        import lib.generation_queue as generation_queue_module
+        from server.routers import tasks as tasks_module
+
+        queue = generation_queue_module.GenerationQueue(session_factory=factory)
+        monkeypatch.setattr(generation_queue_module, "_QUEUE_INSTANCE", queue)
+        monkeypatch.setattr(tasks_module, "get_task_queue", lambda: queue)
+
+        from lib.db.repositories.task_repo import TaskRepository
+
+        async with factory() as session:
+            row = await TaskRepository(session).list_tasks(user_id="alice-id")
+        task_id = row["items"][0]["task_id"]
+
+        from lib.api_errors import NotFoundError
+
+        with pytest.raises(NotFoundError):
+            await tasks_module._ensure_task_access(task_id, BOB, _t)
+
+    async def test_bob_cannot_list_alice_usage(self, project_ownership_db, monkeypatch):
+        factory = project_ownership_db
+        await _seed(factory, "alice-proj", "alice-id")
+        await self._seed_api_call(factory, user_id="alice-id", project_name="alice-proj")
+
+        from lib.db import async_session_factory
+        from lib.db.repositories.usage_repo import UsageRepository
+        from server.routers import usage as usage_module
+
+        class _PM:
+            def list_projects(self):
+                return ["alice-proj"]
+
+        monkeypatch.setattr(usage_module, "get_project_manager", lambda: _PM())
+
+        _, _, user_id = await usage_module._resolve_usage_scope(BOB, None, _t)
+        assert user_id == "bob-id"
+
+        async with async_session_factory() as session:
+            stats = await UsageRepository(session).get_stats(user_id="bob-id", project_names=[])
+        assert stats["total_count"] == 0
+
+    async def test_bob_cannot_get_alice_session(self, project_ownership_db):
+        factory = project_ownership_db
+        await _seed(factory, "alice-proj", "alice-id")
+        await self._seed_session(factory, user_id="alice-id", project_name="alice-proj", session_id="sess-alice")
+
+        from lib.db.repositories.session_repo import SessionRepository
+
+        async with factory() as session:
+            row = await SessionRepository(session).get("sess-alice", user_id="bob-id")
+        assert row is None
+
+    def test_generate_denied_for_non_owner_project(self, tmp_path, monkeypatch, project_ownership_db):
+        import asyncio
+
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from lib.project_manager import ProjectManager
+        from server.auth import get_current_user
+        from server.error_handlers import register_error_handlers
+        from server.routers import generate as generate_router
+
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(_seed(project_ownership_db, "alice-proj", "alice-id"))
+
+        pm = ProjectManager(tmp_path)
+        pm.create_project("alice-proj")
+
+        monkeypatch.setattr(generate_router, "get_project_manager", lambda: pm)
+
+        app = FastAPI()
+        app.dependency_overrides[get_current_user] = lambda: BOB
+        app.include_router(generate_router.router, prefix="/api/v1")
+        register_error_handlers(app)
+
+        with TestClient(app) as client:
+            resp = client.post(
+                "/api/v1/projects/alice-proj/generate/character/hero",
+                json={"prompt": "test"},
+            )
+            assert resp.status_code == 404

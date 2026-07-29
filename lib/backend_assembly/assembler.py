@@ -49,7 +49,11 @@ async def assemble_backend(
         # session_factory，调用方在 resolver.session() 内构造时复用同一连接，避免另开 factory。
         async with resolver._open_session() as (session, _):
             return await load_custom_backend(
-                session=session, provider_id=provider_id, model_id=model_id, media_type=media_type
+                session=session,
+                provider_id=provider_id,
+                model_id=model_id,
+                media_type=media_type,
+                user_id=resolver.user_id,
             )
     spec = get_provider_spec(provider_id, media_type)  # 未登记 → ValueError（fail-loud）
     config = await _load_builtin_config(resolver, provider_id, rate_limiter)

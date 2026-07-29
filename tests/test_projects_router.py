@@ -75,7 +75,7 @@ class _FakePM:
             raise FileNotFoundError(name)
         return self.project_data[name]
 
-    def get_project_path(self, name):
+    def get_project_path(self, name, *, user_id=None, project_id=None):
         if name == "illegal-name":
             raise ValueError(f"非法项目名称: '{name}'")
         path = self.base / name
@@ -83,13 +83,13 @@ class _FakePM:
             raise FileNotFoundError(name)
         return path
 
-    def delete_project_directory(self, name):
+    def delete_project_directory(self, name, *, user_id=None):
         shutil.rmtree(self.get_project_path(name))
 
     def get_project_status(self, name):
         return {"current_stage": "source_ready"}
 
-    def create_project(self, name, content_mode="narration"):
+    def create_project(self, name, content_mode="narration", *, user_id=None, project_id=None):
         if not name or not re.fullmatch(r"[A-Za-z0-9-]+", name):
             raise ValueError("项目标识仅允许英文字母、数字和中划线")
         if name == "exists":
@@ -195,7 +195,8 @@ class _FakePM:
             entry["script_file"] = f"scripts/{norm}"
             self.save_project(name, project)
 
-    async def generate_overview(self, name):
+    async def generate_overview(self, name, *, user_id):
+        assert user_id
         if name == "ready":
             return {"synopsis": "generated"}
         if name == "leaky":
@@ -1428,7 +1429,7 @@ class TestGetVideoCapabilities:
             resolver_instance.video_capabilities = AsyncMock(side_effect=side_effect)
         else:
             resolver_instance.video_capabilities = AsyncMock(return_value=return_value)
-        monkeypatch.setattr(projects, "ConfigResolver", lambda _factory: resolver_instance)
+        monkeypatch.setattr(projects, "ConfigResolver", lambda _factory, **_kwargs: resolver_instance)
         return resolver_instance
 
     def test_returns_capabilities_json(self, tmp_path, monkeypatch):

@@ -11,6 +11,7 @@ import asyncio
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import cast
 
 import pytest
@@ -19,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from lib.config.registry import PROVIDER_REGISTRY
 from lib.config.resolver import ConfigResolver, ProviderModel, get_provider_fallback
 from lib.custom_provider import make_provider_id
-from lib.db.base import Base
+from lib.db.base import DEFAULT_USER_ID, Base
 from lib.db.models.custom_provider import CustomProvider, CustomProviderModel
 from lib.media_generator import MediaGenerator
 from lib.project_manager import ProjectManager
@@ -46,6 +47,14 @@ def _registry_video_model(provider_id: str) -> str:
 class _FakeBackend:
     name: str
     model: str
+
+
+def _stub_resolver(user_id: str = DEFAULT_USER_ID) -> ConfigResolver:
+    """缓存语义测试只需 resolver 携带 user_id（backend 构造缝本身已被 fake 替换）。
+
+    缓存 key 含 user_id，故 resolver 不能再是 None。
+    """
+    return cast(ConfigResolver, SimpleNamespace(user_id=user_id))
 
 
 @pytest.fixture
@@ -336,7 +345,7 @@ class TestBackendCache:
             return backend
 
         monkeypatch.setattr(generation_context, "assemble_backend", _assemble)
-        resolver = cast(ConfigResolver, None)
+        resolver = _stub_resolver()
 
         task = asyncio.create_task(generation_context._get_or_create_video_backend("ark", {"model": "m"}, resolver))
         await entered.wait()
@@ -363,7 +372,7 @@ class TestBackendCache:
             return _FakeBackend(name=provider_id, model=model_id or "default-model")
 
         monkeypatch.setattr(generation_context, "assemble_backend", _assemble)
-        resolver = cast(ConfigResolver, None)
+        resolver = _stub_resolver()
 
         t1 = asyncio.create_task(generation_context._get_or_create_video_backend("ark", {"model": "m"}, resolver))
         t2 = asyncio.create_task(generation_context._get_or_create_video_backend("ark", {"model": "m"}, resolver))
@@ -399,7 +408,7 @@ class TestBackendCache:
             return backend
 
         monkeypatch.setattr(generation_context, "assemble_backend", _assemble)
-        resolver = cast(ConfigResolver, None)
+        resolver = _stub_resolver()
 
         leader = asyncio.create_task(generation_context._get_or_create_video_backend("ark", {"model": "m"}, resolver))
         await entered.wait()  # leader 已持锁，正在构造中途挂起

@@ -87,19 +87,29 @@ def _reset_app_data_dir_cache():
 
 
 @pytest.fixture(autouse=True)
-def project_ownership_db(monkeypatch):
-    """把项目归属守卫（server.project_access）的 DB 指向按需创建的内存 SQLite。
+def project_ownership_db(monkeypatch, tmp_path):
+    """把项目归属守卫（server.project_access）的 DB 指向按需创建的 SQLite 文件。
 
-    惰性初始化：绝大多数测试不触发归属读写，零开销；首次使用时才建引擎 +
-    create_all。测试可直接使用本 fixture 返回的 factory 断言/预置归属数据。
+    同步路径解析（lib.project_paths）与 async ORM 共用同一 ``.arcreel.db``，
+    避免测试里 sync_lookup 读到生产库旧 schema。
     """
     from contextlib import asynccontextmanager
+
+    import lib.db.models  # noqa: F401 — register ORM models before create_all
+    from lib.app_data_dir import _reset_for_tests as _reset_app_data_dir
+
+    base = tmp_path / "arcreel-data"
+    base.mkdir(parents=True, exist_ok=True)
+    db_path = base / ".arcreel.db"
+    _reset_app_data_dir()
+    monkeypatch.setenv("ARCREEL_DATA_DIR", str(base))
 
     state: dict = {}
 
     async def _ensure_factory():
         if "factory" not in state:
-            engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+            url = f"sqlite+aiosqlite:///{db_path}"
+            engine = create_async_engine(url)
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
             state["engine"] = engine
@@ -116,6 +126,8 @@ def project_ownership_db(monkeypatch):
         return _session_cm()
 
     monkeypatch.setattr("server.project_access.async_session_factory", _factory_call)
+    monkeypatch.setattr("lib.db.async_session_factory", _factory_call)
+    monkeypatch.setattr("server.routers.projects.async_session_factory", _factory_call)
     yield _factory_call
 
     engine = state.get("engine")
@@ -125,8 +137,8 @@ def project_ownership_db(monkeypatch):
         try:
             asyncio.run(engine.dispose())
         except RuntimeError:
-            # teardown 时已有运行中的 loop（如 anyio 测试内），交由 GC 兜底
             pass
+    _reset_app_data_dir()
 
 
 @pytest.fixture(autouse=True)

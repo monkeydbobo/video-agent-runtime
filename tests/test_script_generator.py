@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from lib.db.base import DEFAULT_USER_ID
 from lib.script_generator import ScriptGenerator
 from lib.script_structure_validator import ScriptStructureValidationError
 
@@ -157,7 +158,7 @@ class TestScriptGenerator:
         )
         _write_step1_json(project_path, 1, [_step1_seg("E1S01", "第一段原文，逐字保留。", duration=4)])
 
-        generator = ScriptGenerator(project_path)  # 无 client
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)  # 无 client
         prompt = await generator.build_prompt(1)
 
         assert "E1S01" in prompt
@@ -184,7 +185,7 @@ class TestScriptGenerator:
         )
         _write_step1_json(project_path, 1, [_step1_seg("E1S01", "verbatim source line.", duration=4)])
 
-        generator = ScriptGenerator(project_path)
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
         prompt = await generator.build_prompt(1)
 
         # 输出语言锁定为项目 source_language，不回落默认中文
@@ -206,7 +207,7 @@ class TestScriptGenerator:
         )
         _write(project_path / "drafts" / "episode_1" / "step1_segments.md", "其他模式中间文件")
 
-        generator = ScriptGenerator(project_path)
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
         with pytest.raises(FileNotFoundError, match="step1_normalized_script.json"):
             generator._load_step1(1)
 
@@ -218,7 +219,7 @@ class TestScriptGenerator:
             [{"episode": 1, "title": "第一集", "script_file": "scripts/episode_1.json"}],
         )
         _write(project_path / "drafts" / "episode_1" / "step1_normalized_script.json", "[]")
-        generator = ScriptGenerator(project_path)
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
         with pytest.raises(ValueError, match="顶层应为对象"):
             generator._load_drama_step1_content(1)
 
@@ -233,7 +234,7 @@ class TestScriptGenerator:
             project_path / "drafts" / "episode_1" / "step1_normalized_script.json",
             {"title": "第一集", "scenes": {}},
         )
-        generator = ScriptGenerator(project_path)
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
         with pytest.raises(ValueError, match="scenes 必须是非空"):
             generator._load_drama_step1_content(1)
 
@@ -248,7 +249,7 @@ class TestScriptGenerator:
             project_path / "drafts" / "episode_1" / "step1_normalized_script.json",
             {"title": "第一集", "scenes": []},
         )
-        generator = ScriptGenerator(project_path)
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
         with pytest.raises(ValueError, match="scenes 必须是非空"):
             generator._load_drama_step1_content(1)
 
@@ -263,7 +264,7 @@ class TestScriptGenerator:
             project_path / "drafts" / "episode_1" / "step1_normalized_script.json",
             {"title": "第一集", "scenes": [{"scene_id": "E1S01"}, 42]},
         )
-        generator = ScriptGenerator(project_path)
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
         with pytest.raises(ValueError, match="必须是场景对象"):
             generator._load_drama_step1_content(1)
 
@@ -278,7 +279,7 @@ class TestScriptGenerator:
             project_path / "drafts" / "episode_1" / "step1_normalized_script.json",
             {"title": "第一集", "scenes": [{"scene_id": ""}]},
         )
-        generator = ScriptGenerator(project_path)
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
         with pytest.raises(ValueError, match="scene_id 必须是非空字符串"):
             generator._load_drama_step1_content(1)
 
@@ -294,7 +295,7 @@ class TestScriptGenerator:
             project_path / "drafts" / "episode_2" / "step1_normalized_script.json",
             {"title": "第二集", "scenes": [{"scene_id": "E1S02_1"}, {"scene_id": "E2S02_1"}]},
         )
-        generator = ScriptGenerator(project_path)
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
         with pytest.raises(ValueError, match="改写到 episode=2 后重复"):
             generator._load_drama_step1_content(2)
 
@@ -308,7 +309,7 @@ class TestScriptGenerator:
         )
         _write_json(project_path / "drafts" / "episode_1" / "step1_normalized_script.json", _drama_step1_content())
 
-        generator = ScriptGenerator(project_path)
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
         prompt = await generator.build_prompt(1)
 
         # 已定稿内容透传进 prompt：scene_id + 视觉改编描述 + 口播（仅供理解）
@@ -337,7 +338,7 @@ class TestScriptGenerator:
         )
         _write_json(project_path / "drafts" / "episode_1" / "step1_normalized_script.json", _drama_step1_content())
 
-        generator = ScriptGenerator(project_path)
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
         prompt = await generator.build_prompt(1)
 
         # 大纲 / 钩子内容不在 step2 prompt（它们驱动 step1 内容生成，不影响 step2 视觉）
@@ -359,7 +360,7 @@ class TestScriptGenerator:
         _write_json(project_json_path, payload)
         _write_json(project_path / "drafts" / "episode_1" / "step1_normalized_script.json", _drama_step1_content())
 
-        generator = ScriptGenerator(project_path)
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
         prompt = await generator.build_prompt(1)
 
         # 输出语言锁定为项目 source_language，不回落默认中文
@@ -370,7 +371,7 @@ class TestScriptGenerator:
         project_path = tmp_path / "demo"
         _write_json(project_path / "project.json", {"title": "项目"})
 
-        generator = ScriptGenerator(project_path)
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
         with pytest.raises(ValueError):
             generator._parse_response("not-json", 1)
 
@@ -378,7 +379,7 @@ class TestScriptGenerator:
         project_path = tmp_path / "demo"
         _write_json(project_path / "project.json", {"title": "项目"})
 
-        generator = ScriptGenerator(project_path)
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
         parsed = generator._parse_response('{"foo": "bar"}', 1)
         # 校验失败降级返回原始数据；title 兜底在校验前注入，故降级结果也携带
         assert parsed == {"foo": "bar", "title": "第1集"}
@@ -405,7 +406,7 @@ class TestScriptGenerator:
         )
 
         fake = _FakeTextGenerator(json.dumps(_narration_visual_response(["E1S01"]), ensure_ascii=False))
-        generator = ScriptGenerator(project_path, generator=fake)
+        generator = ScriptGenerator(project_path, generator=fake, user_id=DEFAULT_USER_ID)
         generator._fetch_video_capabilities = _fixed_caps_468
         output = await generator.generate(1)
 
@@ -445,7 +446,7 @@ class TestScriptGenerator:
 
         # drama 两段式：step2 LLM 只出视觉层，后端按 scene_id 合并回 step1 内容
         fake = _FakeTextGenerator(json.dumps(_drama_visual_response(), ensure_ascii=False))
-        generator = ScriptGenerator(project_path, generator=fake)
+        generator = ScriptGenerator(project_path, generator=fake, user_id=DEFAULT_USER_ID)
         output = await generator.generate(1)
 
         payload = json.loads(output.read_text(encoding="utf-8"))
@@ -478,7 +479,7 @@ class TestScriptGenerator:
         _write_step1_json(project_path, 1, [_step1_seg("E1S01", "原文", duration=4)])
 
         fake = _FakeTextGenerator(json.dumps(_narration_visual_response(["E1S01"]), ensure_ascii=False))
-        generator = ScriptGenerator(project_path, generator=fake)
+        generator = ScriptGenerator(project_path, generator=fake, user_id=DEFAULT_USER_ID)
         generator._fetch_video_capabilities = _fixed_caps_468
         output = await generator.generate(1)
 
@@ -508,7 +509,7 @@ class TestScriptGenerator:
         _write_step1_json(project_path, 10, [_step1_seg("E1S01", "原文", duration=4)])
 
         fake = _FakeTextGenerator(json.dumps(_narration_visual_response(["E1S01"], title="第十集"), ensure_ascii=False))
-        generator = ScriptGenerator(project_path, generator=fake)
+        generator = ScriptGenerator(project_path, generator=fake, user_id=DEFAULT_USER_ID)
         generator._fetch_video_capabilities = _fixed_caps_468
 
         output = await generator.generate(10)
@@ -531,7 +532,7 @@ class TestScriptGenerator:
         _write_json(project_path / "drafts" / "episode_1" / "step1_normalized_script.json", _drama_step1_content())
 
         fake = _FakeTextGenerator(json.dumps(_drama_visual_response(), ensure_ascii=False))
-        generator = ScriptGenerator(project_path, generator=fake)
+        generator = ScriptGenerator(project_path, generator=fake, user_id=DEFAULT_USER_ID)
         await generator.generate(1)
 
         schema = fake.backend.last_request.response_schema
@@ -557,7 +558,7 @@ class TestScriptGenerator:
 
         # 空视觉响应 → 合并时 step1 场景缺视觉，fail-loud；但模型调用已发生，仍可断言请求参数
         fake = _FakeTextGenerator(json.dumps({"foo": "bar"}))
-        generator = ScriptGenerator(project_path, generator=fake)
+        generator = ScriptGenerator(project_path, generator=fake, user_id=DEFAULT_USER_ID)
         with pytest.raises(DramaVisualMergeError):
             await generator.generate(1)
 
@@ -570,7 +571,7 @@ class TestScriptGenerator:
         _write_json(project_path / "project.json", {"title": "项目"})
         _write(project_path / "drafts" / "episode_1" / "step1_segments.md", "content")
 
-        generator = ScriptGenerator(project_path)  # 无 backend
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)  # 无 backend
         with pytest.raises(RuntimeError, match="TextGenerator 未初始化"):
             await generator.generate(1)
 
@@ -593,7 +594,7 @@ class TestScriptGenerator:
         _write_json(project_path / "project.json", {"title": "项目"})
 
         fake = _FakeTextGenerator(json.dumps(_valid_narration_response(), ensure_ascii=False))
-        generator = ScriptGenerator(project_path, generator=fake)
+        generator = ScriptGenerator(project_path, generator=fake, user_id=DEFAULT_USER_ID)
         with pytest.raises(ValueError, match="只接受纯文件名"):
             await generator.generate(1, output_filename=bad_filename)
 
@@ -612,7 +613,7 @@ class TestAddMetadataRewritesEpisodePrefix:
                 "_supported_durations": [4, 6, 8],
             },
         )
-        return ScriptGenerator(project_path)
+        return ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
 
     def test_drama_rewrites_scene_ids(self, tmp_path: Path) -> None:
         sg = self._make_generator(tmp_path, content_mode="drama")
@@ -650,7 +651,7 @@ class TestAddMetadataRewritesEpisodePrefix:
                 "_supported_durations": [8],
             },
         )
-        sg = ScriptGenerator(project_path)
+        sg = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
         data = {
             "video_units": [
                 {"unit_id": "E1U01"},
@@ -696,7 +697,7 @@ class TestAddMetadataInjectsHiddenFields:
                 "_supported_durations": [4, 6, 8],
             },
         )
-        return ScriptGenerator(project_path)
+        return ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
 
     def test_drama_injects_content_mode_and_novel_when_llm_omits(self, tmp_path: Path) -> None:
         sg = self._make_generator(tmp_path, content_mode="drama")
@@ -1242,7 +1243,7 @@ class TestAdScriptGeneration:
         project_path = tmp_path / "demo"
         _write_ad_project(project_path)
 
-        generator = ScriptGenerator(project_path)
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
         prompt = await generator.build_prompt(1)
 
         assert "带货八段框架" in prompt
@@ -1255,7 +1256,7 @@ class TestAdScriptGeneration:
         project_path = tmp_path / "demo"
         _write_ad_project(project_path, generation_mode="reference_video")
 
-        generator = ScriptGenerator(project_path)
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
         prompt = await generator.build_prompt(1)
 
         assert "带货八段框架" in prompt
@@ -1272,7 +1273,7 @@ class TestAdScriptGeneration:
         payload["source_language"] = "en"
         _write_json(project_json_path, payload)
 
-        generator = ScriptGenerator(project_path)
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
         prompt = await generator.build_prompt(1)
 
         # 口播语速折算按 en 口径（约 2.5 词/秒），不得回落默认 zh 口径（约 5 字/秒）
@@ -1306,7 +1307,7 @@ class TestAdScriptGeneration:
             },
         )
 
-        generator = ScriptGenerator(project_path)
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
         prompt = await generator.build_prompt(1)
 
         # products 归一化为空 → 自动分流通用短片 prompt，不落带货框架
@@ -1326,7 +1327,7 @@ class TestAdScriptGeneration:
             ],
         }
         fake = _FakeTextGenerator(json.dumps(response, ensure_ascii=False))
-        generator = ScriptGenerator(project_path, generator=fake)
+        generator = ScriptGenerator(project_path, generator=fake, user_id=DEFAULT_USER_ID)
 
         async def _fixed_caps():
             return {"supported_durations": [4, 6, 8]}
@@ -1350,7 +1351,7 @@ class TestAdScriptGeneration:
         project_path = tmp_path / "demo"
         _write_ad_project(project_path)
         fake = _FakeTextGenerator(json.dumps({"foo": "bar"}))
-        generator = ScriptGenerator(project_path, generator=fake)
+        generator = ScriptGenerator(project_path, generator=fake, user_id=DEFAULT_USER_ID)
 
         async def _fixed_caps():
             return {"supported_durations": [4, 6, 8]}
@@ -1376,7 +1377,7 @@ class TestAdScriptGeneration:
         project_path = tmp_path / "demo"
         _write_ad_project(project_path, generation_mode="reference_video")
         fake = _FakeTextGenerator(json.dumps({"foo": "bar"}))
-        generator = ScriptGenerator(project_path, generator=fake)
+        generator = ScriptGenerator(project_path, generator=fake, user_id=DEFAULT_USER_ID)
 
         with pytest.raises(ScriptStructureValidationError):
             await generator.generate(1)
@@ -1399,7 +1400,7 @@ class TestAdScriptGeneration:
             "shots": [_ad_shot("E3S01", duration=4)],
         }
         fake = _FakeTextGenerator(json.dumps(response, ensure_ascii=False))
-        generator = ScriptGenerator(project_path, generator=fake)
+        generator = ScriptGenerator(project_path, generator=fake, user_id=DEFAULT_USER_ID)
 
         async def _fixed_caps():
             return {"supported_durations": [4, 6, 8]}
@@ -1441,7 +1442,7 @@ class TestAdParseResponseDriftRecovery:
     def test_parse_response_recovers_drifted_payload_without_title(self, tmp_path):
         project_path = tmp_path / "demo"
         _write_ad_project(project_path)
-        generator = ScriptGenerator(project_path)
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
 
         llm_response = json.dumps(
             {
@@ -1466,7 +1467,7 @@ class TestAdParseResponseDriftRecovery:
     def test_parse_response_keeps_model_title_when_present(self, tmp_path):
         project_path = tmp_path / "demo"
         _write_ad_project(project_path)
-        generator = ScriptGenerator(project_path)
+        generator = ScriptGenerator(project_path, user_id=DEFAULT_USER_ID)
 
         llm_response = json.dumps(
             {"title": "速干杯广场舞", "shots": [self._drifted_shot("E1S01", "Medium Shot", "Static")]},
@@ -1522,7 +1523,7 @@ class TestAdQualityProbe:
         _write_ad_project(project_path)
         response = {"title": "短片", "shots": [_ad_shot("E1S01", duration=4)]}  # 4 秒 vs 30 秒
         fake = _FakeTextGenerator(json.dumps(response, ensure_ascii=False))
-        generator = ScriptGenerator(project_path, generator=fake)
+        generator = ScriptGenerator(project_path, generator=fake, user_id=DEFAULT_USER_ID)
 
         async def _fixed_caps():
             return {"supported_durations": [4, 6, 8]}
@@ -1558,7 +1559,7 @@ class TestAdReferenceSkeletonUnity:
             "shots": [_ad_shot("E1S01", duration=7), _ad_shot("E1S02", duration=5, section="cta")],
         }
         fake = _FakeTextGenerator(json.dumps(response, ensure_ascii=False))
-        generator = ScriptGenerator(project_path, generator=fake)
+        generator = ScriptGenerator(project_path, generator=fake, user_id=DEFAULT_USER_ID)
 
         output_path = await generator.generate(1)
         saved = json.loads(output_path.read_text(encoding="utf-8"))

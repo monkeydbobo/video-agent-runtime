@@ -16,13 +16,18 @@ from lib.text_backends.base import TextBackend, TextTaskType
 async def create_text_backend_for_task(
     task_type: TextTaskType,
     project_name: str | None = None,
+    *,
+    user_id: str,
 ) -> tuple[TextBackend, str]:
     """从 DB 配置创建文本 backend，随 backend 返回解析层 registry provider_id。
 
     provider_id 是记账 provider 的单一真相源，与 backend 成对交付；调用方（TextGenerator）
     据此记账，backend.name 不再作为记账输入。
+
+    ``user_id`` 必传且不设默认：供应商凭证按用户分片后，落到非所有者的分片会拿别人的
+    API Key 调上游。
     """
-    resolver = ConfigResolver(async_session_factory)
+    resolver = ConfigResolver(async_session_factory, user_id=user_id)
 
     async with resolver.session() as r:
         provider_id, model_id = await r.text_backend_for_task(task_type, project_name)

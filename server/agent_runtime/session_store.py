@@ -7,6 +7,7 @@ Wraps SessionRepository with a convenience class.
 from __future__ import annotations
 
 from lib.db import safe_session_factory
+from lib.db.base import DEFAULT_USER_ID
 from lib.db.repositories.session_repo import SessionRepository
 from server.agent_runtime.models import SessionMeta, SessionStatus
 
@@ -30,18 +31,30 @@ class SessionMetaStore:
     def __init__(self, *, session_factory=None):
         self._session_factory = session_factory or safe_session_factory
 
-    async def create(self, project_name: str, sdk_session_id: str, *, sandbox_id: str | None = None) -> SessionMeta:
+    async def create(
+        self,
+        project_name: str,
+        sdk_session_id: str,
+        title: str = "",
+        user_id: str = DEFAULT_USER_ID,
+        sandbox_id: str | None = None,
+    ) -> SessionMeta:
 
         async with self._session_factory() as session:
             repo = SessionRepository(session)
-            d = await repo.create(project_name=project_name, sdk_session_id=sdk_session_id, sandbox_id=sandbox_id)
+            d = await repo.create(
+                project_name=project_name,
+                sdk_session_id=sdk_session_id,
+                sandbox_id=sandbox_id,
+                user_id=user_id,
+            )
         return _dict_to_session(d)
 
-    async def get(self, session_id: str) -> SessionMeta | None:
+    async def get(self, session_id: str, *, user_id: str | None = None) -> SessionMeta | None:
 
         async with self._session_factory() as session:
             repo = SessionRepository(session)
-            d = await repo.get(session_id)
+            d = await repo.get(session_id, user_id=user_id)
         if d is None:
             return None
         return _dict_to_session(d)
@@ -52,11 +65,14 @@ class SessionMetaStore:
         status: SessionStatus | None = None,
         limit: int = 50,
         offset: int = 0,
+        *,
+        user_id: str | None = None,
     ) -> list[SessionMeta]:
 
         async with self._session_factory() as session:
             repo = SessionRepository(session)
             result = await repo.list(
+                user_id=user_id,
                 project_name=project_name,
                 status=status,
                 limit=limit,

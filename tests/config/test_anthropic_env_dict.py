@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from lib.config.service import build_anthropic_env_dict
+from lib.db.base import DEFAULT_USER_ID
 
 
 @pytest.mark.asyncio
@@ -29,16 +30,16 @@ async def test_active_credential_returns_full_dict(monkeypatch: pytest.MonkeyPat
     )()
     repo_mock.get_active = AsyncMock(return_value=cred)
 
-    setting_repo = AsyncMock()
-    setting_repo.get_all = AsyncMock(return_value={})
+    svc_mock = AsyncMock()
+    svc_mock.get_all_settings = AsyncMock(return_value={})
 
     monkeypatch.setattr(
         "lib.db.repositories.agent_credential_repo.AgentCredentialRepository",
         lambda _s: repo_mock,
     )
-    monkeypatch.setattr("lib.config.service.SystemSettingRepository", lambda _s: setting_repo)
+    monkeypatch.setattr("lib.config.service.ConfigService", lambda _s, *, user_id: svc_mock)
 
-    result = await build_anthropic_env_dict(session)
+    result = await build_anthropic_env_dict(session, user_id=DEFAULT_USER_ID)
     assert result["ANTHROPIC_API_KEY"] == "sk-test"
     assert result["ANTHROPIC_BASE_URL"] == "https://api.anthropic.com"
     assert result["ANTHROPIC_MODEL"] == "claude-opus-4-7"
@@ -50,23 +51,23 @@ async def test_no_active_credential_returns_empty_strings(monkeypatch: pytest.Mo
     repo_mock = AsyncMock()
     repo_mock.get_active = AsyncMock(return_value=None)
 
-    setting_repo = AsyncMock()
-    setting_repo.get_all = AsyncMock(return_value={})
+    svc_mock = AsyncMock()
+    svc_mock.get_all_settings = AsyncMock(return_value={})
 
     monkeypatch.setattr(
         "lib.db.repositories.agent_credential_repo.AgentCredentialRepository",
         lambda _s: repo_mock,
     )
-    monkeypatch.setattr("lib.config.service.SystemSettingRepository", lambda _s: setting_repo)
+    monkeypatch.setattr("lib.config.service.ConfigService", lambda _s, *, user_id: svc_mock)
 
-    result = await build_anthropic_env_dict(session)
+    result = await build_anthropic_env_dict(session, user_id=DEFAULT_USER_ID)
     assert result["ANTHROPIC_API_KEY"] == ""
     assert result["ANTHROPIC_BASE_URL"] == ""
 
 
 @pytest.mark.asyncio
 async def test_no_active_credential_falls_back_to_system_settings(monkeypatch: pytest.MonkeyPatch) -> None:
-    """双轨期兼容：无 active credential 时从 system_settings legacy key 读取。"""
+    """双轨期兼容：无 active credential 时从 user/system settings legacy key 读取。"""
     session = AsyncMock()
     repo_mock = AsyncMock()
     repo_mock.get_active = AsyncMock(return_value=None)
@@ -76,16 +77,16 @@ async def test_no_active_credential_falls_back_to_system_settings(monkeypatch: p
         "anthropic_base_url": "https://legacy.anthropic.com",
         "anthropic_model": "claude-legacy-model",
     }
-    setting_repo = AsyncMock()
-    setting_repo.get_all = AsyncMock(return_value=legacy)
+    svc_mock = AsyncMock()
+    svc_mock.get_all_settings = AsyncMock(return_value=legacy)
 
     monkeypatch.setattr(
         "lib.db.repositories.agent_credential_repo.AgentCredentialRepository",
         lambda _s: repo_mock,
     )
-    monkeypatch.setattr("lib.config.service.SystemSettingRepository", lambda _s: setting_repo)
+    monkeypatch.setattr("lib.config.service.ConfigService", lambda _s, *, user_id: svc_mock)
 
-    result = await build_anthropic_env_dict(session)
+    result = await build_anthropic_env_dict(session, user_id=DEFAULT_USER_ID)
     assert result["ANTHROPIC_API_KEY"] == "legacy-sk"
     assert result["ANTHROPIC_BASE_URL"] == "https://legacy.anthropic.com"
     assert result["ANTHROPIC_MODEL"] == "claude-legacy-model"
@@ -116,14 +117,14 @@ async def test_function_does_not_touch_environ(monkeypatch: pytest.MonkeyPatch) 
     )()
     repo_mock.get_active = AsyncMock(return_value=cred)
 
-    setting_repo = AsyncMock()
-    setting_repo.get_all = AsyncMock(return_value={})
+    svc_mock = AsyncMock()
+    svc_mock.get_all_settings = AsyncMock(return_value={})
 
     monkeypatch.setattr(
         "lib.db.repositories.agent_credential_repo.AgentCredentialRepository",
         lambda _s: repo_mock,
     )
-    monkeypatch.setattr("lib.config.service.SystemSettingRepository", lambda _s: setting_repo)
+    monkeypatch.setattr("lib.config.service.ConfigService", lambda _s, *, user_id: svc_mock)
 
-    await build_anthropic_env_dict(session)
+    await build_anthropic_env_dict(session, user_id=DEFAULT_USER_ID)
     assert dict(os.environ) == baseline, "build 函数禁止改 os.environ"

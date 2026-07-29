@@ -12,7 +12,9 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 
 from lib.api_errors import BadRequestError, NotFoundError
+from lib.i18n import Translator
 from server.auth import CurrentUserFlexible
+from server.project_access import ensure_project_access
 from server.services.project_events import ProjectEventService
 
 logger = logging.getLogger(__name__)
@@ -29,12 +31,15 @@ def get_project_event_service(request: Request) -> ProjectEventService:
 async def _project_events_service(
     project_name: str,
     request: Request,
+    _user: CurrentUserFlexible,
+    _t: Translator,
 ) -> ProjectEventService:
-    """Resolve the service and validate the project exists before streaming starts.
+    """Resolve the service and validate project access before streaming starts.
 
     The 404 must be raised here (before the EventSourceResponse begins) — once the
     stream is open, no HTTP status can be returned.
     """
+    await ensure_project_access(project_name, _user, _t)
     service = get_project_event_service(request)
     try:
         await asyncio.to_thread(service.pm.get_project_path, project_name)

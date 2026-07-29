@@ -353,15 +353,19 @@ class TestDeriveProviderIdForEnqueueAudio:
         from lib import generation_queue as gq
         from lib.config.resolver import ProviderModel
 
+        seen_user_ids: list[str | None] = []
+
         class _FakeResolver:
-            def __init__(self, factory):
-                pass
+            def __init__(self, factory, *, user_id=None):
+                seen_user_ids.append(user_id)
 
             async def resolve_audio_backend(self, project, payload):
                 return ProviderModel("dashscope", "qwen3-tts-flash")
 
         monkeypatch.setattr("lib.config.resolver.ConfigResolver", _FakeResolver)
         pid = await gq._derive_provider_id_for_enqueue(
-            project_name=None, payload={}, task_type="tts", media_type="audio"
+            project_name=None, payload={}, task_type="tts", media_type="audio", user_id="alice-id"
         )
         assert pid == "dashscope"
+        # 入队时的 provider 推导须按任务所有者解析，否则会用别人的供应商配置
+        assert seen_user_ids == ["alice-id"]

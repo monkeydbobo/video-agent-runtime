@@ -4,20 +4,27 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Index, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from lib.db.base import Base, utc_now
+from lib.db.base import DEFAULT_USER_ID, Base, utc_now
 
 
 class ProviderConfig(Base):
     __tablename__ = "provider_config"
     __table_args__ = (
-        UniqueConstraint("provider", "key", name="uq_provider_key"),
+        UniqueConstraint("user_id", "provider", "key", name="uq_provider_user_key"),
         Index("ix_provider_config_provider", "provider"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(
+        String,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        server_default=DEFAULT_USER_ID,
+        index=True,
+    )
     provider: Mapped[str] = mapped_column(String(32), nullable=False)
     key: Mapped[str] = mapped_column(String(64), nullable=False)
     value: Mapped[str] = mapped_column(Text, nullable=False)

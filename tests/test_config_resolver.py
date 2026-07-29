@@ -5,7 +5,14 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from lib.config.resolver import ConfigResolver
 from lib.config.service import ProviderStatus
-from lib.db.base import Base
+from lib.db.base import DEFAULT_USER_ID, Base
+
+
+def _bare_resolver() -> ConfigResolver:
+    """未走 __init__ 的 resolver 桩，供只测私有委托路径的单测注入 user_id。"""
+    resolver = ConfigResolver.__new__(ConfigResolver)
+    resolver._user_id = DEFAULT_USER_ID
+    return resolver
 
 
 async def _make_session():
@@ -72,28 +79,28 @@ class TestVideoGenerateAudio:
 
     async def test_default_is_true_when_db_empty(self, tmp_path):
         """DB 无值时应返回 True（PR7 §11 决策：与 Seedance/Grok 默认开启一致）。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={})
         result = await resolver._resolve_video_generate_audio(fake_svc, project_name=None)
         assert result is True
 
     async def test_global_true(self, tmp_path):
         """DB 中值为 "true" 时返回 True。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"video_generate_audio": "true"})
         result = await resolver._resolve_video_generate_audio(fake_svc, project_name=None)
         assert result is True
 
     async def test_global_false(self, tmp_path):
         """DB 中值为 "false" 时返回 False。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"video_generate_audio": "false"})
         result = await resolver._resolve_video_generate_audio(fake_svc, project_name=None)
         assert result is False
 
     async def test_bool_parsing_variants(self, tmp_path):
         """验证各种布尔字符串的解析。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         for val, expected in [("TRUE", True), ("1", True), ("yes", True), ("0", False), ("no", False), ("", True)]:
             fake_svc = _FakeConfigService(settings={"video_generate_audio": val} if val else {})
             result = await resolver._resolve_video_generate_audio(fake_svc, project_name=None)
@@ -101,7 +108,7 @@ class TestVideoGenerateAudio:
 
     async def test_project_override_true_over_global_false(self, tmp_path):
         """项目级覆盖 True 优先于全局 False。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"video_generate_audio": "false"})
         with patch("lib.config.resolver.get_project_manager") as mock_pm:
             mock_pm.return_value.load_project.return_value = {"video_generate_audio": True}
@@ -110,7 +117,7 @@ class TestVideoGenerateAudio:
 
     async def test_project_override_false_over_global_true(self, tmp_path):
         """项目级覆盖 False 优先于全局 True。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"video_generate_audio": "true"})
         with patch("lib.config.resolver.get_project_manager") as mock_pm:
             mock_pm.return_value.load_project.return_value = {"video_generate_audio": False}
@@ -119,14 +126,14 @@ class TestVideoGenerateAudio:
 
     async def test_project_none_skips_override(self, tmp_path):
         """project_name=None 时不读取项目配置。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"video_generate_audio": "true"})
         result = await resolver._resolve_video_generate_audio(fake_svc, project_name=None)
         assert result is True
 
     async def test_project_override_string_value(self, tmp_path):
         """项目级覆盖值为字符串时也能正确解析。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"video_generate_audio": "true"})
         with patch("lib.config.resolver.get_project_manager") as mock_pm:
             mock_pm.return_value.load_project.return_value = {"video_generate_audio": "false"}
@@ -139,7 +146,7 @@ class TestDefaultBackends:
 
     async def test_video_backend_explicit(self):
         """DB 有显式值时直接返回。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(
             settings={"default_video_backend": "ark/doubao-seedance-1-5-pro"},
         )
@@ -148,7 +155,7 @@ class TestDefaultBackends:
 
     async def test_video_backend_auto_resolve(self):
         """DB 无值时走 auto-resolve，选第一个 ready 供应商的默认 video 模型。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={})
         # auto-resolve 会在 PROVIDER_REGISTRY 中找到 ready 供应商，不会走到 custom provider 分支
         factory, engine = await _make_session()
@@ -161,7 +168,7 @@ class TestDefaultBackends:
 
     async def test_video_backend_auto_resolve_no_ready_provider(self):
         """无 ready 供应商且无自定义供应商时抛出 ValueError。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={}, ready_providers=[])
         factory, engine = await _make_session()
         try:
@@ -173,7 +180,7 @@ class TestDefaultBackends:
 
     async def test_image_backend_explicit(self):
         """DB 有显式值时直接返回。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(
             settings={"default_image_backend": "grok/grok-2-image"},
         )
@@ -182,7 +189,7 @@ class TestDefaultBackends:
 
     async def test_image_backend_auto_resolve(self):
         """DB 无值时走 auto-resolve。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={})
         factory, engine = await _make_session()
         try:
@@ -194,7 +201,7 @@ class TestDefaultBackends:
 
     async def test_image_backend_auto_resolve_no_ready_provider(self):
         """无 ready 供应商且无自定义供应商时抛出 ValueError。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={}, ready_providers=[])
         factory, engine = await _make_session()
         try:
@@ -206,7 +213,7 @@ class TestDefaultBackends:
 
     async def test_default_image_backend_t2i_reads_dedicated_setting(self):
         """新 setting key default_image_backend_t2i 优先于旧 default_image_backend。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(
             settings={
                 "default_image_backend": "grok/grok-2-image",
@@ -218,7 +225,7 @@ class TestDefaultBackends:
 
     async def test_default_image_backend_t2i_falls_back_to_legacy(self):
         """只设旧 default_image_backend，新 _t2i 未设时回退到旧值。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(
             settings={"default_image_backend": "grok/grok-2-image"},
         )
@@ -227,7 +234,7 @@ class TestDefaultBackends:
 
     async def test_default_image_backend_i2i_reads_dedicated_setting(self):
         """对称测试 i2i：新 key default_image_backend_i2i 优先于旧 default_image_backend。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(
             settings={
                 "default_image_backend": "grok/grok-2-image",
@@ -239,7 +246,7 @@ class TestDefaultBackends:
 
     async def test_default_image_backend_i2i_falls_back_to_legacy(self):
         """只设旧 default_image_backend，_i2i 未设时回退到旧值。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(
             settings={"default_image_backend": "grok/grok-2-image"},
         )
@@ -255,7 +262,7 @@ class TestDefaultBackends:
         """
         factory, engine = await _make_session()
         try:
-            resolver = ConfigResolver.__new__(ConfigResolver)
+            resolver = _bare_resolver()
             fake_svc = _FakeConfigService(
                 settings={
                     "default_image_backend": "grok/grok-2-image",
@@ -273,7 +280,7 @@ class TestDefaultBackends:
         """对称：default_image_backend_i2i="" 不应回退到 legacy。"""
         factory, engine = await _make_session()
         try:
-            resolver = ConfigResolver.__new__(ConfigResolver)
+            resolver = _bare_resolver()
             fake_svc = _FakeConfigService(
                 settings={
                     "default_image_backend": "grok/grok-2-image",
@@ -294,7 +301,7 @@ class TestProviderConfig:
     async def test_provider_config(self):
         factory, engine = await _make_session()
         try:
-            resolver = ConfigResolver.__new__(ConfigResolver)
+            resolver = _bare_resolver()
             fake_svc = _FakeConfigService()
             async with factory() as session:
                 result = await resolver._resolve_provider_config(fake_svc, session, "gemini-aistudio")
@@ -305,7 +312,7 @@ class TestProviderConfig:
     async def test_all_provider_configs(self):
         factory, engine = await _make_session()
         try:
-            resolver = ConfigResolver.__new__(ConfigResolver)
+            resolver = _bare_resolver()
             fake_svc = _FakeConfigService()
             async with factory() as session:
                 result = await resolver._resolve_all_provider_configs(fake_svc, session)
@@ -329,7 +336,7 @@ class TestSessionReuse:
                 call_count += 1
                 return real_call()
 
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             fake_backend = ("gemini-aistudio", "test-model")
 
             # 不使用 session()：每次调用创建新 session
@@ -364,7 +371,7 @@ class TestSessionReuse:
         """bound resolver 的 _open_session 返回同一个 session 对象。"""
         factory, engine = await _make_session()
         try:
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             sessions_seen = []
 
             async with resolver.session() as r:
@@ -381,7 +388,7 @@ class TestSessionReuse:
         """未绑定的 resolver 每次 _open_session 创建不同 session。"""
         factory, engine = await _make_session()
         try:
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             sessions_seen = []
 
             async with resolver._open_session() as (s1, _):
@@ -398,7 +405,7 @@ class TestVideoBackendThreeLevelPriority:
     """验证 video_backend 三级优先级：项目设置 > 系统设置 > auto-resolve。"""
 
     async def test_project_override_wins_over_system_setting(self):
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(
             settings={"default_video_backend": "grok/grok-imagine-video"},
         )
@@ -410,7 +417,7 @@ class TestVideoBackendThreeLevelPriority:
         assert result == ("gemini-aistudio", "veo-3.1-generate-preview")
 
     async def test_project_empty_falls_back_to_system_setting(self):
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(
             settings={"default_video_backend": "grok/grok-imagine-video"},
         )
@@ -420,7 +427,7 @@ class TestVideoBackendThreeLevelPriority:
         assert result == ("grok", "grok-imagine-video")
 
     async def test_no_project_name_uses_system_setting(self):
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(
             settings={"default_video_backend": "ark/doubao-seedance-2-0-260128"},
         )
@@ -432,7 +439,7 @@ class TestVideoCapabilities:
     """验证 video_capabilities：第一步模型选择 + 第二步 model 能力查询。"""
 
     async def test_registry_grok(self):
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(
             settings={"default_video_backend": "grok/grok-imagine-video"},
         )
@@ -452,7 +459,7 @@ class TestVideoCapabilities:
         assert caps["max_reference_images"] == 7
 
     async def test_registry_veo(self):
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={})
         factory, engine = await _make_session()
         try:
@@ -473,7 +480,7 @@ class TestVideoCapabilities:
         assert caps["max_reference_images"] == 3
 
     async def test_reads_project_default_duration_and_modes(self):
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={})
         factory, engine = await _make_session()
         try:
@@ -493,7 +500,7 @@ class TestVideoCapabilities:
         assert caps["generation_mode"] == "reference_video"
 
     async def test_missing_default_duration_is_null(self):
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={})
         factory, engine = await _make_session()
         try:
@@ -508,7 +515,7 @@ class TestVideoCapabilities:
         assert caps["default_duration"] is None
 
     async def test_unknown_model_raises(self):
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={})
         factory, engine = await _make_session()
         try:
@@ -523,7 +530,7 @@ class TestVideoCapabilities:
             await engine.dispose()
 
     async def test_unknown_provider_raises(self):
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={})
         factory, engine = await _make_session()
         try:
@@ -544,7 +551,7 @@ class TestVideoCapabilities:
         """
         factory, engine = await _make_session()
         try:
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             with patch("lib.config.resolver.get_project_manager") as mock_pm:
                 caps = await resolver.video_capabilities_for_project(
                     {
@@ -565,7 +572,7 @@ class TestVideoCapabilities:
         """openai sora 的 max_reference_images 来自 registry ModelInfo（=1），不再依赖 provider 级 fallback。"""
         factory, engine = await _make_session()
         try:
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             with patch("lib.config.resolver.get_project_manager"):
                 caps = await resolver.video_capabilities_for_project({"video_backend": "openai/sora-2"})
         finally:
@@ -579,7 +586,7 @@ class TestVideoCapabilities:
         """
         factory, engine = await _make_session()
         try:
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             with patch("lib.config.resolver.get_project_manager"):
                 caps = await resolver.video_capabilities_for_project({"video_backend": "minimax/S2V-01"})
         finally:
@@ -590,7 +597,7 @@ class TestVideoCapabilities:
         """ark seedance 的 max_reference_images 来自 registry ModelInfo（=9）。"""
         factory, engine = await _make_session()
         try:
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             with patch("lib.config.resolver.get_project_manager"):
                 caps = await resolver.video_capabilities_for_project(
                     {"video_backend": "ark/doubao-seedance-2-0-260128"}
@@ -606,7 +613,7 @@ class TestVideoCapabilities:
         """
         factory, engine = await _make_session()
         try:
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             with patch("lib.config.resolver.get_project_manager"):
                 caps = await resolver.video_capabilities_for_project({"video_backend": "kling/kling-v3-omni"})
         finally:
@@ -617,7 +624,7 @@ class TestVideoCapabilities:
         """kling-video-o1（多图主体 R2V）的 max_reference_images 来自 registry ModelInfo（=4，保守值）。"""
         factory, engine = await _make_session()
         try:
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             with patch("lib.config.resolver.get_project_manager"):
                 caps = await resolver.video_capabilities_for_project({"video_backend": "kling/kling-video-o1"})
         finally:
@@ -628,7 +635,7 @@ class TestVideoCapabilities:
         """kling-v3（声明 4K + 首尾帧但非多图主体）max_reference_images=0，不误报参考能力。"""
         factory, engine = await _make_session()
         try:
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             with patch("lib.config.resolver.get_project_manager"):
                 caps = await resolver.video_capabilities_for_project({"video_backend": "kling/kling-v3"})
         finally:
@@ -639,7 +646,7 @@ class TestVideoCapabilities:
         """custom-<id>/<model> 走 DB 分支，返回 source='custom'。"""
         from lib.db.models.custom_provider import CustomProvider, CustomProviderModel
 
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={})
         factory, engine = await _make_session()
         try:
@@ -680,7 +687,7 @@ class TestVideoCapabilities:
         """custom-<id>/<model> 经 openai-video endpoint 解析出 max_reference_images=1（不再静默落 9）。"""
         from lib.db.models.custom_provider import CustomProvider, CustomProviderModel
 
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={})
         factory, engine = await _make_session()
         try:
@@ -719,7 +726,7 @@ class TestResolveImageBackend:
     """resolve_image_backend：payload > project > 全局默认，capability=t2i/i2i 各覆盖。"""
 
     async def test_payload_capability_slot_wins(self):
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={})
         project = {"image_provider_t2i": "ark/proj-t2i", "image_provider_i2i": "ark/proj-i2i"}
         payload = {"image_provider_t2i": "openai/pay-t2i", "image_provider_i2i": "openai/pay-i2i"}
@@ -729,14 +736,14 @@ class TestResolveImageBackend:
         assert (i2i.provider_id, i2i.model_id) == ("openai", "pay-i2i")
 
     async def test_payload_legacy_fields_for_historical_tasks(self):
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={})
         payload = {"image_provider": "openai", "image_model": "legacy"}
         resolved = await resolver._resolve_image_provider_model(fake_svc, None, {}, payload, "t2i")
         assert (resolved.provider_id, resolved.model_id) == ("openai", "legacy")
 
     async def test_project_capability_slot_when_no_payload(self):
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={})
         project = {"image_provider_t2i": "ark/proj-t2i", "image_provider_i2i": "ark/proj-i2i"}
         t2i = await resolver._resolve_image_provider_model(fake_svc, None, project, {}, "t2i")
@@ -746,14 +753,14 @@ class TestResolveImageBackend:
 
     async def test_falls_through_to_global_default(self):
         """payload/project 都缺 → 落到全局默认（显式 default_image_backend_t2i）。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"default_image_backend_t2i": "grok/grok-2-image"})
         resolved = await resolver._resolve_image_provider_model(fake_svc, None, None, None, "t2i")
         assert (resolved.provider_id, resolved.model_id) == ("grok", "grok-2-image")
 
     async def test_no_legacy_image_backend_fallback(self):
         """解析链不再认 legacy 单字段 image_backend（由迁移转规范字段），直接落全局默认。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"default_image_backend_t2i": "grok/grok-2-image"})
         project = {"image_backend": "openai/legacy"}
         resolved = await resolver._resolve_image_provider_model(fake_svc, None, project, {}, "t2i")
@@ -761,7 +768,7 @@ class TestResolveImageBackend:
 
     async def test_project_bare_provider_pins_provider_with_default_model(self):
         """裸 provider 项目覆盖（写边界放行）→ pin 该 provider 并补全其默认 model，不静默回退全局默认。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"default_image_backend_t2i": "grok/grok-2-image"})
         project = {"image_provider_t2i": "openai"}  # 裸 provider，无 model
         resolved = await resolver._resolve_image_provider_model(fake_svc, None, project, {}, "t2i")
@@ -770,7 +777,7 @@ class TestResolveImageBackend:
 
     async def test_project_unknown_bare_provider_falls_through(self):
         """裸 provider 不在 registry（无默认 model 可补）→ 退回全局默认。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"default_image_backend_t2i": "grok/grok-2-image"})
         project = {"image_provider_t2i": "does-not-exist"}
         resolved = await resolver._resolve_image_provider_model(fake_svc, None, project, {}, "t2i")
@@ -778,7 +785,7 @@ class TestResolveImageBackend:
 
     async def test_project_provider_with_trailing_slash_uses_provider_default(self):
         """脏值 "openai/"（缺 model，写校验器会放行）→ 取 openai 默认 model，不带空 model 下游。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"default_image_backend_t2i": "grok/grok-2-image"})
         project = {"image_provider_t2i": "openai/"}
         resolved = await resolver._resolve_image_provider_model(fake_svc, None, project, {}, "t2i")
@@ -786,7 +793,7 @@ class TestResolveImageBackend:
 
     async def test_payload_legacy_provider_not_trusted_falls_through_to_project(self):
         """in-flight 历史任务 payload 携带 legacy 名（写边界拦不到）→ 不予信任，回退已迁移的 project。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={})
         project = {"image_provider_t2i": "openai/gpt-image-2"}  # 启动期已迁移为规范名
         payload = {"image_provider": "vertex", "image_model": "legacy"}  # legacy，不可识别
@@ -795,7 +802,7 @@ class TestResolveImageBackend:
 
     async def test_payload_known_provider_missing_model_uses_provider_default(self):
         """半截 payload（已知 provider 但缺 model）→ 补该 provider 默认 model，不带空 model 到执行层。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"default_image_backend_t2i": "grok/grok-2-image"})
         payload = {"image_provider": "openai"}  # 只有 provider，无 image_model
         resolved = await resolver._resolve_image_provider_model(fake_svc, None, {}, payload, "t2i")
@@ -806,7 +813,7 @@ class TestResolveVideoBackend:
     """resolve_video_backend：payload > project > 全局默认。"""
 
     async def test_payload_historical_provider_wins(self):
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={})
         project = {"video_backend": "grok/grok-imagine-video"}
         payload = {"video_provider": "ark", "video_provider_settings": {"model": "seedance"}}
@@ -814,21 +821,21 @@ class TestResolveVideoBackend:
         assert (resolved.provider_id, resolved.model_id) == ("ark", "seedance")
 
     async def test_project_video_backend_when_no_payload(self):
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={})
         project = {"video_backend": "ark/seedance-1-0-pro"}
         resolved = await resolver._resolve_video_provider_model(fake_svc, None, project, {})
         assert (resolved.provider_id, resolved.model_id) == ("ark", "seedance-1-0-pro")
 
     async def test_falls_through_to_global_default(self):
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"default_video_backend": "ark/doubao-seedance-1-5-pro"})
         resolved = await resolver._resolve_video_provider_model(fake_svc, None, None, None)
         assert (resolved.provider_id, resolved.model_id) == ("ark", "doubao-seedance-1-5-pro")
 
     async def test_project_bare_provider_pins_provider_with_default_model(self):
         """裸 video_backend(如 "ark") → pin ark 并补全其默认 video model，不回退全局默认的另一供应商。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"default_video_backend": "grok/grok-imagine-video"})
         project = {"video_backend": "ark"}  # 裸 provider
         resolved = await resolver._resolve_video_provider_model(fake_svc, None, project, {})
@@ -837,7 +844,7 @@ class TestResolveVideoBackend:
 
     async def test_payload_legacy_provider_not_trusted_falls_through_to_project(self):
         """in-flight 历史任务 payload 携带 legacy video_provider（如 seedance）→ 不予信任，回退已迁移的 project。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={})
         project = {"video_backend": "ark/seedance-1-0-pro"}  # 启动期已迁移为规范名
         payload = {"video_provider": "seedance", "video_model": "legacy"}  # legacy，不可识别
@@ -846,7 +853,7 @@ class TestResolveVideoBackend:
 
     async def test_payload_non_dict_video_provider_settings_does_not_crash(self):
         """脏 payload：video_provider_settings 非 dict → 不抛异常，按缺 model 补该 provider 默认。"""
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"default_video_backend": "grok/grok-imagine-video"})
         payload = {"video_provider": "ark", "video_provider_settings": "not-a-dict"}
         resolved = await resolver._resolve_video_provider_model(fake_svc, None, {}, payload)
@@ -872,7 +879,7 @@ class TestReferencePayloadLimits:
 
     async def test_none_provider_returns_default_without_db(self):
         # 无需 DB：provider_id=None 直接返回保守通用默认
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         total, single = await resolver.reference_payload_limits(None)
         from lib.config.service import (
             _DEFAULT_REFERENCE_SINGLE_MAX_BYTES,
@@ -890,7 +897,7 @@ class TestReferencePayloadLimits:
 
         factory, engine = await _make_session()
         try:
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             total, single = await resolver.reference_payload_limits("gemini-aistudio")
             assert total == _DEFAULT_REFERENCE_TOTAL_MAX_BYTES
             assert single == _DEFAULT_REFERENCE_SINGLE_MAX_BYTES
@@ -903,11 +910,11 @@ class TestReferencePayloadLimits:
         factory, engine = await _make_session()
         try:
             async with factory() as session:
-                svc = ConfigService(session)
+                svc = ConfigService(session, user_id=DEFAULT_USER_ID)
                 await svc.set_provider_config("gemini-aistudio", "reference_total_max_bytes", "1000000")
                 await svc.set_provider_config("gemini-aistudio", "reference_single_max_bytes", "500000")
                 await session.commit()
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             total, single = await resolver.reference_payload_limits("gemini-aistudio")
             assert (total, single) == (1000000, 500000)
         finally:
@@ -918,7 +925,7 @@ class TestReferencePayloadLimits:
 
         factory, engine = await _make_session()
         try:
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             # 未知 provider → get_provider_config 抛 ValueError → catch 回退默认
             total, single = await resolver.reference_payload_limits("totally-unknown-provider")
             assert total == _DEFAULT_REFERENCE_TOTAL_MAX_BYTES
@@ -935,10 +942,10 @@ class TestReferencePayloadLimits:
         factory, engine = await _make_session()
         try:
             async with factory() as session:
-                svc = ConfigService(session)
+                svc = ConfigService(session, user_id=DEFAULT_USER_ID)
                 await svc.set_provider_config("gemini-aistudio", "reference_total_max_bytes", "not-a-number")
                 await session.commit()
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             total, single = await resolver.reference_payload_limits("gemini-aistudio")
             assert total == _DEFAULT_REFERENCE_TOTAL_MAX_BYTES  # 非数字回退
             assert single == _DEFAULT_REFERENCE_SINGLE_MAX_BYTES
@@ -982,7 +989,7 @@ class TestTextBackendTierResolution:
         else:
             expected = self._AUTO
 
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings=settings)
         with patch("lib.config.resolver.get_project_manager") as mock_pm:
             mock_pm.return_value.load_project.return_value = project
@@ -994,7 +1001,7 @@ class TestTextBackendTierResolution:
 
         from lib.text_backends.base import TextTaskType
 
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"text_backend_complex": "g-tier/m", "default_text_backend": "g-def/m"})
         result = await resolver._resolve_text_backend(fake_svc, MagicMock(), TextTaskType.SCRIPT, None)
         assert result == ("g-tier", "m")
@@ -1005,7 +1012,7 @@ class TestTextBackendTierResolution:
 
         from lib.text_backends.base import TextTaskType
 
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"text_backend_simple": "simple/m", "text_backend_complex": "complex/m"})
         for task in (TextTaskType.OVERVIEW, TextTaskType.STYLE_ANALYSIS):
             result = await resolver._resolve_text_backend(fake_svc, MagicMock(), task, None)
@@ -1016,7 +1023,7 @@ class TestTextBackendTierResolution:
 
         from lib.text_backends.base import TextTaskType
 
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"text_backend_simple": "simple/m", "text_backend_complex": "complex/m"})
         result = await resolver._resolve_text_backend(fake_svc, MagicMock(), TextTaskType.SCRIPT, None)
         assert result == ("complex", "m")
@@ -1027,7 +1034,7 @@ class TestTextBackendTierResolution:
 
         from lib.text_backends.base import TextTaskType
 
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"text_backend_complex": "no-slash", "default_text_backend": "g-def/m"})
         result = await resolver._resolve_text_backend(fake_svc, MagicMock(), TextTaskType.SCRIPT, None)
         assert result == ("g-def", "m")
@@ -1041,7 +1048,7 @@ class TestStyleAnalysisVisionGuard:
 
         from lib.text_backends.base import TextTaskType
 
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         # gemini-3.1-flash-lite-preview 在 registry 中未声明 vision
         fake_svc = _FakeConfigService(settings={"text_backend_simple": "gemini-aistudio/gemini-3.1-flash-lite-preview"})
         with pytest.raises(ValueError, match="vision"):
@@ -1052,7 +1059,7 @@ class TestStyleAnalysisVisionGuard:
 
         from lib.text_backends.base import TextTaskType
 
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"text_backend_simple": "gemini-aistudio/gemini-3-flash-preview"})
         result = await resolver._resolve_text_backend(fake_svc, MagicMock(), TextTaskType.STYLE_ANALYSIS, None)
         assert result == ("gemini-aistudio", "gemini-3-flash-preview")
@@ -1063,7 +1070,7 @@ class TestStyleAnalysisVisionGuard:
 
         from lib.text_backends.base import TextTaskType
 
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(settings={"text_backend_simple": "custom-abc/some-model"})
         result = await resolver._resolve_text_backend(fake_svc, MagicMock(), TextTaskType.STYLE_ANALYSIS, None)
         assert result == ("custom-abc", "some-model")
@@ -1074,7 +1081,7 @@ class TestStyleAnalysisVisionGuard:
 
         from lib.text_backends.base import TextTaskType
 
-        resolver = ConfigResolver.__new__(ConfigResolver)
+        resolver = _bare_resolver()
         fake_svc = _FakeConfigService(
             settings={"text_backend_complex": "gemini-aistudio/gemini-3.1-flash-lite-preview"}
         )

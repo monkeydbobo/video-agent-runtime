@@ -99,7 +99,8 @@ describe("SystemConfigPage", () => {
   it("renders the page header", () => {
     renderPage();
     expect(screen.getByText("设置")).toBeInTheDocument();
-    expect(screen.getByText("系统配置与 API 访问管理")).toBeInTheDocument();
+    expect(screen.getByText("账户配置与 API 访问")).toBeInTheDocument();
+    expect(screen.getByText("以下配置仅对当前登录账号生效，与其他用户互不影响。")).toBeInTheDocument();
   });
 
   it("renders all 5 product settings sections", () => {

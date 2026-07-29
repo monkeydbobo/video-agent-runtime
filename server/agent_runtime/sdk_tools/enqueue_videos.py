@@ -435,7 +435,7 @@ async def _run_ad_reference_episode(
     的 unit 保留 generated_assets，已有产物经磁盘扫描跳过重复入队。
     """
     project = ctx.pm.load_project(ctx.project_name)
-    max_unit_duration = await resolve_max_unit_duration(project)
+    max_unit_duration = await resolve_max_unit_duration(project, user_id=ctx.user_id)
 
     def _sync() -> tuple[dict[str, Any], list[dict[str, Any]], int]:
         with ctx.pm.locked_script(ctx.project_name, script_filename) as script:

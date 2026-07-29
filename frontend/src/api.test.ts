@@ -910,6 +910,11 @@ describe("API", () => {
       expect(url).toContain("fp=123");
     });
 
+    it("returns URL for user-scoped asset path", () => {
+      const url = API.getGlobalAssetUrl("users/u1/assets/character/abc.png", "123");
+      expect(url).toContain("/global-assets/character/abc.png");
+    });
+
     it("returns null for null path", () => {
       expect(API.getGlobalAssetUrl(null)).toBeNull();
     });

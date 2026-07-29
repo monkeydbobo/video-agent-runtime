@@ -208,16 +208,26 @@ class TestDownloadToken:
     def test_create_and_verify_download_token(self):
         """签发并验证下载 token"""
         with patch.dict(os.environ, {"AUTH_TOKEN_SECRET": "test-secret-key-that-is-at-least-32-bytes"}):
-            token = auth_module.create_download_token("admin", "my-project")
-            payload = auth_module.verify_download_token(token, "my-project")
+            token = auth_module.create_download_token("admin-id", "my-project", username="admin")
+            payload = auth_module.verify_download_token(token, "my-project", user_id="admin-id")
             assert payload["sub"] == "admin"
+            assert payload["uid"] == "admin-id"
             assert payload["project"] == "my-project"
             assert payload["purpose"] == "download"
+
+    def test_verify_download_token_wrong_uid(self):
+        """uid 不匹配应抛出 ValueError"""
+        with patch.dict(os.environ, {"AUTH_TOKEN_SECRET": "test-secret-key-that-is-at-least-32-bytes"}):
+            token = auth_module.create_download_token("alice-id", "my-project")
+            import pytest
+
+            with pytest.raises(ValueError, match="uid 不匹配"):
+                auth_module.verify_download_token(token, "my-project", user_id="bob-id")
 
     def test_verify_download_token_wrong_project(self):
         """项目不匹配应抛出 ValueError"""
         with patch.dict(os.environ, {"AUTH_TOKEN_SECRET": "test-secret-key-that-is-at-least-32-bytes"}):
-            token = auth_module.create_download_token("admin", "project-a")
+            token = auth_module.create_download_token("admin-id", "project-a")
             import pytest
 
             with pytest.raises(ValueError, match="project 不匹配"):

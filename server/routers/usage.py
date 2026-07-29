@@ -25,19 +25,16 @@ async def _resolve_usage_scope(
     user: CurrentUserInfo,
     project_name: str | None,
     _t: Callable[..., str],
-) -> tuple[str | None, list[str] | None]:
-    """解析用量视图的过滤参数 (project_name, project_names)。
-
-    指定 project_name 时校验归属后按单项目过滤；未指定时 admin 全量，
-    普通用户限定在自己拥有的项目集合内。
-    """
+) -> tuple[str | None, list[str] | None, str | None]:
+    """解析用量视图的过滤参数 (project_name, project_names, user_id)。"""
     if project_name:
         await ensure_project_access(project_name, user, _t)
-        return project_name, None
+        scoped_user = None if is_admin(user) else user.id
+        return project_name, None, scoped_user
     if is_admin(user):
-        return None, None
+        return None, None, None
     owned = await accessible_project_names(get_project_manager().list_projects(), user)
-    return None, owned
+    return None, owned, user.id
 
 
 @router.get("/usage/stats")
@@ -52,12 +49,13 @@ async def get_stats(
 ):
     start = datetime.fromisoformat(start_date) if start_date else None
     end = datetime.fromisoformat(end_date) if end_date else None
-    scoped_name, scoped_names = await _resolve_usage_scope(_user, project_name, _t)
+    scoped_name, scoped_names, scoped_user = await _resolve_usage_scope(_user, project_name, _t)
 
     async with async_session_factory() as session:
         repo = UsageRepository(session)
         if group_by == "provider":
             stats = await repo.get_stats_grouped_by_provider(
+                user_id=scoped_user,
                 project_name=scoped_name,
                 project_names=scoped_names,
                 provider=provider,
@@ -66,6 +64,7 @@ async def get_stats(
             )
         else:
             stats = await repo.get_stats(
+                user_id=scoped_user,
                 project_name=scoped_name,
                 project_names=scoped_names,
                 provider=provider,
@@ -89,10 +88,11 @@ async def get_calls(
 ):
     start = datetime.fromisoformat(start_date) if start_date else None
     end = datetime.fromisoformat(end_date) if end_date else None
-    scoped_name, scoped_names = await _resolve_usage_scope(_user, project_name, _t)
+    scoped_name, scoped_names, scoped_user = await _resolve_usage_scope(_user, project_name, _t)
 
     async with async_session_factory() as session:
         result = await UsageRepository(session).get_calls(
+            user_id=scoped_user,
             project_name=scoped_name,
             project_names=scoped_names,
             call_type=call_type,
@@ -108,8 +108,13 @@ async def get_calls(
 @router.get("/usage/projects")
 async def get_projects_list(_user: CurrentUser, _t: Translator):
     scoped_names: list[str] | None = None
+    scoped_user: str | None = None
     if not is_admin(_user):
         scoped_names = await accessible_project_names(get_project_manager().list_projects(), _user)
+        scoped_user = _user.id
     async with async_session_factory() as session:
-        projects = await UsageRepository(session).get_projects_list(project_names=scoped_names)
+        projects = await UsageRepository(session).get_projects_list(
+            user_id=scoped_user,
+            project_names=scoped_names,
+        )
     return {"projects": projects}

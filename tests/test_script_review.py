@@ -12,9 +12,22 @@ from pathlib import Path
 import pytest
 
 from lib import script_review
+from lib.db.base import DEFAULT_USER_ID
 from lib.json_io import atomic_write_json
 from lib.project_manager import ProjectManager
+from lib.project_paths import ProjectLocation
 from server.services.script_review import ScriptReviewError, ScriptReviewService
+
+
+def _bind_demo_ownership(monkeypatch: pytest.MonkeyPatch) -> None:
+    """把 demo 的归属固定为 default 属主。
+
+    ToolContext 的归属校验查 projects 表；本文件用真 ProjectManager 但不起 DB。
+    """
+    monkeypatch.setattr(
+        "server.agent_runtime.sdk_tools._context.sync_lookup_project",
+        lambda name, user_id=None: ProjectLocation(user_id=DEFAULT_USER_ID, project_id=f"{name}-id", name=name),
+    )
 
 
 def _drama_step1() -> dict:
@@ -308,7 +321,7 @@ class TestReferenceVideoGateFlow:
 
 
 class TestReferenceVideoStep2Enforcement:
-    async def test_generate_blocked_then_confirm_tool_unblocks(self, tmp_path):
+    async def test_generate_blocked_then_confirm_tool_unblocks(self, tmp_path, monkeypatch):
         """agent 路径：rv 的 step1 未确认时 step2 阻塞，confirm_script_review 工具确认后放行。"""
         from server.agent_runtime.sdk_tools._context import ToolContext
         from server.agent_runtime.sdk_tools.text_generation import (
@@ -321,6 +334,7 @@ class TestReferenceVideoStep2Enforcement:
         project_path = pm.get_project_path("demo")
         assert script_review.gate_blocks_step2(project_path, pm.load_project("demo"), 1) is True
 
+        _bind_demo_ownership(monkeypatch)
         ctx = ToolContext(project_name="demo", projects_root=tmp_path / "projects", pm=pm)
         blocked = await generate_episode_script_tool(ctx).handler({"episode": 1})
         assert blocked.get("is_error") is True
@@ -422,13 +436,14 @@ class TestErrors:
 
 
 class TestStep2Enforcement:
-    async def test_generate_blocked_when_pending(self, tmp_path):
+    async def test_generate_blocked_when_pending(self, tmp_path, monkeypatch):
         from server.agent_runtime.sdk_tools._context import ToolContext
         from server.agent_runtime.sdk_tools.text_generation import generate_episode_script_tool
 
         pm = _make_project(tmp_path, "drama")
         _write_step1(pm, "drama", _drama_step1())
 
+        _bind_demo_ownership(monkeypatch)
         ctx = ToolContext(project_name="demo", projects_root=tmp_path / "projects", pm=pm)
         tool = generate_episode_script_tool(ctx)
         result = await tool.handler({"episode": 1})
@@ -437,7 +452,7 @@ class TestStep2Enforcement:
         text = result["content"][0]["text"]
         assert "step1" in text and "阻塞" in text
 
-    async def test_confirm_tool_unblocks_step2(self, tmp_path):
+    async def test_confirm_tool_unblocks_step2(self, tmp_path, monkeypatch):
         """agent 路径：confirm_script_review 工具确认后，gate 放行（既有 step1→step2 不被破坏）。"""
         from server.agent_runtime.sdk_tools._context import ToolContext
         from server.agent_runtime.sdk_tools.text_generation import confirm_script_review_tool
@@ -447,6 +462,7 @@ class TestStep2Enforcement:
         project_path = pm.get_project_path("demo")
         assert script_review.gate_blocks_step2(project_path, pm.load_project("demo"), 1) is True
 
+        _bind_demo_ownership(monkeypatch)
         ctx = ToolContext(project_name="demo", projects_root=tmp_path / "projects", pm=pm)
         result = await confirm_script_review_tool(ctx).handler({"episode": 1})
 

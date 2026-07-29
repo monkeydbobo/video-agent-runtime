@@ -142,15 +142,18 @@ def _apply_provider_constraints(
     return new_refs, new_duration, warnings
 
 
-async def resolve_max_unit_duration(project: dict) -> int | None:
+async def resolve_max_unit_duration(project: dict, *, user_id: str) -> int | None:
     """解析项目视频后端的单次生成时长上限（秒），供派生分组约束 unit 总长。
 
     单一真相源与 executor clamp 同口径（``video_capabilities_for_project`` 的
     model 粒度 ``max_duration``）；解析失败返回 None——分组退化为仅按镜头数
     切分，超长 unit 交由执行层 clamp + warning 兜底，不阻塞派生。
+
+    ``user_id`` 必传且不设默认：供应商配置按用户分片后，落到非所有者的分片会
+    让分组按别人的模型上限切分，与 executor 按任务所有者 clamp 的口径背离。
     """
     try:
-        resolver = ConfigResolver(async_session_factory)
+        resolver = ConfigResolver(async_session_factory, user_id=user_id)
         caps = await resolver.video_capabilities_for_project(project)
         max_duration = caps.get("max_duration")
         return int(max_duration) if max_duration else None

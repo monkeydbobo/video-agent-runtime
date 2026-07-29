@@ -28,7 +28,7 @@ router = APIRouter()
 
 def _require_jwt_auth(user: CurrentUserInfo, _t: Callable[..., str]) -> None:
     """确保请求通过 JWT 认证（非 API Key）。API Key 管理操作不允许由 API Key 本身执行。"""
-    if user.sub.startswith("apikey:"):
+    if user.via == "apikey":
         raise HTTPException(status_code=403, detail=_t("jwt_auth_required"))
 
 
@@ -96,6 +96,7 @@ async def create_api_key(
                     key_hash=key_hash,
                     key_prefix=key_prefix,
                     expires_at=expires_at,
+                    user_id=_user.id,
                 )
     except IntegrityError:
         raise HTTPException(status_code=409, detail=_t("api_key_name_exists", name=body.name))
@@ -115,14 +116,24 @@ async def list_api_keys(
     _user: CurrentUser,
     _t: Translator,
 ) -> list[ApiKeyInfo]:
-    """查询所有 API Key 的元数据（不含完整 key）。"""
+    """查询当前用户 API Key 的元数据（不含完整 key）。"""
     _require_jwt_auth(_user, _t)
     async with async_session_factory() as session:
         async with session.begin():
             repo = ApiKeyRepository(session)
-            rows = await repo.list_all()
+            rows = await repo.list_for_user(_user.id)
 
-    return [ApiKeyInfo(**row) for row in rows]
+    return [
+        ApiKeyInfo(
+            id=row["id"],
+            name=row["name"],
+            key_prefix=row["key_prefix"],
+            created_at=row["created_at"],
+            expires_at=row["expires_at"],
+            last_used_at=row["last_used_at"],
+        )
+        for row in rows
+    ]
 
 
 @router.delete("/api-keys/{key_id}", status_code=204)
@@ -131,19 +142,19 @@ async def delete_api_key(
     _user: CurrentUser,
     _t: Translator,
 ) -> None:
-    """删除（吊销）指定 API Key，并立即清除内存缓存。"""
+    """删除（吊销）当前用户拥有的指定 API Key，并立即清除内存缓存。"""
     _require_jwt_auth(_user, _t)
     async with async_session_factory() as session:
         async with session.begin():
             repo = ApiKeyRepository(session)
-            row = await repo.get_by_id(key_id)
+            row = await repo.get_by_id_for_user(key_id, _user.id)
             if row is None:
                 raise HTTPException(status_code=404, detail=_t("api_key_not_found", key_id=key_id))
             key_hash = row["key_hash"]
             # 先失效缓存再删库：即使事务提交后崩溃，缓存也已清除，
             # 不会出现 DB 已删但缓存仍有效的宽限窗口。
             invalidate_api_key_cache(key_hash)
-            deleted = await repo.delete(key_id)
+            deleted = await repo.delete_for_user(key_id, _user.id)
 
     if not deleted:
         raise HTTPException(status_code=404, detail=_t("api_key_not_found", key_id=key_id))

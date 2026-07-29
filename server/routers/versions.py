@@ -9,7 +9,7 @@ import logging
 from collections.abc import Callable
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +20,10 @@ from lib.resource_paths import resource_relative_path
 from lib.script_editor import ScriptEditError
 from lib.version_manager import VersionManager
 from server.auth import CurrentUser
+from server.project_access import require_project_access
 from server.services.reference_video_tasks import apply_unit_video_assets
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_project_access)])
 
 # 经此路由可还原的资源类型（API 面策略）。路径形状委托 lib.resource_paths，但本路由
 # 仅放行有还原后元数据同步分支的这几类；grids 的还原是独立议题。

@@ -113,9 +113,17 @@ class AssistantService:
         status: SessionStatus | None = None,
         limit: int = 50,
         offset: int = 0,
+        *,
+        user_id: str | None = None,
     ) -> list[SessionMeta]:
         """List sessions, injecting SDK summary as title when available."""
-        sessions = await self.meta_store.list(project_name=project_name, status=status, limit=limit, offset=offset)
+        sessions = await self.meta_store.list(
+            project_name=project_name,
+            status=status,
+            limit=limit,
+            offset=offset,
+            user_id=user_id,
+        )
         if not sessions or not project_name:
             return sessions
 
@@ -154,9 +162,13 @@ class AssistantService:
             for s in sessions
         ]
 
-    async def get_session(self, session_id: str) -> SessionMeta | None:
+    def bind_user(self, user_id: str) -> None:
+        """把当前请求的归属身份绑到会话运行时（凭证 / 用量 / transcript / MCP 工具都读它）。"""
+        self.session_manager.bind_user(user_id)
+
+    async def get_session(self, session_id: str, *, user_id: str | None = None) -> SessionMeta | None:
         """Get session by ID."""
-        meta = await self.meta_store.get(session_id)
+        meta = await self.meta_store.get(session_id, user_id=user_id)
         if meta and session_id in self.session_manager.sessions:
             # Update status from live session
             managed = self.session_manager.sessions[session_id]

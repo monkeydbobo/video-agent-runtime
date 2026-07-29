@@ -75,7 +75,7 @@ async def _cold_revival_clients(session_manager, monkeypatch):
     ``options.kwargs["system_prompt"]["append"]`` carries the rebuilt prompt, so
     tests can assert which locale the language regulation was rendered with."""
 
-    async def _fake_env():
+    async def _fake_env(**_kwargs):
         return {}
 
     monkeypatch.setattr("server.agent_runtime.options_assembler.load_provider_env_overrides", _fake_env)
@@ -138,7 +138,7 @@ class TestSessionManagerMore:
 
     @pytest.mark.asyncio
     async def test_build_options_and_connect_paths(self, session_manager, meta_store, tmp_path, monkeypatch):
-        async def _fake_env():
+        async def _fake_env(**_kwargs):
             return {}
 
         monkeypatch.setattr("server.agent_runtime.options_assembler.load_provider_env_overrides", _fake_env)

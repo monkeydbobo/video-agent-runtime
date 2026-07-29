@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from lib.db.base import DEFAULT_USER_ID
 from lib.pricing.lookup import lookup_pricing
 from lib.pricing.strategies import PricingParams, calculate_pricing
 from lib.providers import PROVIDER_MINIMAX, PROVIDER_OPENAI
@@ -104,7 +105,7 @@ class TestFactoryWiring:
             patch.object(factory, "ConfigResolver", return_value=resolver),
             patch.object(text_registry, "create_backend", side_effect=_fake_create_backend),
         ):
-            await factory.create_text_backend_for_task("script")
+            await factory.create_text_backend_for_task("script", user_id=DEFAULT_USER_ID)
 
         assert captured["backend_name"] == "openai"
         assert captured["provider_name"] == PROVIDER_MINIMAX

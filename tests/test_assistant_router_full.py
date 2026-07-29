@@ -19,6 +19,10 @@ class _FakeService:
             "session-1": make_session_meta(id="session-1", project_name=PROJECT),
             "bad": make_session_meta(id="bad", project_name=PROJECT),
         }
+        self.bound_user_ids: list[str] = []
+
+    def bind_user(self, user_id):
+        self.bound_user_ids.append(user_id)
 
     async def send_or_create(self, project_name, content, session_id=None, images=None, locale=None, client_key=None):
         if project_name == "missing":
@@ -35,7 +39,7 @@ class _FakeService:
     async def list_sessions(self, **kwargs):
         return [make_session_meta(id="session-1", project_name=kwargs.get("project_name") or "demo")]
 
-    async def get_session(self, session_id):
+    async def get_session(self, session_id, *, user_id=None):
         if session_id == "error":
             raise RuntimeError("boom")
         return self.sessions.get(session_id)

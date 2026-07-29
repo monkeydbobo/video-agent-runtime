@@ -7,6 +7,8 @@ export interface Asset {
   description: string;
   voice_style: string;
   image_path: string | null;
+  image_url?: string | null;
+  media_token?: string | null;
   source_project: string | null;
   updated_at: string | null;
 }

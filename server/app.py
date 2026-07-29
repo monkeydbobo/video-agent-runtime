@@ -398,6 +398,26 @@ async def lifespan(app: FastAPI):
     except Exception:
         logger.exception("项目归属对账失败（非致命）")
 
+    # 磁盘布局迁移：扁平项目 / _global_assets → users/{owner}/projects|assets（幂等，失败不阻塞）
+    try:
+        from lib.storage_migration import run_storage_migration
+
+        storage_summary = await asyncio.to_thread(run_storage_migration, projects_root)
+        if (
+            storage_summary.projects_migrated
+            or storage_summary.projects_failed
+            or storage_summary.global_assets_migrated
+        ):
+            logger.info(
+                "磁盘布局迁移：projects_migrated=%s failed=%s global_assets=%s files=%d",
+                storage_summary.projects_migrated,
+                storage_summary.projects_failed,
+                storage_summary.global_assets_migrated,
+                storage_summary.global_assets_files,
+            )
+    except Exception:
+        logger.warning("磁盘布局迁移失败（非致命）", exc_info=True)
+
     # Migrate any pre-existing local SDK jsonl transcripts into the DbSessionStore.
     # Runs once (marker-gated); failures are non-fatal and logged.
     if session_store_enabled():

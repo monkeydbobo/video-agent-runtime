@@ -326,7 +326,7 @@ export function AssetLibraryPage() {
           initialData={formModal.asset}
           previewImageUrl={
             formModal.asset
-              ? API.getGlobalAssetUrl(formModal.asset.image_path, formModal.asset.updated_at) ?? undefined
+              ? API.resolveAssetImageUrl(formModal.asset) ?? undefined
               : undefined
           }
           onClose={() => setFormModal(null)}

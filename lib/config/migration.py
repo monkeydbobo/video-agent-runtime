@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from lib.config.registry import PROVIDER_REGISTRY
 from lib.config.repository import ProviderConfigRepository, SystemSettingRepository
+from lib.db.base import DEFAULT_USER_ID
 from lib.system_config import resolve_vertex_credentials_path
 
 logger = logging.getLogger(__name__)
@@ -70,7 +71,7 @@ async def migrate_json_to_db(session: AsyncSession, json_path: Path) -> None:
     data = json.loads(text)
     overrides: dict = data.get("overrides", {})
 
-    provider_repo = ProviderConfigRepository(session)
+    provider_repo = ProviderConfigRepository(session, user_id=DEFAULT_USER_ID)
     setting_repo = SystemSettingRepository(session)
 
     # 1. Provider-specific keys

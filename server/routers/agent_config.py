@@ -154,7 +154,7 @@ async def list_credentials(
     session: AsyncSession = Depends(get_async_session),
 ) -> CredentialListResponse:
     repo = AgentCredentialRepository(session)
-    creds = await repo.list_for_user()
+    creds = await repo.list_for_user(_user.id)
     return CredentialListResponse(credentials=[_cred_to_response(c) for c in creds])
 
 
@@ -181,6 +181,7 @@ async def create_credential(
 
     repo = AgentCredentialRepository(session)
     cred = await repo.create(
+        user_id=_user.id,
         preset_id=body.preset_id,
         display_name=display_name,
         base_url=base_url,
@@ -194,11 +195,11 @@ async def create_credential(
     # 自动 active 策略：activate=True，或 (activate=None 且当前无 active)
     should_activate = body.activate is True
     if body.activate is None:
-        existing_active = await repo.get_active()
+        existing_active = await repo.get_active(_user.id)
         if existing_active is None:
             should_activate = True
     if should_activate:
-        await repo.set_active(cred.id)
+        await repo.set_active(cred.id, _user.id)
     await session.commit()
     await session.refresh(cred)
     return _cred_to_response(cred)
@@ -221,7 +222,7 @@ async def update_credential(
             fields.pop(required, None)
     if not fields:
         raise HTTPException(status_code=400, detail=_t("agent_no_fields_to_update"))
-    cred = await repo.update(cred_id, **fields)
+    cred = await repo.update(cred_id, _user.id, **fields)
     if cred is None:
         raise HTTPException(status_code=404, detail=_t("agent_credential_not_found"))
     await session.commit()
@@ -237,7 +238,7 @@ async def delete_credential(
 ) -> None:
     repo = AgentCredentialRepository(session)
     try:
-        deleted = await repo.delete(cred_id)
+        deleted = await repo.delete(cred_id, _user.id)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=_t("agent_cannot_delete_active")) from exc
     if not deleted:
@@ -261,7 +262,7 @@ async def activate_credential(
 ) -> ActivateResponse:
     repo = AgentCredentialRepository(session)
     try:
-        await repo.set_active(cred_id)
+        await repo.set_active(cred_id, _user.id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=_t("agent_credential_not_found")) from exc
     await session.commit()
@@ -359,7 +360,7 @@ async def test_credential(
 ) -> TestConnectionResponseModel:
     repo = AgentCredentialRepository(session)
     cred = await repo.get(cred_id)
-    if cred is None:
+    if cred is None or cred.user_id != _user.id:
         raise HTTPException(status_code=404, detail=_t("agent_credential_not_found"))
     return await _run_and_serialize(
         preset_id=cred.preset_id,

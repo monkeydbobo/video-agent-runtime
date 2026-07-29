@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { PrivateMediaImg } from "@/components/ui/PrivateMedia";
 
 type Variant = "display" | "picker";
 
@@ -25,7 +26,7 @@ export function AssetThumb({ imageUrl, alt, fallback, variant }: Props) {
   return (
     <div className={containerClass} style={{ background: isDisplay ? DISPLAY_BG : PICKER_BG }}>
       {imageUrl ? (
-        <img
+        <PrivateMediaImg
           src={imageUrl}
           alt={alt}
           loading="lazy"

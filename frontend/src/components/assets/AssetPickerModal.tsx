@@ -57,7 +57,7 @@ export function AssetPickerModal({ type, existingNames, onClose, onImport }: Pro
   }, [type, debouncedQ]);
 
   const assetsWithUrl = useMemo(
-    () => assets.map((a) => ({ asset: a, url: API.getGlobalAssetUrl(a.image_path, a.updated_at) })),
+    () => assets.map((a) => ({ asset: a, url: API.resolveAssetImageUrl(a) })),
     [assets],
   );
 
