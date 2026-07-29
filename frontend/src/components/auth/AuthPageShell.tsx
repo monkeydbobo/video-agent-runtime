@@ -5,6 +5,7 @@ import { useEffect, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { BRAND } from "@/branding";
 import { ambientGlowStyle, CARD_STYLE, posterGridStyle } from "@/components/ui/darkroom-tokens";
+import { LANGUAGE_DISPLAY_LABELS, SUPPORTED_LANGUAGES, type SupportedLanguage } from "@/i18n";
 
 const POSTER_GRID_STYLE = posterGridStyle({ size: 44, maskShape: "70% 70% at 50% 45%", opacity: 0.045 });
 const AMBIENT_GLOW_STYLE = ambientGlowStyle({ at: "22% 18%", intensity: 0.2 });
@@ -21,7 +22,15 @@ interface AuthPageShellProps {
 }
 
 export function AuthPageShell({ canonicalPath, pageTitle, children }: AuthPageShellProps) {
-  const { t } = useTranslation("auth");
+  const { t, i18n } = useTranslation(["auth", "common"]);
+  const activeLanguage = i18n.resolvedLanguage?.split("-", 1)[0] ?? "zh";
+
+  const selectLanguage = (language: SupportedLanguage) => {
+    if (language === activeLanguage) return;
+    // GIS requires the locale in the script URL, so reload after persisting the
+    // choice instead of leaving a previously loaded third-party script in place.
+    void i18n.changeLanguage(language).then(() => window.location.reload());
+  };
 
   useEffect(() => {
     const previousTitle = document.title;
@@ -125,6 +134,23 @@ export function AuthPageShell({ canonicalPath, pageTitle, children }: AuthPageSh
 
         <section className="flex items-center p-7 sm:p-10" style={CARD_STYLE}>
           <div className="w-full">
+            <div aria-label={t("common:language")} className="mb-5 flex justify-end gap-1" role="group">
+              {SUPPORTED_LANGUAGES.map((language) => (
+                <button
+                  aria-pressed={language === activeLanguage}
+                  className={`rounded-md px-2 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                    language === activeLanguage
+                      ? "bg-accent/10 font-semibold text-accent"
+                      : "text-text-3 hover:bg-bg-grad-a hover:text-text"
+                  }`}
+                  key={language}
+                  onClick={() => selectLanguage(language)}
+                  type="button"
+                >
+                  {LANGUAGE_DISPLAY_LABELS[language]}
+                </button>
+              ))}
+            </div>
             <p className="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-text-4">
               {BRAND.name} · {t("secure_account")}
             </p>

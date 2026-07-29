@@ -60,7 +60,7 @@ function track(promise: Promise<void>): Promise<void> {
   return promise;
 }
 
-export function loadGisScript(): Promise<void> {
+export function loadGisScript(locale = "zh_CN"): Promise<void> {
   if (typeof window === "undefined") {
     return Promise.reject(new Error("no window"));
   }
@@ -76,7 +76,7 @@ export function loadGisScript(): Promise<void> {
 
   const script = document.createElement("script");
   script.id = GIS_SCRIPT_ID;
-  script.src = GIS_SCRIPT_SRC;
+  script.src = `${GIS_SCRIPT_SRC}?hl=${encodeURIComponent(locale)}`;
   script.async = true;
   script.defer = true;
   const promise = track(watchGisScript(script));
