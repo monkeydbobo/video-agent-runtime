@@ -19,6 +19,11 @@ class TestGetDatabaseUrl:
             url = get_database_url()
             assert url == "postgresql+asyncpg://localhost/test"
 
+    def test_railway_postgres_url_uses_asyncpg_driver(self):
+        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://user:pass@postgres.railway.internal:5432/railway"}):
+            url = get_database_url()
+            assert url == "postgresql+asyncpg://user:pass@postgres.railway.internal:5432/railway"
+
 
 class TestIsSqliteBackend:
     def test_sqlite(self):
