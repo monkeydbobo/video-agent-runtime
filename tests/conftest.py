@@ -140,7 +140,20 @@ def project_ownership_db(monkeypatch, tmp_path):
 
     monkeypatch.setattr("server.project_access.async_session_factory", _factory_call)
     monkeypatch.setattr("lib.db.async_session_factory", _factory_call)
+    monkeypatch.setattr("lib.db.safe_session_factory", _factory_call)
+    monkeypatch.setattr("lib.ledger.safe_session_factory", _factory_call)
+    monkeypatch.setattr("server.agent_runtime.options_assembler.default_async_session_factory", _factory_call)
     monkeypatch.setattr("server.routers.projects.async_session_factory", _factory_call)
+    monkeypatch.setattr("server.app.async_session_factory", _factory_call)
+    monkeypatch.setattr("server.app.init_db", _ensure_factory)
+
+    from server.routers.assistant import assistant_service
+
+    assistant_service.meta_store._session_factory = _factory_call
+    assistant_service.session_manager._session_factory = _factory_call
+    assistant_service._startup_done = False
+
+    monkeypatch.setattr(generation_queue_module.get_generation_queue(), "_session_factory", _factory_call)
     yield _factory_call
 
     engine = state.get("engine")

@@ -28,6 +28,13 @@ def get_database_url() -> str:
     """Resolve DATABASE_URL from environment or default to SQLite."""
     url = os.environ.get("DATABASE_URL", "").strip()
     if url:
+        # Railway and many managed PostgreSQL providers expose a standard
+        # ``postgres://`` / ``postgresql://`` URL. SQLAlchemy's async engine
+        # needs the installed asyncpg dialect explicitly selected.
+        if url.startswith("postgres://"):
+            return f"postgresql+asyncpg://{url.removeprefix('postgres://')}"
+        if url.startswith("postgresql://"):
+            return f"postgresql+asyncpg://{url.removeprefix('postgresql://')}"
         return url
     from lib.app_data_dir import app_data_dir
 
