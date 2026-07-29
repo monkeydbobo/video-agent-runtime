@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from lib.db.base import Base
+from lib.project_paths import project_user_scope
 from server.agent_runtime import session_manager as sm_mod
 from server.agent_runtime.agent_access_policy import AgentAccessPolicy
 from server.agent_runtime.message_utils import extract_plain_user_content
@@ -222,6 +223,15 @@ class TestSessionManagerMore:
         assert await session_manager.get_status("missing") is None
         meta = await meta_store.create("demo", "sdk-resolve-status")
         assert await session_manager.get_status(meta.id) == "idle"
+
+    @pytest.mark.asyncio
+    async def test_resolve_project_cwd_uses_current_users_private_project_directory(self, session_manager, tmp_path):
+        project_dir = tmp_path / "projects" / "users" / "user-1" / "projects" / "project-1"
+        project_dir.mkdir(parents=True)
+        (project_dir / "project.json").write_text("{}", encoding="utf-8")
+
+        with project_user_scope("user-1", project_name="demo", project_id="project-1"):
+            assert session_manager._resolve_project_cwd("demo") == project_dir
 
     @pytest.mark.asyncio
     async def test_send_message_and_interrupt_branches(self, session_manager, meta_store):

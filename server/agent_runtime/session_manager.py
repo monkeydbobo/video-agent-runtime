@@ -18,6 +18,7 @@ from uuid import uuid4
 from lib.db.base import DEFAULT_USER_ID
 from lib.i18n import DEFAULT_LOCALE
 from lib.logging_config import resolve_log_dir
+from lib.project_manager import ProjectManager
 from server.agent_runtime.agent_access_policy import AgentAccessPolicy
 from server.agent_runtime.backend import agent_runtime_backend
 from server.agent_runtime.e2b_workspace import E2BWorkspaceManager
@@ -299,6 +300,7 @@ class SessionManager:
             if projects_root is not None
             else (self.project_root / "projects").resolve()
         )
+        self._project_manager = ProjectManager(self.projects_root)
         self.meta_store = meta_store
         self._execution_backend = agent_runtime_backend()
         self._e2b_workspaces = (
@@ -435,16 +437,12 @@ class SessionManager:
         return self._options_assembler.build_session_store()
 
     def _resolve_project_cwd(self, project_name: str) -> Path:
-        """Resolve and validate per-session project working directory."""
-        projects_root = self.projects_root
-        project_cwd = (projects_root / project_name).resolve()
-        try:
-            project_cwd.relative_to(projects_root)
-        except ValueError as exc:
-            raise ValueError("invalid project name") from exc
-        if not project_cwd.exists() or not project_cwd.is_dir():
-            raise FileNotFoundError(f"project not found: {project_name}")
-        return project_cwd
+        """Resolve the current user's project directory for an agent session.
+
+        ``ProjectManager`` is the single authority for both legacy flat projects
+        and the production ``users/{user_id}/projects/{project_id}`` layout.
+        """
+        return self._project_manager.get_project_path(project_name)
 
     def _build_entry_pipeline(self, managed: "ManagedSession") -> SessionEntryPipeline:
         """构建会话的事件日志写入点管道。
