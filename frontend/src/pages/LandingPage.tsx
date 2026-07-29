@@ -96,10 +96,11 @@ export function LandingPage() {
           <div className="landing-reel__code">A-01 / 24 FPS</div>
           <div className="landing-reel__sprockets" />
           <div className="landing-reel__scene">
-            <div className="landing-reel__sun" />
-            <div className="landing-reel__sun-ring" />
-            <div className="landing-reel__ridge landing-reel__ridge--back" />
-            <div className="landing-reel__ridge landing-reel__ridge--front" />
+            <img
+              alt=""
+              className="landing-reel__image"
+              src="/exec-552bf0bb-b706-49d8-a843-f26f5f15acc4.png"
+            />
             <div className="landing-reel__frame">SC. 01</div>
             <p>{t("reel_scene")}</p>
           </div>
