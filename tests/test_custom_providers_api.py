@@ -25,6 +25,8 @@ from server.routers import custom_providers
 # Fixtures
 # ---------------------------------------------------------------------------
 
+_TEST_USER_ID = "test"
+
 
 @pytest.fixture()
 async def db_engine():
@@ -765,7 +767,7 @@ class TestDeleteProviderCleansGlobalSettings:
         pid = resp.json()["id"]
 
         # 模拟全局配置引用该供应商
-        svc = ConfigService(session)
+        svc = ConfigService(session, user_id=_TEST_USER_ID)
         await svc.set_setting("default_text_backend", f"custom-{pid}/gpt-4o")
         await svc.set_setting("default_image_backend", f"custom-{pid}/dall-e-3")
         await svc.set_setting("default_audio_backend", f"custom-{pid}/tts-1")
@@ -840,7 +842,7 @@ class TestReplaceModelsCleansStaleRefs:
         pid = resp.json()["id"]
 
         # 模拟全局配置引用 gpt-4o
-        svc = ConfigService(session)
+        svc = ConfigService(session, user_id=_TEST_USER_ID)
         await svc.set_setting("default_text_backend", f"custom-{pid}/gpt-4o")
         await session.commit()
 
@@ -1535,12 +1537,13 @@ class TestDiscoverAnthropic:
 
         repo = AgentCredentialRepository(session)
         cred = await repo.create(
+            user_id=_TEST_USER_ID,
             preset_id="__custom__",
             display_name="stored",
             base_url="https://stored.example",
             api_key="sk-stored",
         )
-        await repo.set_active(cred.id)
+        await repo.set_active(cred.id, _TEST_USER_ID)
         await session.commit()
 
         with patch("server.routers.custom_providers._run_discover", new=AsyncMock()) as mock_run:
@@ -1568,12 +1571,13 @@ class TestDiscoverAnthropic:
 
         repo = AgentCredentialRepository(session)
         cred = await repo.create(
+            user_id=_TEST_USER_ID,
             preset_id="__custom__",
             display_name="stored",
             base_url="https://stored.example",
             api_key="sk-stored",
         )
-        await repo.set_active(cred.id)
+        await repo.set_active(cred.id, _TEST_USER_ID)
         await session.commit()
 
         with patch("server.routers.custom_providers._run_discover", new=AsyncMock()) as mock_run:

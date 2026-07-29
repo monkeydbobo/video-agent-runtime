@@ -1,4 +1,7 @@
-"""AssetRepository: 异步 CRUD。"""
+"""AssetRepository: 异步 CRUD（按 user_id 隔离）。
+
+作者: wanghaobo
+"""
 
 from __future__ import annotations
 
@@ -8,10 +11,10 @@ from typing import Any
 from sqlalchemy import select
 
 from lib.db.models.asset import Asset
-from lib.db.repositories.base import BaseRepository
+from lib.db.repositories.base import UserScopedRepository
 
 
-class AssetRepository(BaseRepository):
+class AssetRepository(UserScopedRepository):
     async def create(
         self,
         *,
@@ -24,6 +27,7 @@ class AssetRepository(BaseRepository):
     ) -> Asset:
         asset = Asset(
             id=str(uuid.uuid4()),
+            user_id=self.user_id,
             type=type,
             name=name,
             description=description,
@@ -36,17 +40,21 @@ class AssetRepository(BaseRepository):
         return asset
 
     async def get_by_id(self, asset_id: str) -> Asset | None:
-        return (await self.session.execute(select(Asset).where(Asset.id == asset_id))).scalar_one_or_none()
+        stmt = self._scope_query(select(Asset).where(Asset.id == asset_id), Asset)
+        return (await self.session.execute(stmt)).scalar_one_or_none()
 
     async def get_by_type_name(self, type: str, name: str) -> Asset | None:
-        return (
-            await self.session.execute(select(Asset).where(Asset.type == type, Asset.name == name))
-        ).scalar_one_or_none()
+        stmt = self._scope_query(
+            select(Asset).where(Asset.type == type, Asset.name == name),
+            Asset,
+        )
+        return (await self.session.execute(stmt)).scalar_one_or_none()
 
     async def get_by_ids(self, asset_ids: list[str]) -> list[Asset]:
         if not asset_ids:
             return []
-        return list((await self.session.execute(select(Asset).where(Asset.id.in_(asset_ids)))).scalars())
+        stmt = self._scope_query(select(Asset).where(Asset.id.in_(asset_ids)), Asset)
+        return list((await self.session.execute(stmt)).scalars())
 
     async def list(
         self,
@@ -57,6 +65,7 @@ class AssetRepository(BaseRepository):
         offset: int = 0,
     ) -> list[Asset]:
         stmt = select(Asset)
+        stmt = self._scope_query(stmt, Asset)
         if type:
             stmt = stmt.where(Asset.type == type)
         if q:

@@ -86,7 +86,7 @@ class TestListApiKeys:
     def test_list_returns_200(self):
         with _make_client() as client:
             mock_repo = AsyncMock()
-            mock_repo.list_all = AsyncMock(return_value=[FAKE_ROW])
+            mock_repo.list_for_user = AsyncMock(return_value=[FAKE_ROW])
 
             mock_session = AsyncMock()
             mock_begin = AsyncMock()
@@ -107,14 +107,15 @@ class TestListApiKeys:
         assert len(body) == 1
         assert body[0]["name"] == "mykey"
         assert "key" not in body[0]  # 完整 key 不在列表响应中
+        mock_repo.list_for_user.assert_awaited_once_with("default")
 
 
 class TestDeleteApiKey:
     def test_delete_returns_204(self):
         with _make_client() as client:
             mock_repo = AsyncMock()
-            mock_repo.get_by_id = AsyncMock(return_value=FAKE_ROW_WITH_HASH)
-            mock_repo.delete = AsyncMock(return_value=True)
+            mock_repo.get_by_id_for_user = AsyncMock(return_value=FAKE_ROW_WITH_HASH)
+            mock_repo.delete_for_user = AsyncMock(return_value=True)
 
             mock_session = AsyncMock()
             mock_begin = AsyncMock()
@@ -133,11 +134,12 @@ class TestDeleteApiKey:
                 mock_invalidate.assert_called_once_with("abc123hash")
 
         assert resp.status_code == 204
+        mock_repo.delete_for_user.assert_awaited_once_with(1, "default")
 
     def test_delete_404_on_missing_key(self):
         with _make_client() as client:
             mock_repo = AsyncMock()
-            mock_repo.get_by_id = AsyncMock(return_value=None)
+            mock_repo.get_by_id_for_user = AsyncMock(return_value=None)
 
             mock_session = AsyncMock()
             mock_begin = AsyncMock()

@@ -9,6 +9,14 @@ from server.services.generation_context import GenerationContext, ImageLaneResul
 from server.services.generation_tasks import assert_duration_supported
 
 
+@pytest.fixture(autouse=True)
+def _owned_task_project(monkeypatch):
+    async def _get_by_name(_repo, _user_id, _project_name):
+        return type("_Project", (), {"id": "project-id-demo"})()
+
+    monkeypatch.setattr(generation_tasks.ProjectRepository, "get_by_name", _get_by_name)
+
+
 class TestAssertDurationSupported:
     def test_supported_duration_passes(self):
         assert_duration_supported(8, [4, 6, 8])  # no raise

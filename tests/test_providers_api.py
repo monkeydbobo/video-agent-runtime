@@ -19,6 +19,7 @@ from lib.db import get_async_session
 from lib.db.models.credential import ProviderCredential
 from lib.db.repositories.credential_repository import CredentialRepository
 from lib.i18n import get_translator
+from server.auth import CurrentUserInfo, get_current_user
 from server.dependencies import get_config_service
 from server.routers import providers
 from tests.conftest import make_translator
@@ -28,12 +29,17 @@ from tests.conftest import make_translator
 # ---------------------------------------------------------------------------
 
 
+def _override_auth(app: FastAPI) -> None:
+    app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
+
+
 def _make_app(mock_svc: ConfigService) -> FastAPI:
     """创建绑定 mock ConfigService 的最小 FastAPI 应用。"""
     app = FastAPI()
 
     # 覆盖 get_config_service，直接注入 mock 服务
     app.dependency_overrides[get_config_service] = lambda: mock_svc
+    _override_auth(app)
 
     app.include_router(providers.router, prefix="/api/v1")
     return app
@@ -190,6 +196,7 @@ def _make_session_app() -> tuple[FastAPI, AsyncMock]:
 
     app.dependency_overrides[get_async_session] = _override_session
     app.dependency_overrides[get_translator] = lambda: make_translator()
+    _override_auth(app)
     app.include_router(providers.router, prefix="/api/v1")
     return app, mock_session
 
@@ -412,6 +419,7 @@ def _make_patch_app(mock_svc_instance: ConfigService) -> FastAPI:
         yield mock_session
 
     app.dependency_overrides[get_async_session] = _override_session
+    _override_auth(app)
 
     with patch("server.routers.providers.ConfigService", return_value=mock_svc_instance):
         app.include_router(providers.router, prefix="/api/v1")
@@ -438,6 +446,7 @@ class TestPatchProviderConfig:
                 yield mock_session
 
             app.dependency_overrides[get_async_session] = _override
+            _override_auth(app)
             app.include_router(providers.router, prefix="/api/v1")
 
             with TestClient(app) as client:
@@ -456,6 +465,7 @@ class TestPatchProviderConfig:
             yield mock_session
 
         app.dependency_overrides[get_async_session] = _override
+        _override_auth(app)
         app.include_router(providers.router, prefix="/api/v1")
 
         with TestClient(app) as client:
@@ -476,6 +486,7 @@ class TestPatchProviderConfig:
                 yield mock_session
 
             app.dependency_overrides[get_async_session] = _override
+            _override_auth(app)
             app.include_router(providers.router, prefix="/api/v1")
 
             with TestClient(app) as client:
@@ -498,6 +509,7 @@ class TestPatchProviderConfig:
                 yield mock_session
 
             app.dependency_overrides[get_async_session] = _override
+            _override_auth(app)
             app.include_router(providers.router, prefix="/api/v1")
 
             with TestClient(app) as client:
@@ -546,6 +558,7 @@ class TestPatchProviderConfigMaxWorkersValidation:
 
         app.dependency_overrides[get_async_session] = _override_session
         app.dependency_overrides[get_translator] = lambda: make_translator(locale)
+        _override_auth(app)
         app.include_router(providers.router, prefix="/api/v1")
         return app
 

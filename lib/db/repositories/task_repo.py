@@ -76,6 +76,22 @@ def _event_to_dict(row: TaskEvent) -> dict[str, Any]:
 
 
 class TaskRepository(BaseRepository):
+    @staticmethod
+    def _scope_filters(
+        *,
+        user_id: str | None = None,
+        project_name: str | None = None,
+        project_names: list[str] | None = None,
+    ) -> list:
+        filters: list = []
+        if user_id:
+            filters.append(Task.user_id == user_id)
+        if project_name:
+            filters.append(Task.project_name == project_name)
+        if project_names is not None:
+            filters.append(Task.project_name.in_(project_names))
+        return filters
+
     async def _append_event(
         self,
         *,
@@ -148,6 +164,7 @@ class TaskRepository(BaseRepository):
             result = await self.session.execute(
                 select(Task)
                 .where(
+                    Task.user_id == user_id,
                     Task.project_name == project_name,
                     Task.task_type == task_type,
                     Task.resource_id == resource_id,
@@ -734,24 +751,33 @@ class TaskRepository(BaseRepository):
         await self.session.commit()
         return {"rows": 1 if data is not None else 0, "cancelling": cancelling}
 
-    async def get_cancel_all_preview(self, project_name: str) -> int:
+    async def get_cancel_all_preview(self, project_name: str, *, user_id: str | None = None) -> int:
         """返回项目中当前 queued 状态的任务数量。"""
-        result = await self.session.execute(
-            select(func.count()).select_from(Task).where(Task.project_name == project_name, Task.status == "queued")
+        stmt = (
+            select(func.count())
+            .select_from(Task)
+            .where(
+                Task.project_name == project_name,
+                Task.status == "queued",
+            )
         )
+        if user_id is not None:
+            stmt = stmt.where(Task.user_id == user_id)
+        result = await self.session.execute(stmt)
         return result.scalar_one()
 
-    async def cancel_all_queued(self, project_name: str) -> dict[str, Any]:
+    async def cancel_all_queued(self, project_name: str, *, user_id: str | None = None) -> dict[str, Any]:
         """取消项目中所有 queued 任务。"""
-        queued_result = await self.session.execute(
-            select(Task).where(Task.project_name == project_name, Task.status == "queued")
-        )
+        scope = [Task.project_name == project_name, Task.status == "queued"]
+        if user_id is not None:
+            scope.append(Task.user_id == user_id)
+        queued_result = await self.session.execute(select(Task).where(*scope))
         queued_tasks = list(queued_result.scalars().all())
 
         now = utc_now()
         stmt = (
             update(Task)
-            .where(Task.project_name == project_name, Task.status == "queued")
+            .where(*scope)
             .values(
                 status="cancelled",
                 cancelled_by="user",
@@ -848,6 +874,7 @@ class TaskRepository(BaseRepository):
     async def list_tasks(
         self,
         *,
+        user_id: str | None = None,
         project_name: str | None = None,
         project_names: list[str] | None = None,
         status: str | None = None,
@@ -860,11 +887,11 @@ class TaskRepository(BaseRepository):
         page_size = max(1, min(500, page_size))
         offset = (page - 1) * page_size
 
-        filters = []
-        if project_name:
-            filters.append(Task.project_name == project_name)
-        if project_names is not None:
-            filters.append(Task.project_name.in_(project_names))
+        filters = self._scope_filters(
+            user_id=user_id,
+            project_name=project_name,
+            project_names=project_names,
+        )
         if status:
             filters.append(Task.status == status)
         if task_type:
@@ -897,14 +924,15 @@ class TaskRepository(BaseRepository):
     async def get_stats(
         self,
         *,
+        user_id: str | None = None,
         project_name: str | None = None,
         project_names: list[str] | None = None,
     ) -> dict[str, int]:
-        filters = []
-        if project_name:
-            filters.append(Task.project_name == project_name)
-        if project_names is not None:
-            filters.append(Task.project_name.in_(project_names))
+        filters = self._scope_filters(
+            user_id=user_id,
+            project_name=project_name,
+            project_names=project_names,
+        )
 
         # Group by status
         stmt = select(Task.status, func.count().label("cnt")).where(*filters).group_by(Task.status)
@@ -932,33 +960,38 @@ class TaskRepository(BaseRepository):
     async def get_recent_tasks_snapshot(
         self,
         *,
+        user_id: str | None = None,
         project_name: str | None = None,
         project_names: list[str] | None = None,
         limit: int = 200,
     ) -> list[dict[str, Any]]:
         limit = max(1, min(1000, limit))
         stmt = select(Task)
-        if project_name:
-            stmt = stmt.where(Task.project_name == project_name)
-        if project_names is not None:
-            stmt = stmt.where(Task.project_name.in_(project_names))
+        for clause in self._scope_filters(
+            user_id=user_id,
+            project_name=project_name,
+            project_names=project_names,
+        ):
+            stmt = stmt.where(clause)
         stmt = stmt.order_by(Task.updated_at.desc()).limit(limit)
         stmt = self._scope_query(stmt, Task)
 
         result = await self.session.execute(stmt)
         return [_task_to_dict(t) for t in result.scalars().all()]
 
-    # NOTE: In multi-user mode, override this method to filter by user via JOIN Task
     async def get_events_since(
         self,
         *,
         last_event_id: int,
+        user_id: str | None = None,
         project_name: str | None = None,
         project_names: list[str] | None = None,
         limit: int = 200,
     ) -> list[dict[str, Any]]:
         limit = max(1, min(1000, limit))
         stmt = select(TaskEvent).where(TaskEvent.id > last_event_id)
+        if user_id:
+            stmt = stmt.join(Task, TaskEvent.task_id == Task.task_id).where(Task.user_id == user_id)
         if project_name:
             stmt = stmt.where(TaskEvent.project_name == project_name)
         if project_names is not None:
@@ -968,14 +1001,18 @@ class TaskRepository(BaseRepository):
         result = await self.session.execute(stmt)
         return [_event_to_dict(e) for e in result.scalars().all()]
 
-    # NOTE: In multi-user mode, override this method to filter by user via JOIN Task
     async def get_latest_event_id(
         self,
         *,
+        user_id: str | None = None,
         project_name: str | None = None,
         project_names: list[str] | None = None,
     ) -> int:
         stmt = select(func.max(TaskEvent.id))
+        if user_id:
+            stmt = (
+                stmt.select_from(TaskEvent).join(Task, TaskEvent.task_id == Task.task_id).where(Task.user_id == user_id)
+            )
         if project_name:
             stmt = stmt.where(TaskEvent.project_name == project_name)
         if project_names is not None:

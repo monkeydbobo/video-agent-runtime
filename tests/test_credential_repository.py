@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from lib.db.base import Base
+from lib.db.base import DEFAULT_USER_ID, Base
 from lib.db.repositories.credential_repository import CredentialRepository
 
 
@@ -22,7 +22,7 @@ async def session():
 
 class TestCredentialRepository:
     async def test_create_and_list(self, session: AsyncSession):
-        repo = CredentialRepository(session)
+        repo = CredentialRepository(session, user_id=DEFAULT_USER_ID)
         cred = await repo.create(provider="gemini-aistudio", name="测试Key", api_key="AIza-test")
         await session.flush()
         creds = await repo.list_by_provider("gemini-aistudio")
@@ -32,20 +32,20 @@ class TestCredentialRepository:
         assert creds[0].id == cred.id
 
     async def test_first_credential_is_active(self, session: AsyncSession):
-        repo = CredentialRepository(session)
+        repo = CredentialRepository(session, user_id=DEFAULT_USER_ID)
         cred = await repo.create(provider="gemini-aistudio", name="第一个", api_key="AIza-1")
         await session.flush()
         assert cred.is_active is True
 
     async def test_second_credential_is_not_active(self, session: AsyncSession):
-        repo = CredentialRepository(session)
+        repo = CredentialRepository(session, user_id=DEFAULT_USER_ID)
         await repo.create(provider="gemini-aistudio", name="第一个", api_key="AIza-1")
         cred2 = await repo.create(provider="gemini-aistudio", name="第二个", api_key="AIza-2")
         await session.flush()
         assert cred2.is_active is False
 
     async def test_activate(self, session: AsyncSession):
-        repo = CredentialRepository(session)
+        repo = CredentialRepository(session, user_id=DEFAULT_USER_ID)
         c1 = await repo.create(provider="gemini-aistudio", name="第一个", api_key="AIza-1")
         c2 = await repo.create(provider="gemini-aistudio", name="第二个", api_key="AIza-2")
         await session.flush()
@@ -59,7 +59,7 @@ class TestCredentialRepository:
         assert active_map[c2.id] is True
 
     async def test_get_active(self, session: AsyncSession):
-        repo = CredentialRepository(session)
+        repo = CredentialRepository(session, user_id=DEFAULT_USER_ID)
         await repo.create(provider="gemini-aistudio", name="Key1", api_key="AIza-1")
         await session.flush()
         active = await repo.get_active("gemini-aistudio")
@@ -67,12 +67,12 @@ class TestCredentialRepository:
         assert active.name == "Key1"
 
     async def test_get_active_returns_none_when_empty(self, session: AsyncSession):
-        repo = CredentialRepository(session)
+        repo = CredentialRepository(session, user_id=DEFAULT_USER_ID)
         active = await repo.get_active("gemini-aistudio")
         assert active is None
 
     async def test_get_by_id(self, session: AsyncSession):
-        repo = CredentialRepository(session)
+        repo = CredentialRepository(session, user_id=DEFAULT_USER_ID)
         c = await repo.create(provider="gemini-aistudio", name="Key1", api_key="AIza-1")
         await session.flush()
         found = await repo.get_by_id(c.id)
@@ -80,7 +80,7 @@ class TestCredentialRepository:
         assert found.name == "Key1"
 
     async def test_update(self, session: AsyncSession):
-        repo = CredentialRepository(session)
+        repo = CredentialRepository(session, user_id=DEFAULT_USER_ID)
         c = await repo.create(provider="gemini-aistudio", name="旧名", api_key="AIza-old")
         await session.flush()
         await repo.update(c.id, name="新名", api_key="AIza-new")
@@ -91,7 +91,7 @@ class TestCredentialRepository:
         assert updated.api_key == "AIza-new"
 
     async def test_delete(self, session: AsyncSession):
-        repo = CredentialRepository(session)
+        repo = CredentialRepository(session, user_id=DEFAULT_USER_ID)
         c = await repo.create(provider="gemini-aistudio", name="Key1", api_key="AIza-1")
         await session.flush()
         await repo.delete(c.id)
@@ -99,7 +99,7 @@ class TestCredentialRepository:
         assert await repo.get_by_id(c.id) is None
 
     async def test_delete_active_promotes_oldest(self, session: AsyncSession):
-        repo = CredentialRepository(session)
+        repo = CredentialRepository(session, user_id=DEFAULT_USER_ID)
         c1 = await repo.create(provider="gemini-aistudio", name="Key1", api_key="AIza-1")
         await repo.create(provider="gemini-aistudio", name="Key2", api_key="AIza-2")
         await session.flush()
@@ -110,14 +110,14 @@ class TestCredentialRepository:
         assert remaining[0].is_active is True
 
     async def test_has_active_credential(self, session: AsyncSession):
-        repo = CredentialRepository(session)
+        repo = CredentialRepository(session, user_id=DEFAULT_USER_ID)
         assert await repo.has_active_credential("gemini-aistudio") is False
         await repo.create(provider="gemini-aistudio", name="Key1", api_key="AIza-1")
         await session.flush()
         assert await repo.has_active_credential("gemini-aistudio") is True
 
     async def test_get_active_credentials_bulk(self, session: AsyncSession):
-        repo = CredentialRepository(session)
+        repo = CredentialRepository(session, user_id=DEFAULT_USER_ID)
         await repo.create(provider="gemini-aistudio", name="K1", api_key="AIza-1")
         await repo.create(provider="ark", name="K2", api_key="ark-key")
         await session.flush()
@@ -126,7 +126,7 @@ class TestCredentialRepository:
         assert "ark" in bulk
 
     async def test_create_and_update_two_secrets(self, session: AsyncSession):
-        repo = CredentialRepository(session)
+        repo = CredentialRepository(session, user_id=DEFAULT_USER_ID)
         c = await repo.create(
             provider="kling",
             name="可灵账号",
@@ -147,7 +147,7 @@ class TestCredentialRepository:
         assert updated.secret_key == "SK-original"
 
     async def test_overlay_config_emits_both_secrets_by_key_name(self, session: AsyncSession):
-        repo = CredentialRepository(session)
+        repo = CredentialRepository(session, user_id=DEFAULT_USER_ID)
         c = await repo.create(
             provider="kling",
             name="可灵账号",
@@ -164,7 +164,7 @@ class TestCredentialRepository:
 
     async def test_update_can_explicitly_clear_secret_fields(self, session: AsyncSession):
         """显式传 None 清空 api_key/access_key/secret_key/base_url；省略参数（默认）不动它们。"""
-        repo = CredentialRepository(session)
+        repo = CredentialRepository(session, user_id=DEFAULT_USER_ID)
         c = await repo.create(
             provider="kling",
             name="可灵账号",
@@ -192,7 +192,7 @@ class TestCredentialRepository:
         assert switched.secret_key == "SK-new"
 
     async def test_base_url_normalized_on_create(self, session: AsyncSession):
-        repo = CredentialRepository(session)
+        repo = CredentialRepository(session, user_id=DEFAULT_USER_ID)
         c = await repo.create(
             provider="gemini-aistudio",
             name="Key",

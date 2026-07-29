@@ -257,7 +257,7 @@ class _CursorCapturingService:
         self.captured_after = None
         self.meta = make_session_meta(id=SESSION_ID, status="idle", project_name=PROJECT)
 
-    async def get_session(self, session_id):
+    async def get_session(self, session_id, *, user_id=None):
         return self.meta if session_id == SESSION_ID else None
 
     async def stream_entry_events(self, session_id, *, meta=None, request=None, after_seq=-1):
@@ -275,6 +275,9 @@ def _build_client(monkeypatch, fake_service) -> TestClient:
     app.dependency_overrides[get_current_user] = lambda: _FAKE_USER
     app.dependency_overrides[get_current_user_flexible] = lambda: _FAKE_USER
     app.dependency_overrides[get_translator] = lambda: make_translator()
+    from server.project_access import require_project_access
+
+    app.dependency_overrides[require_project_access] = lambda: None
     app.include_router(assistant.router, prefix="/api/v1/projects/{project_name}/assistant")
     return TestClient(app)
 

@@ -33,8 +33,9 @@ _TINY_PNG = (
 def three_bucket_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     projects_root = tmp_path / "projects"
     projects_root.mkdir()
-    proj_dir = projects_root / "demo"
-    proj_dir.mkdir()
+    project_id = "project-id-demo"
+    proj_dir = projects_root / "users" / "u1" / "projects" / project_id
+    proj_dir.mkdir(parents=True)
     for sub in ("scripts", "characters", "scenes", "props"):
         (proj_dir / sub).mkdir()
     (proj_dir / "characters" / "张三.png").write_bytes(_TINY_PNG)
@@ -90,9 +91,22 @@ def three_bucket_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(gt_mod, "get_project_manager", lambda: custom_pm)
     monkeypatch.setattr(rvt_mod, "get_project_manager", lambda: custom_pm)
 
+    async def _owned_project(_repo, _user_id, _project_name):
+        return type("_Project", (), {"id": project_id})()
+
+    monkeypatch.setattr(gt_mod.ProjectRepository, "get_by_name", _owned_project)
+
     app = FastAPI()
     app.include_router(router_mod.router, prefix="/api/v1")
     app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="u1", sub="test", role="admin")
+    from server.project_access import require_project_access
+
+    async def _bind_project_scope():
+        from lib.project_paths import bind_project_user_scope
+
+        bind_project_user_scope("u1", project_ids={"demo": project_id})
+
+    app.dependency_overrides[require_project_access] = _bind_project_scope
     return TestClient(app), proj_dir, monkeypatch
 
 

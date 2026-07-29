@@ -5,9 +5,17 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from PIL import Image
 
+from lib.db.base import DEFAULT_USER_ID
 from lib.project_manager import ProjectManager
 from server.auth import CurrentUserInfo, get_current_user
+from server.project_access import require_project_access
 from server.routers import files
+
+_AUTH_HEADERS = {"Authorization": "Bearer test-token"}
+
+
+async def _fake_verify_token(_token: str, *_args):
+    return {"sub": "testuser", "uid": DEFAULT_USER_ID, "role": "admin", "via": "jwt"}
 
 
 class _FakeTextBackend:
@@ -50,9 +58,19 @@ def _client(monkeypatch, tmp_path):
 
     monkeypatch.setattr(files, "get_project_manager", lambda: pm)
     monkeypatch.setattr("lib.text_generator.create_text_backend_for_task", _fake_create_backend)
+    monkeypatch.setattr(files, "_verify_and_get_payload_async", _fake_verify_token)
+
+    async def _allow_inline_test_project(*_args, **_kwargs):
+        return None
+
+    async def _allow_test_project_dependency():
+        return None
+
+    monkeypatch.setattr(files, "ensure_project_access", _allow_inline_test_project)
 
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
+    app.dependency_overrides[require_project_access] = _allow_test_project_dependency
     app.include_router(files.router, prefix="/api/v1")
     return TestClient(app), pm
 
@@ -74,7 +92,7 @@ class TestFilesRouter:
             assert listed.status_code == 200
             assert any(item["name"] == "chapter.txt" for item in listed.json()["files"]["source"])
 
-            served = client.get("/api/v1/files/demo/source/chapter.txt")
+            served = client.get("/api/v1/files/demo/source/chapter.txt", headers=_AUTH_HEADERS)
             assert served.status_code == 200
             assert served.text == "hello"
 
@@ -302,7 +320,7 @@ class TestFilesRouter:
         outside.write_text("outside", encoding="utf-8")
 
         with client:
-            traverse = client.get("/api/v1/files/demo/%2E%2E/outside.txt")
+            traverse = client.get("/api/v1/files/demo/%2E%2E/outside.txt", headers=_AUTH_HEADERS)
             assert traverse.status_code == 403
 
             missing_project = client.get("/api/v1/projects/missing/files")
@@ -442,7 +460,7 @@ class TestFilesRouter:
         (project_path / "storyboards" / "test.png").write_bytes(b"img")
 
         with client:
-            resp = client.get("/api/v1/files/demo/storyboards/test.png?v=1710288000")
+            resp = client.get("/api/v1/files/demo/storyboards/test.png?v=1710288000", headers=_AUTH_HEADERS)
             assert resp.status_code == 200
             assert "immutable" in resp.headers.get("cache-control", "")
             assert "max-age=31536000" in resp.headers.get("cache-control", "")
@@ -455,21 +473,24 @@ class TestFilesRouter:
         (project_path / "versions" / "storyboards" / "E1S01_v1.png").write_bytes(b"img")
 
         with client:
-            resp = client.get("/api/v1/files/demo/versions/storyboards/E1S01_v1.png")
+            resp = client.get("/api/v1/files/demo/versions/storyboards/E1S01_v1.png", headers=_AUTH_HEADERS)
             assert resp.status_code == 200
             assert "immutable" in resp.headers.get("cache-control", "")
 
     def test_no_cache_control_without_version(self, tmp_path, monkeypatch):
-        """无 ?v= 参数且非 versions 路径时不应有 immutable 头"""
+        """无 ?v= 参数且非 versions 路径时使用 private, no-store，且无 immutable。"""
         client, pm = _client(monkeypatch, tmp_path)
         project_path = pm.get_project_path("demo")
         (project_path / "storyboards").mkdir(exist_ok=True)
         (project_path / "storyboards" / "test.png").write_bytes(b"img")
 
         with client:
-            resp = client.get("/api/v1/files/demo/storyboards/test.png")
+            resp = client.get("/api/v1/files/demo/storyboards/test.png", headers=_AUTH_HEADERS)
             assert resp.status_code == 200
-            assert "immutable" not in resp.headers.get("cache-control", "")
+            cc = resp.headers.get("cache-control", "")
+            assert "immutable" not in cc
+            assert "private" in cc
+            assert "no-store" in cc
 
     def test_files_helper_functions(self, tmp_path):
         assert files._get_step_files("narration") == {1: "step1_segments.json"}
@@ -615,7 +636,7 @@ class TestFilesRouter:
         target.write_bytes(b"img-bytes")
 
         with client:
-            resp = client.get("/api/v1/global-assets/character/abc.png")
+            resp = client.get("/api/v1/global-assets/character/abc.png", headers=_AUTH_HEADERS)
             assert resp.status_code == 200
             assert resp.content == b"img-bytes"
 
@@ -627,11 +648,11 @@ class TestFilesRouter:
         (root / "prop" / "p.png").write_bytes(b"prop-bytes")
 
         with client:
-            r_scene = client.get("/api/v1/global-assets/scene/s.png")
+            r_scene = client.get("/api/v1/global-assets/scene/s.png", headers=_AUTH_HEADERS)
             assert r_scene.status_code == 200
             assert r_scene.content == b"scene-bytes"
 
-            r_prop = client.get("/api/v1/global-assets/prop/p.png")
+            r_prop = client.get("/api/v1/global-assets/prop/p.png", headers=_AUTH_HEADERS)
             assert r_prop.status_code == 200
             assert r_prop.content == b"prop-bytes"
 
@@ -640,7 +661,7 @@ class TestFilesRouter:
         client, _ = _client(monkeypatch, tmp_path)
 
         with client:
-            resp = client.get("/api/v1/global-assets/invalid/abc.png")
+            resp = client.get("/api/v1/global-assets/invalid/abc.png", headers=_AUTH_HEADERS)
             assert resp.status_code == 400
 
     def test_global_asset_missing_file_returns_404(self, tmp_path, monkeypatch):
@@ -648,7 +669,7 @@ class TestFilesRouter:
         client, _ = _client(monkeypatch, tmp_path)
 
         with client:
-            resp = client.get("/api/v1/global-assets/character/nonexistent.png")
+            resp = client.get("/api/v1/global-assets/character/nonexistent.png", headers=_AUTH_HEADERS)
             assert resp.status_code == 404
 
     def test_global_asset_path_traversal_rejected(self, tmp_path, monkeypatch):
@@ -657,7 +678,7 @@ class TestFilesRouter:
 
         with client:
             # URL 编码的 ../evil.png
-            resp = client.get("/api/v1/global-assets/character/..%2Fevil.png")
+            resp = client.get("/api/v1/global-assets/character/..%2Fevil.png", headers=_AUTH_HEADERS)
             assert resp.status_code in (400, 403, 404)
 
     def test_global_asset_symlink_escape_returns_403(self, tmp_path, monkeypatch):
@@ -683,7 +704,7 @@ class TestFilesRouter:
         os.symlink(outside, link)
 
         with client:
-            r = client.get("/api/v1/global-assets/character/evil.png")
+            r = client.get("/api/v1/global-assets/character/evil.png", headers=_AUTH_HEADERS)
             assert r.status_code == 403
 
 
@@ -834,8 +855,12 @@ def _client_with_pm_raising(monkeypatch, sentinel: str):
 
     monkeypatch.setattr(files, "get_project_manager", _raise)
 
+    async def _allow_test_project_dependency():
+        return None
+
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
+    app.dependency_overrides[require_project_access] = _allow_test_project_dependency
     app.include_router(files.router, prefix="/api/v1")
     return TestClient(app)
 

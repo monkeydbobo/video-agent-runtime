@@ -14,6 +14,8 @@ from typing import Any
 
 import pytest
 
+from lib.db.base import DEFAULT_USER_ID
+from lib.project_paths import ProjectLocation
 from server.agent_runtime.sdk_tools import build_arcreel_mcp_server
 from server.agent_runtime.sdk_tools._context import ToolContext
 from server.agent_runtime.sdk_tools.enqueue_assets import (
@@ -21,6 +23,8 @@ from server.agent_runtime.sdk_tools.enqueue_assets import (
     list_pending_assets_tool,
 )
 from server.agent_runtime.sdk_tools.enqueue_grid import generate_grid_tool
+
+pytestmark = pytest.mark.integration
 from server.agent_runtime.sdk_tools.enqueue_image_edits import edit_images_tool
 from server.agent_runtime.sdk_tools.enqueue_storyboards import generate_storyboards_tool
 from server.agent_runtime.sdk_tools.enqueue_videos import (
@@ -69,7 +73,7 @@ class _FakePM:
             ],
         }
 
-    def get_project_path(self, _name: str) -> Path:
+    def get_project_path(self, _name: str, *, user_id: str | None = None, project_id: str | None = None) -> Path:
         return self._project_dir
 
     def load_project(self, _name: str) -> dict[str, Any]:
@@ -98,18 +102,39 @@ class _FakePM:
 
 
 @pytest.fixture
-def fake_ctx(tmp_path: Path) -> ToolContext:
+def fake_ctx(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ToolContext:
     project_dir = tmp_path / "demo"
     project_dir.mkdir()
     # Build a storyboard image so video tools can find it.
     (project_dir / "storyboards").mkdir()
     (project_dir / "storyboards" / "scene_E1S01.png").write_bytes(b"")
 
+    # 归属校验查 projects 表；本文件是纯工具单测（注入 _FakePM，不起 DB），
+    # 故把归属查询固定为 default 属主。跨用户拒绝路径由 fake_ctx_foreign 覆盖。
+    def _lookup(name: str, user_id: str | None = None) -> ProjectLocation | None:
+        if name != "demo" or user_id not in (None, DEFAULT_USER_ID):
+            return None
+        return ProjectLocation(user_id=DEFAULT_USER_ID, project_id="demo-id", name="demo")
+
+    monkeypatch.setattr("server.agent_runtime.sdk_tools._context.sync_lookup_project", _lookup)
+
     return ToolContext(
         project_name="demo",
         projects_root=tmp_path,
         pm=_FakePM("demo", project_dir),  # type: ignore[arg-type]
     )
+
+
+async def test_project_path_rejects_foreign_user(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """项目归属他人（或 DB 无登记）时，工具侧路径解析必须 fail-closed。"""
+    monkeypatch.setattr(
+        "server.agent_runtime.sdk_tools._context.sync_lookup_project",
+        lambda name, user_id=None: None,
+    )
+    ctx = ToolContext(project_name="demo", projects_root=tmp_path, user_id="bob-id")
+
+    with pytest.raises(PermissionError):
+        _ = ctx.project_path
 
 
 async def _call(tool_obj, args: dict[str, Any]) -> dict[str, Any]:
@@ -559,7 +584,7 @@ async def test_edit_images_happy(fake_ctx: ToolContext, monkeypatch) -> None:
     (project_path / "characters" / "zhangsan.png").write_bytes(b"png")
     fake_ctx.pm.project_payload["characters"]["张三"]["character_sheet"] = "characters/zhangsan.png"  # type: ignore[attr-defined]
 
-    async def fake_i2i(_project):
+    async def fake_i2i(_project, **_kwargs):
         return True
 
     async def fake_batch(*, project_name, specs):
@@ -593,7 +618,7 @@ async def test_edit_images_i2i_unavailable(fake_ctx: ToolContext, monkeypatch) -
     """i2i 不可用时直接报错，不创建任何任务（复用服务端 fail-fast 判断点）。"""
     from server.agent_runtime.sdk_tools import enqueue_image_edits as mod
 
-    async def fake_i2i(_project):
+    async def fake_i2i(_project, **_kwargs):
         return False
 
     monkeypatch.setattr(mod, "_i2i_provider_available", fake_i2i)
@@ -608,7 +633,7 @@ async def test_edit_images_i2i_unavailable(fake_ctx: ToolContext, monkeypatch) -
 async def test_edit_images_storyboard_requires_script_file(fake_ctx: ToolContext, monkeypatch) -> None:
     from server.agent_runtime.sdk_tools import enqueue_image_edits as mod
 
-    async def fake_i2i(_project):
+    async def fake_i2i(_project, **_kwargs):
         return True
 
     monkeypatch.setattr(mod, "_i2i_provider_available", fake_i2i)
@@ -628,7 +653,7 @@ async def test_edit_images_skips_missing_current_image(fake_ctx: ToolContext, mo
     """资产没有可编辑的当前图（sheet 字段未设置）时跳过并告警，不入队。"""
     from server.agent_runtime.sdk_tools import enqueue_image_edits as mod
 
-    async def fake_i2i(_project):
+    async def fake_i2i(_project, **_kwargs):
         return True
 
     monkeypatch.setattr(mod, "_i2i_provider_available", fake_i2i)
@@ -657,7 +682,7 @@ async def test_edit_images_build_specs_warnings(fake_ctx: ToolContext, monkeypat
     (project_path / "characters" / "zhangsan.png").write_bytes(b"png")
     fake_ctx.pm.project_payload["characters"]["张三"]["character_sheet"] = "characters/zhangsan.png"  # type: ignore[attr-defined]
 
-    async def fake_i2i(_project):
+    async def fake_i2i(_project, **_kwargs):
         return True
 
     async def fake_batch(*, project_name, specs):
@@ -704,7 +729,7 @@ async def test_edit_images_storyboard_happy(fake_ctx: ToolContext, monkeypatch) 
     """storyboard 分支带合法 script_file 时应正常解析剧本并入队（覆盖 validate_script_filename + load_script 调用）。"""
     from server.agent_runtime.sdk_tools import enqueue_image_edits as mod
 
-    async def fake_i2i(_project):
+    async def fake_i2i(_project, **_kwargs):
         return True
 
     async def fake_batch(*, project_name, specs):
@@ -745,7 +770,7 @@ async def test_edit_images_reports_failures(fake_ctx: ToolContext, monkeypatch) 
     (project_path / "characters" / "zhangsan.png").write_bytes(b"png")
     fake_ctx.pm.project_payload["characters"]["张三"]["character_sheet"] = "characters/zhangsan.png"  # type: ignore[attr-defined]
 
-    async def fake_i2i(_project):
+    async def fake_i2i(_project, **_kwargs):
         return True
 
     async def fake_batch(*, project_name, specs):
@@ -789,7 +814,7 @@ async def test_i2i_provider_available_true(monkeypatch) -> None:
         return object()
 
     monkeypatch.setattr(ConfigResolver, "resolve_image_backend", fake_resolve)
-    assert await mod._i2i_provider_available({}) is True
+    assert await mod._i2i_provider_available({}, user_id=DEFAULT_USER_ID) is True
 
 
 async def test_i2i_provider_available_false_on_value_error(monkeypatch) -> None:
@@ -800,7 +825,7 @@ async def test_i2i_provider_available_false_on_value_error(monkeypatch) -> None:
         raise ValueError("未找到可用的 image 供应商")
 
     monkeypatch.setattr(ConfigResolver, "resolve_image_backend", fake_resolve)
-    assert await mod._i2i_provider_available({}) is False
+    assert await mod._i2i_provider_available({}, user_id=DEFAULT_USER_ID) is False
 
 
 # ---------------------------------------------------------------------------
@@ -1111,7 +1136,7 @@ def test_build_reference_specs_handles_malformed_shots(tmp_path) -> None:
 async def test_get_video_capabilities_happy(fake_ctx: ToolContext, monkeypatch) -> None:
     from server.agent_runtime.sdk_tools import text_generation as mod
 
-    async def fake_resolve(_project):
+    async def fake_resolve(_project, **_kwargs):
         return {"provider_id": "fake", "supported_durations": [4, 6, 8]}
 
     monkeypatch.setattr(mod, "_resolve_video_capabilities", fake_resolve)
@@ -1143,8 +1168,8 @@ async def test_generate_episode_script_dry_run(fake_ctx: ToolContext, monkeypatc
     (project_path / "project.json").write_text(json.dumps({"content_mode": "narration"}), encoding="utf-8")
 
     class _FakeGenerator:
-        def __init__(self, _path):
-            pass
+        def __init__(self, _path, *, user_id):
+            assert user_id == fake_ctx.user_id
 
         async def build_prompt(self, _episode):
             return "fake prompt"
@@ -1189,7 +1214,8 @@ async def test_generate_episode_script_writes_to_default_project_scripts(fake_ct
 
     class _FakeGenerator:
         @classmethod
-        async def create(cls, _path):
+        async def create(cls, _path, *, user_id):
+            assert user_id == fake_ctx.user_id
             return cls()
 
         async def generate(self, **kwargs) -> Path:
@@ -1216,7 +1242,8 @@ async def test_generate_episode_script_ad_skips_step1(fake_ctx: ToolContext, mon
 
     class _FakeGenerator:
         @classmethod
-        async def create(cls, _path):
+        async def create(cls, _path, *, user_id):
+            assert user_id == fake_ctx.user_id
             return cls()
 
         async def generate(self, **_kwargs) -> Path:
@@ -1259,11 +1286,11 @@ async def test_fetch_caps_with_fallback_uses_write_layer_default(monkeypatch) ->
     from lib.custom_provider.duration_presets import DEFAULT_FALLBACK
     from server.agent_runtime.sdk_tools import text_generation as mod
 
-    async def raising_caps(_p):
+    async def raising_caps(_p, **_kwargs):
         raise ValueError("no provider configured")
 
     monkeypatch.setattr(mod, "fetch_video_caps", raising_caps)
-    default, durations = await mod._fetch_caps_with_fallback({})
+    default, durations = await mod._fetch_caps_with_fallback({}, user_id=DEFAULT_USER_ID)
     assert default is None
     assert durations == DEFAULT_FALLBACK
 
@@ -1276,7 +1303,7 @@ async def test_normalize_drama_script_dry_run(fake_ctx: ToolContext, monkeypatch
     src.mkdir(parents=True)
     (src / "chapter1.txt").write_text("从前有座山", encoding="utf-8")
 
-    async def fake_caps(_p):
+    async def fake_caps(_p, **_kwargs):
         return 4, [4, 6, 8]
 
     monkeypatch.setattr(mod, "_fetch_caps_with_fallback", fake_caps)
@@ -1298,7 +1325,7 @@ async def test_normalize_drama_script_wires_target_language(fake_ctx: ToolContex
     src.mkdir(parents=True)
     (src / "chapter1.txt").write_text("once upon a time", encoding="utf-8")
 
-    async def fake_caps(_p):
+    async def fake_caps(_p, **_kwargs):
         return 4, [4, 6, 8]
 
     monkeypatch.setattr(mod, "_fetch_caps_with_fallback", fake_caps)
@@ -1317,7 +1344,7 @@ async def test_normalize_drama_script_rejects_empty_scenes(fake_ctx: ToolContext
     src.mkdir(parents=True)
     (src / "chapter1.txt").write_text("从前有座山", encoding="utf-8")
 
-    async def fake_caps(_p):
+    async def fake_caps(_p, **_kwargs):
         return 4, [4, 6, 8]
 
     class _EmptyGenerator:
@@ -1327,7 +1354,7 @@ async def test_normalize_drama_script_rejects_empty_scenes(fake_ctx: ToolContext
 
             return _R()
 
-    async def fake_create(task_type, project_name=None):
+    async def fake_create(task_type, project_name=None, *, user_id=None):
         return _EmptyGenerator()
 
     monkeypatch.setattr(mod, "_fetch_caps_with_fallback", fake_caps)
@@ -1349,7 +1376,7 @@ async def test_normalize_drama_script_injects_episode_into_prompt(fake_ctx: Tool
     src.mkdir(parents=True)
     (src / "chapter2.txt").write_text("第二集开场", encoding="utf-8")
 
-    async def fake_caps(_p):
+    async def fake_caps(_p, **_kwargs):
         return 4, [4, 6, 8]
 
     monkeypatch.setattr(mod, "_fetch_caps_with_fallback", fake_caps)
@@ -1379,7 +1406,7 @@ async def test_normalize_drama_script_injects_episode_outline(fake_ctx: ToolCont
         }
     ]
 
-    async def fake_caps(_p):
+    async def fake_caps(_p, **_kwargs):
         return 4, [4, 6, 8]
 
     monkeypatch.setattr(mod, "_fetch_caps_with_fallback", fake_caps)
@@ -1401,7 +1428,7 @@ async def test_normalize_drama_script_passes_project_name_to_backend(fake_ctx: T
     src.mkdir(parents=True)
     (src / "chapter1.txt").write_text("从前有座山", encoding="utf-8")
 
-    async def fake_caps(_p):
+    async def fake_caps(_p, **_kwargs):
         return 4, [4, 6, 8]
 
     captured: dict[str, Any] = {}
@@ -1434,9 +1461,10 @@ async def test_normalize_drama_script_passes_project_name_to_backend(fake_ctx: T
 
             return _R()
 
-    async def fake_create(task_type, project_name=None):
+    async def fake_create(task_type, project_name=None, *, user_id=None):
         captured["task_type"] = task_type
         captured["create_project_name"] = project_name
+        captured["create_user_id"] = user_id
         return _FakeGenerator()
 
     monkeypatch.setattr(mod, "_fetch_caps_with_fallback", fake_caps)
@@ -1515,9 +1543,10 @@ def _fake_planner_cls(result: Any, captured: dict[str, Any] | None = None):
             pass
 
         @classmethod
-        async def create(cls, project_path):
+        async def create(cls, project_path, *, user_id):
             if captured is not None:
                 captured["project_path"] = project_path
+                captured["user_id"] = user_id
             return cls()
 
         async def plan(self, instructions=None):
@@ -1923,7 +1952,8 @@ def ad_reference_ctx(fake_ctx: ToolContext, monkeypatch: pytest.MonkeyPatch) -> 
 
     pm.locked_script = _locked  # type: ignore[attr-defined]
 
-    async def _fake_max_duration(_project: dict[str, Any]) -> int | None:
+    async def _fake_max_duration(_project: dict[str, Any], *, user_id: str) -> int | None:
+        assert user_id == fake_ctx.user_id
         return 15
 
     monkeypatch.setattr(mod, "resolve_max_unit_duration", _fake_max_duration)
@@ -2086,7 +2116,7 @@ async def test_generate_video_all_ad_reference_falls_through_to_episode(
 
 
 def _rv_caps(default=4, durations=(4, 6, 8), max_duration=12, max_refs=3):
-    async def fake_caps(_p):
+    async def fake_caps(_p, **_kwargs):
         return default, list(durations), max_duration, max_refs
 
     return fake_caps
@@ -2098,16 +2128,21 @@ async def test_fetch_reference_caps_with_fallback_clips_shot_durations_to_static
     的 shot 时长会在 step2 读回校验（复用同一静态区间的 Shot 模型）时 fail-loud。"""
     from server.agent_runtime.sdk_tools import text_generation as mod
 
+    seen_user_ids: list[str | None] = []
+
     class _FakeResolver:
-        def __init__(self, _factory):
-            pass
+        def __init__(self, _factory, *, user_id=None):
+            seen_user_ids.append(user_id)
 
         async def video_capabilities_for_project(self, _project):
             return {"supported_durations": [1, 8, 16, 18], "max_duration": 18, "default_duration": 16}
 
     monkeypatch.setattr(mod, "ConfigResolver", _FakeResolver)
 
-    default, durations, max_duration, max_refs = await mod._fetch_reference_caps_with_fallback({})
+    default, durations, max_duration, max_refs = await mod._fetch_reference_caps_with_fallback({}, user_id="alice-id")
+
+    # 能力查询须按调用者归属解析供应商，否则会读到别人的配置
+    assert seen_user_ids == ["alice-id"]
 
     assert durations == [1, 8]
     assert max_duration == 18  # 单 unit 总时长上限沿用 resolver 原始声明，不受单 shot 过滤影响
@@ -2121,14 +2156,16 @@ async def test_fetch_reference_caps_with_fallback_uses_write_layer_default(monke
     from server.agent_runtime.sdk_tools import text_generation as mod
 
     class _RaisingResolver:
-        def __init__(self, _factory):
+        def __init__(self, _factory, *, user_id=None):
             pass
 
         async def video_capabilities_for_project(self, _project):
             raise ValueError("no provider configured")
 
     monkeypatch.setattr(mod, "ConfigResolver", _RaisingResolver)
-    default, durations, max_duration, max_refs = await mod._fetch_reference_caps_with_fallback({})
+    default, durations, max_duration, max_refs = await mod._fetch_reference_caps_with_fallback(
+        {}, user_id=DEFAULT_USER_ID
+    )
     assert default is None
     assert durations == DEFAULT_FALLBACK
     assert max_duration == max(DEFAULT_FALLBACK)
@@ -2148,10 +2185,11 @@ def _rv_generator_returning(units: list[dict], captured: dict[str, Any] | None =
 
             return _R()
 
-    async def fake_create(task_type, project_name=None):
+    async def fake_create(task_type, project_name=None, *, user_id=None):
         if captured is not None:
             captured["task_type"] = task_type
             captured["create_project_name"] = project_name
+            captured["create_user_id"] = user_id
         return _FakeGenerator()
 
     return fake_create
@@ -2321,7 +2359,7 @@ async def test_split_reference_video_units_no_source(fake_ctx: ToolContext) -> N
 
 
 def _nr_caps(default=4, durations=(4, 6, 8)):
-    async def fake_caps(_p):
+    async def fake_caps(_p, **_kwargs):
         return default, list(durations)
 
     return fake_caps
@@ -2340,10 +2378,11 @@ def _nr_generator_returning(segments: list[dict], captured: dict[str, Any] | Non
 
             return _R()
 
-    async def fake_create(task_type, project_name=None):
+    async def fake_create(task_type, project_name=None, *, user_id=None):
         if captured is not None:
             captured["task_type"] = task_type
             captured["create_project_name"] = project_name
+            captured["create_user_id"] = user_id
         return _FakeGenerator()
 
     return fake_create

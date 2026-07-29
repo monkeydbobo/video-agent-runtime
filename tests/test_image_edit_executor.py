@@ -9,7 +9,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from lib.config.resolver import ConfigResolver, ProviderModel
-from lib.db.base import Base
+from lib.db.base import DEFAULT_USER_ID, Base
 from lib.project_manager import ProjectManager
 from server.services import generation_context, image_edit_tasks
 from server.services.generation_context import (
@@ -266,7 +266,9 @@ class TestImageSizeResolutionEquivalence:
     def _ctx_env(self, monkeypatch, tmp_path):
         """真 ProjectManager（demo 项目目录）+ 回声 assemble 缝，避免 backend 构造触网。"""
         pm = ProjectManager(tmp_path / "projects")
-        (tmp_path / "projects" / "demo").mkdir(parents=True)
+        demo_dir = tmp_path / "projects" / "demo"
+        demo_dir.mkdir(parents=True)
+        (demo_dir / "project.json").write_text("{}", encoding="utf-8")
         monkeypatch.setattr(generation_context, "get_project_manager", lambda: pm)
 
         async def _assemble(*, provider_id, media_type, model_id, resolver, rate_limiter=None):
@@ -280,7 +282,7 @@ class TestImageSizeResolutionEquivalence:
     @staticmethod
     async def _old_image_size(session_factory, project, payload):
         """旧执行层口径：resolve_image_backend(i2i) 得 provider/model，再按 model_id 查 resolution。"""
-        resolver = ConfigResolver(session_factory)
+        resolver = ConfigResolver(session_factory, user_id=DEFAULT_USER_ID)
         async with resolver.session() as r:
             resolved = await r.resolve_image_backend(project, payload, capability="i2i")
             return await r.resolve_resolution(project, resolved.provider_id, resolved.model_id)

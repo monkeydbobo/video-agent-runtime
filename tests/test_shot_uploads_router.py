@@ -17,6 +17,14 @@ from server.routers import reference_videos, shot_uploads
 from server.services import generation_tasks, reference_video_tasks, upload_finalize
 
 
+@pytest.fixture(autouse=True)
+def _allow_test_project_access(monkeypatch):
+    async def _allow(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr("server.project_access.ensure_project_access", _allow)
+
+
 def _img_bytes(fmt="JPEG", size=(8, 8)):
     image = Image.new("RGB", size, (255, 0, 0))
     buf = BytesIO()

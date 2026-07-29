@@ -5,10 +5,10 @@ from __future__ import annotations
 from sqlalchemy import Boolean, CheckConstraint, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from lib.db.base import Base, TimestampMixin
+from lib.db.base import Base, TimestampMixin, UserOwnedMixin
 
 
-class CustomProvider(TimestampMixin, Base):
+class CustomProvider(TimestampMixin, UserOwnedMixin, Base):
     """用户自定义的 AI 供应商。"""
 
     __tablename__ = "custom_provider"

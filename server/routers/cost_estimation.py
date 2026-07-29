@@ -5,16 +5,17 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from lib.config.resolver import ConfigResolver
 from lib.db import async_session_factory
 from lib.i18n import Translator
 from lib.project_manager import get_project_manager
 from server.auth import CurrentUser
+from server.project_access import require_project_access
 from server.services.cost_estimation import CostEstimationService
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_project_access)])
 logger = logging.getLogger(__name__)
 
 
@@ -46,8 +47,8 @@ async def get_cost_estimate(project_name: str, _user: CurrentUser, _t: Translato
 
     project_data, scripts = await asyncio.to_thread(_sync)
 
-    resolver = ConfigResolver(async_session_factory)
-    service = CostEstimationService(resolver, async_session_factory)
+    resolver = ConfigResolver(async_session_factory, user_id=_user.id)
+    service = CostEstimationService(resolver, async_session_factory, user_id=_user.id)
 
     try:
         return await service.compute(project_data, scripts, project_name=project_name)

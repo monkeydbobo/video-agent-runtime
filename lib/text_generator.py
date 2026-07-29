@@ -27,11 +27,15 @@ logger = logging.getLogger(__name__)
 class TextGenerator:
     """组合 TextBackend + Ledger，统一封装文本生成 + 记账。"""
 
-    def __init__(self, backend: TextBackend, ledger: Ledger, provider_id: str):
+    def __init__(self, backend: TextBackend, ledger: Ledger, provider_id: str, *, user_id: str):
+        """``user_id`` 必传且不设默认：它同时是取凭证与记账的归属身份，
+        落到非所有者会拿别人的 API Key 调上游、并把花费记到别人账上。
+        """
         require_provider_pair("text", backend, provider_id)
         self.backend = backend
         self.ledger = ledger
         self._provider_id = provider_id
+        self._user_id = user_id
 
     @property
     def model(self) -> str:
@@ -43,10 +47,12 @@ class TextGenerator:
         cls,
         task_type: TextTaskType,
         project_name: str | None = None,
+        *,
+        user_id: str,
     ) -> TextGenerator:
         """工厂方法：根据任务类型创建对应的 backend + ledger。"""
-        backend, provider_id = await create_text_backend_for_task(task_type, project_name)
-        return cls(backend, Ledger(), provider_id)
+        backend, provider_id = await create_text_backend_for_task(task_type, project_name, user_id=user_id)
+        return cls(backend, Ledger(), provider_id, user_id=user_id)
 
     async def generate(
         self,
@@ -60,6 +66,7 @@ class TextGenerator:
             model=self.backend.model,
             prompt=request.prompt[:500],
             provider=self._provider_id,
+            user_id=self._user_id,
         ) as call:
             result = await self.backend.generate(request)
             call.success(result)

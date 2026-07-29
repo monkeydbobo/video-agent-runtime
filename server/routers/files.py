@@ -14,11 +14,15 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-from fastapi import APIRouter, Body, Depends, File, HTTPException, Request, UploadFile
+from typing import Annotated
+
+import jwt
+from fastapi import APIRouter, Body, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, PlainTextResponse
 
 from lib.asset_types import GLOBAL_LIBRARY_ASSET_TYPES
 from lib.config.resolver import VisionCapabilityError
+from lib.db.base import DEFAULT_USER_ID
 from lib.episode_paths import (
     REFERENCE_VIDEO_STEP1_FILENAME,
     REFERENCE_VIDEO_STEP1_LEGACY_FILENAME,
@@ -40,8 +44,16 @@ from lib.source_loader import (
     SourceLoader,
     UnsupportedFormatError,
 )
-from server.auth import CurrentUser
-from server.project_access import require_project_access
+from server.auth import (
+    MEDIA_TOKEN_EXPIRY_SECONDS,
+    CurrentUser,
+    _payload_to_user,
+    _verify_and_get_payload_async,
+    create_media_token,
+    oauth2_scheme_optional,
+    verify_media_token,
+)
+from server.project_access import bind_owned_project_scope, ensure_project_access, require_project_access
 
 router = APIRouter()
 
@@ -65,12 +77,38 @@ ALLOWED_EXTENSIONS = {
 
 
 @router.get("/files/{project_name}/{path:path}")
-async def serve_project_file(project_name: str, path: str, request: Request, _t: Translator):
-    """服务项目内的静态文件（图片/视频）"""
+async def serve_project_file(
+    project_name: str,
+    path: str,
+    request: Request,
+    _t: Translator,
+    token: Annotated[str | None, Depends(oauth2_scheme_optional)] = None,
+    media_token: str | None = Query(None, alias="media_token"),
+):
+    """服务项目内的静态文件（图片/视频）。支持 Authorization 或短时 ``?media_token=``。"""
+    if media_token:
+        try:
+            payload = verify_media_token(media_token, project_name=project_name)
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail=_t("unauthorized"))
+        except (jwt.InvalidTokenError, ValueError):
+            raise HTTPException(status_code=401, detail=_t("unauthorized"))
+        token_uid = payload.get("uid")
+        path_user_id = str(token_uid) if token_uid else ""
+        owner = await bind_owned_project_scope(project_name, path_user_id)
+        if owner is None:
+            raise HTTPException(status_code=404, detail=_t("project_not_found", name=project_name))
+    elif token:
+        payload = await _verify_and_get_payload_async(token, _t)
+        user = _payload_to_user(payload, _t)
+        await ensure_project_access(project_name, user, _t)
+        path_user_id = user.id
+    else:
+        raise HTTPException(status_code=401, detail=_t("unauthorized"), headers={"WWW-Authenticate": "Bearer"})
     try:
 
         def _sync():
-            project_dir = get_project_manager().get_project_path(project_name)
+            project_dir = get_project_manager().get_project_path(project_name, user_id=path_user_id)
             file_path = project_dir / path
 
             if not file_path.exists():
@@ -86,10 +124,10 @@ async def serve_project_file(project_name: str, path: str, request: Request, _t:
 
         file_path = await asyncio.to_thread(_sync)
 
-        # 内容寻址缓存：带 ?v= 参数或 versions/ 路径时设 immutable
-        headers = {}
+        # 内容寻址缓存：带 ?v= 参数或 versions/ 路径时设 immutable；始终 private 防跨用户缓存
+        headers = {"Cache-Control": "private, no-store"}
         if request.query_params.get("v") or path.startswith("versions/"):
-            headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            headers["Cache-Control"] = "private, max-age=31536000, immutable"
 
         return FileResponse(file_path, headers=headers)
     except FileNotFoundError:
@@ -97,26 +135,77 @@ async def serve_project_file(project_name: str, path: str, request: Request, _t:
 
 
 @router.get("/global-assets/{asset_type}/{filename}")
-async def serve_global_asset(asset_type: str, filename: str, _t: Translator):
-    """服务 _global_assets 下的全局资产图片（仅全局库类型：character/scene/prop）"""
+async def serve_global_asset(
+    asset_type: str,
+    filename: str,
+    _t: Translator,
+    token: Annotated[str | None, Depends(oauth2_scheme_optional)] = None,
+    media_token: str | None = Query(None, alias="media_token"),
+):
+    """服务用户私有素材库图片（仅 character/scene/prop）。须认证或短时 media_token。"""
     if asset_type not in GLOBAL_LIBRARY_ASSET_TYPES:
         raise HTTPException(status_code=400, detail=_t("invalid_asset_type"))
     if "/" in filename or ".." in filename:
         raise HTTPException(status_code=400, detail=_t("invalid_asset_filename"))
 
-    root = get_project_manager().get_global_assets_root()
+    user_id: str | None = None
+    if media_token:
+        try:
+            payload = verify_media_token(media_token)
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail=_t("unauthorized"))
+        except (jwt.InvalidTokenError, ValueError):
+            raise HTTPException(status_code=401, detail=_t("unauthorized"))
+        user_id = str(payload.get("uid") or "")
+        expected_path = f"users/{user_id}/assets/{asset_type}/{filename}"
+        try:
+            verify_media_token(media_token, user_id=user_id, asset_path=expected_path)
+        except ValueError:
+            raise HTTPException(status_code=401, detail=_t("unauthorized"))
+    elif token:
+        user = _payload_to_user(await _verify_and_get_payload_async(token, _t), _t)
+        user_id = user.id
+    else:
+        raise HTTPException(status_code=401, detail=_t("unauthorized"), headers={"WWW-Authenticate": "Bearer"})
+
+    root = get_project_manager().get_user_assets_root(user_id)
     path = root / asset_type / filename
     if not path.exists() or not path.is_file():
-        raise HTTPException(status_code=404, detail=_t("file_not_found", path=filename))
+        # 迁移窗口：legacy 全局目录回退
+        legacy = get_project_manager().projects_root / "_global_assets" / asset_type / filename
+        if user_id == DEFAULT_USER_ID and legacy.is_file():
+            path = legacy
+            root = legacy.parent.parent
+        else:
+            raise HTTPException(status_code=404, detail=_t("file_not_found", path=filename))
 
     # 防御性检查：即使 filename 通过了字符串校验，也要确保解析后的路径仍在 root 之内
-    # （防御 symlink / URL 编码等边界场景）
     try:
         path.resolve().relative_to(root.resolve())
     except ValueError:
         raise HTTPException(status_code=403, detail=_t("forbidden_access"))
 
-    return FileResponse(str(path))
+    return FileResponse(str(path), headers={"Cache-Control": "private, no-store"})
+
+
+@router.get("/media-token")
+async def issue_media_token(
+    current_user: CurrentUser,
+    _t: Translator,
+    project: str | None = Query(None, description="项目名 — 访问 /files/{project}/... 时使用"),
+    asset_path: str | None = Query(None, description="素材相对路径 — 访问 /global-assets/... 时使用"),
+):
+    """签发短时效媒体 token，供 ``<img>`` / ``<video>`` 等无法携带 Authorization 的场景。"""
+    if not project and not asset_path:
+        raise HTTPException(status_code=422, detail=_t("media_token_scope_required"))
+    if project:
+        await ensure_project_access(project, current_user, _t)
+    token = create_media_token(
+        current_user.id,
+        project_name=project,
+        asset_path=asset_path,
+    )
+    return {"media_token": token, "expires_in": MEDIA_TOKEN_EXPIRY_SECONDS}
 
 
 @router.post("/projects/{project_name}/upload/{upload_type}", dependencies=[Depends(require_project_access)])
@@ -870,7 +959,7 @@ async def upload_style_image(project_name: str, _user: CurrentUser, _t: Translat
         from lib.text_backends.prompts import STYLE_ANALYSIS_PROMPT
         from lib.text_generator import TextGenerator
 
-        generator = await TextGenerator.create(TextTaskType.STYLE_ANALYSIS, project_name)
+        generator = await TextGenerator.create(TextTaskType.STYLE_ANALYSIS, project_name, user_id=_user.id)
         result = await generator.generate(
             TextGenerationRequest(prompt=STYLE_ANALYSIS_PROMPT, images=[ImageInput(path=output_path)]),
             project_name=project_name,

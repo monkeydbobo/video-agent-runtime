@@ -2,20 +2,21 @@
 
 from __future__ import annotations
 
-from sqlalchemy import Boolean, Index, String, Text, text
+from sqlalchemy import Boolean, ForeignKey, Index, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from lib.db.base import Base, TimestampMixin
+from lib.db.base import DEFAULT_USER_ID, Base, TimestampMixin
 
 
 class ProviderCredential(TimestampMixin, Base):
-    """供应商凭证。每个供应商可有多条凭证，其中最多一条 is_active=True。"""
+    """供应商凭证。每个用户、每个供应商可有多条凭证，其中最多一条 is_active=True。"""
 
     __tablename__ = "provider_credential"
     __table_args__ = (
         Index("ix_provider_credential_provider", "provider"),
         Index(
-            "uq_provider_credential_one_active",
+            "uq_provider_credential_one_active_per_user",
+            "user_id",
             "provider",
             unique=True,
             sqlite_where=text("is_active = 1"),
@@ -24,6 +25,13 @@ class ProviderCredential(TimestampMixin, Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(
+        String,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        server_default=DEFAULT_USER_ID,
+        index=True,
+    )
     provider: Mapped[str] = mapped_column(String(32), nullable=False)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     api_key: Mapped[str | None] = mapped_column(Text, nullable=True)

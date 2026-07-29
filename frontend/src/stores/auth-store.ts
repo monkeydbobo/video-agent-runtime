@@ -1,5 +1,9 @@
 import { create } from "zustand";
 import { getToken, setToken as saveToken, clearToken } from "@/utils/auth";
+import { clearMediaTokenCache } from "@/lib/mediaUrl";
+import { useAssetsStore } from "@/stores/assets-store";
+import { useConfigStatusStore } from "@/stores/config-status-store";
+import { useEndpointCatalogStore } from "@/stores/endpoint-catalog-store";
 
 interface AuthState {
   token: string | null;
@@ -98,12 +102,20 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   login: (token, username) => {
+    clearMediaTokenCache();
+    useAssetsStore.getState().reset();
+    useConfigStatusStore.getState().reset();
+    useEndpointCatalogStore.getState().reset();
     saveToken(token);
     set({ token, username, isAuthenticated: true, isLoading: false });
   },
 
   logout: () => {
     clearToken();
+    clearMediaTokenCache();
+    useAssetsStore.getState().reset();
+    useConfigStatusStore.getState().reset();
+    useEndpointCatalogStore.getState().reset();
     set({ token: null, username: null, isAuthenticated: false });
   },
 

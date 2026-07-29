@@ -12,6 +12,14 @@ from server.error_handlers import register_error_handlers
 from server.routers import versions
 
 
+@pytest.fixture(autouse=True)
+def _allow_test_project_access(monkeypatch):
+    async def _allow(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr("server.project_access.ensure_project_access", _allow)
+
+
 class _FakePM:
     def __init__(self):
         self.updated = []

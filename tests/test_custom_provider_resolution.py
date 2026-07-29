@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from lib.db.base import Base
+from lib.db.base import DEFAULT_USER_ID, Base
 from lib.db.models.custom_provider import CustomProvider, CustomProviderModel
 
 
@@ -144,8 +144,8 @@ async def test_video_capabilities_endpoint_mismatch_raises(db_session: AsyncSess
 
     from lib.config.service import ConfigService
 
-    svc = ConfigService(db_session)
-    resolver = ConfigResolver(factory, _bound_session=db_session)
+    svc = ConfigService(db_session, user_id=DEFAULT_USER_ID)
+    resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID, _bound_session=db_session)
 
     with pytest.raises(ValueError, match="endpoint media_type mismatch"):
         await resolver._resolve_video_capabilities_from_project(svc, db_session, project)
@@ -207,8 +207,8 @@ async def test_custom_video_max_reference_images_from_endpoint(
     project = {"video_backend": f"{provider_id_str}/{model_id}"}
 
     factory = async_sessionmaker(bind=db_session.get_bind(), class_=AsyncSession, expire_on_commit=False)  # type: ignore[call-overload]
-    svc = ConfigService(db_session)
-    resolver = ConfigResolver(factory, _bound_session=db_session)
+    svc = ConfigService(db_session, user_id=DEFAULT_USER_ID)
+    resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID, _bound_session=db_session)
 
     with patch.object(CustomProviderRepository, "get_provider") as mock_get_provider:
         caps = await resolver._resolve_video_capabilities_from_project(svc, db_session, project)
@@ -252,8 +252,8 @@ async def test_custom_video_caps_resolved_without_api_key(db_session: AsyncSessi
     project = {"video_backend": f"{provider_id_str}/doubao-seedance-2-0"}
 
     factory = async_sessionmaker(bind=db_session.get_bind(), class_=AsyncSession, expire_on_commit=False)  # type: ignore[call-overload]
-    svc = ConfigService(db_session)
-    resolver = ConfigResolver(factory, _bound_session=db_session)
+    svc = ConfigService(db_session, user_id=DEFAULT_USER_ID)
+    resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID, _bound_session=db_session)
 
     caps = await resolver._resolve_video_capabilities_from_project(svc, db_session, project)
     assert caps["max_reference_images"] == 9
@@ -302,8 +302,8 @@ async def test_custom_video_max_refs_missing_caps_fn_raises(db_session: AsyncSes
     project = {"video_backend": f"{provider_id_str}/doubao-seedance-2-0"}
 
     factory = async_sessionmaker(bind=db_session.get_bind(), class_=AsyncSession, expire_on_commit=False)  # type: ignore[call-overload]
-    svc = ConfigService(db_session)
-    resolver = ConfigResolver(factory, _bound_session=db_session)
+    svc = ConfigService(db_session, user_id=DEFAULT_USER_ID)
+    resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID, _bound_session=db_session)
 
     with pytest.raises(ValueError, match="declares neither video_max_reference_images"):
         await resolver._resolve_video_capabilities_from_project(svc, db_session, project)
@@ -351,8 +351,8 @@ async def test_custom_video_max_refs_negative_caps_raises(db_session: AsyncSessi
     project = {"video_backend": f"{provider_id_str}/doubao-seedance-2-0"}
 
     factory = async_sessionmaker(bind=db_session.get_bind(), class_=AsyncSession, expire_on_commit=False)  # type: ignore[call-overload]
-    svc = ConfigService(db_session)
-    resolver = ConfigResolver(factory, _bound_session=db_session)
+    svc = ConfigService(db_session, user_id=DEFAULT_USER_ID)
+    resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID, _bound_session=db_session)
 
     with pytest.raises(ValueError, match="invalid backend max_reference_images"):
         await resolver._resolve_video_capabilities_from_project(svc, db_session, project)

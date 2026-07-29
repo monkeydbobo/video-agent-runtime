@@ -1,4 +1,7 @@
-"""Provider credential repository."""
+"""Provider credential repository（按 user_id 隔离）。
+
+作者: wanghaobo
+"""
 
 from __future__ import annotations
 
@@ -6,12 +9,12 @@ from sqlalchemy import select, update
 
 from lib.config.url_utils import normalize_base_url
 from lib.db.models.credential import ProviderCredential
-from lib.db.repositories.base import BaseRepository
+from lib.db.repositories.base import UserScopedRepository
 
 _UNSET = object()
 
 
-class CredentialRepository(BaseRepository):
+class CredentialRepository(UserScopedRepository):
     async def create(
         self,
         provider: str,
@@ -22,9 +25,10 @@ class CredentialRepository(BaseRepository):
         access_key: str | None = None,
         secret_key: str | None = None,
     ) -> ProviderCredential:
-        """创建凭证。若为该供应商的第一条，自动设为活跃。"""
+        """创建凭证。若为该用户+供应商的第一条，自动设为活跃。"""
         is_first = not await self.has_active_credential(provider)
         cred = ProviderCredential(
+            user_id=self.user_id,
             provider=provider,
             name=name,
             api_key=api_key,
@@ -39,23 +43,27 @@ class CredentialRepository(BaseRepository):
         return cred
 
     async def get_by_id(self, cred_id: int) -> ProviderCredential | None:
-        stmt = select(ProviderCredential).where(ProviderCredential.id == cred_id)
+        stmt = self._scope_query(select(ProviderCredential).where(ProviderCredential.id == cred_id), ProviderCredential)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
     async def list_by_provider(self, provider: str) -> list[ProviderCredential]:
-        stmt = (
+        stmt = self._scope_query(
             select(ProviderCredential)
             .where(ProviderCredential.provider == provider)
-            .order_by(ProviderCredential.created_at)
+            .order_by(ProviderCredential.created_at),
+            ProviderCredential,
         )
         result = await self.session.execute(stmt)
         return list(result.scalars())
 
     async def get_active(self, provider: str) -> ProviderCredential | None:
-        stmt = select(ProviderCredential).where(
-            ProviderCredential.provider == provider,
-            ProviderCredential.is_active == True,  # noqa: E712
+        stmt = self._scope_query(
+            select(ProviderCredential).where(
+                ProviderCredential.provider == provider,
+                ProviderCredential.is_active == True,  # noqa: E712
+            ),
+            ProviderCredential,
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
@@ -64,20 +72,33 @@ class CredentialRepository(BaseRepository):
         return await self.get_active(provider) is not None
 
     async def get_active_credentials_bulk(self) -> dict[str, ProviderCredential]:
-        """批量获取所有供应商的活跃凭证。"""
-        stmt = select(ProviderCredential).where(
-            ProviderCredential.is_active == True,  # noqa: E712
+        """批量获取当前用户所有供应商的活跃凭证。"""
+        stmt = self._scope_query(
+            select(ProviderCredential).where(
+                ProviderCredential.is_active == True,  # noqa: E712
+            ),
+            ProviderCredential,
         )
         result = await self.session.execute(stmt)
         return {c.provider: c for c in result.scalars()}
 
     async def activate(self, cred_id: int, provider: str) -> None:
-        """激活指定凭证，同时取消同供应商的其他活跃标记。"""
+        """激活指定凭证，同时取消同用户+同供应商的其他活跃标记。"""
         await self.session.execute(
-            update(ProviderCredential).where(ProviderCredential.provider == provider).values(is_active=False)
+            update(ProviderCredential)
+            .where(
+                ProviderCredential.user_id == self.user_id,
+                ProviderCredential.provider == provider,
+            )
+            .values(is_active=False)
         )
         await self.session.execute(
-            update(ProviderCredential).where(ProviderCredential.id == cred_id).values(is_active=True)
+            update(ProviderCredential)
+            .where(
+                ProviderCredential.id == cred_id,
+                ProviderCredential.user_id == self.user_id,
+            )
+            .values(is_active=True)
         )
 
     async def update(
@@ -123,11 +144,12 @@ class CredentialRepository(BaseRepository):
         await self.session.flush()
 
         if was_active:
-            stmt = (
+            stmt = self._scope_query(
                 select(ProviderCredential)
                 .where(ProviderCredential.provider == provider)
                 .order_by(ProviderCredential.created_at)
-                .limit(1)
+                .limit(1),
+                ProviderCredential,
             )
             result = await self.session.execute(stmt)
             next_cred = result.scalar_one_or_none()

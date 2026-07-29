@@ -89,9 +89,20 @@ ARCREEL_MCP_TOOL_IDS: tuple[str, ...] = (
 )
 
 
-def build_arcreel_mcp_server(*, project_name: str, projects_root: Path) -> Any:
+def build_arcreel_mcp_server(
+    *,
+    project_name: str,
+    projects_root: Path,
+    user_id: str | None = None,
+    project_id: str | None = None,
+) -> Any:
     """Build the per-session in-process MCP server with all ArcReel tools."""
-    ctx = ToolContext(project_name=project_name, projects_root=projects_root)
+    ctx = ToolContext(
+        project_name=project_name,
+        projects_root=projects_root,
+        user_id=user_id,
+        project_id=project_id,
+    )
     return create_sdk_mcp_server(
         name="arcreel",
         version="1.0.0",

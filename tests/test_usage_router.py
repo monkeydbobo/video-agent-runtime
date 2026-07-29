@@ -9,6 +9,19 @@ from server.auth import CurrentUserInfo, get_current_user
 from server.routers import usage
 
 
+@pytest.fixture(autouse=True)
+def _allow_test_project_access(monkeypatch):
+    async def _allow(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(usage, "ensure_project_access", _allow)
+
+    async def _visible(_names, _user):
+        return ["demo", "demo2"]
+
+    monkeypatch.setattr(usage, "accessible_project_names", _visible)
+
+
 @pytest.fixture
 async def _usage_env(monkeypatch):
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")

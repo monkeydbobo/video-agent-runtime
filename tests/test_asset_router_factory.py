@@ -48,6 +48,9 @@ def _client(monkeypatch):
     monkeypatch.setattr(characters, "get_project_manager", lambda: fake_pm)
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
+    from server.project_access import require_project_access
+
+    app.dependency_overrides[require_project_access] = lambda: None
     app.include_router(characters.router, prefix="/api/v1")
     return TestClient(app), fake_pm
 
@@ -162,6 +165,9 @@ class TestAssetRouterNoLeak:
         )
         app = FastAPI()
         app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
+        from server.project_access import require_project_access
+
+        app.dependency_overrides[require_project_access] = lambda: None
         app.include_router(characters.router, prefix="/api/v1")
         with TestClient(app) as client:
             resp = client.post("/api/v1/projects/demo/characters", json={"name": "Bob", "description": "x"})
@@ -177,6 +183,9 @@ class TestAssetRouterNoLeak:
         )
         app = FastAPI()
         app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
+        from server.project_access import require_project_access
+
+        app.dependency_overrides[require_project_access] = lambda: None
         app.include_router(characters.router, prefix="/api/v1")
         with TestClient(app) as client:
             resp = client.patch("/api/v1/projects/demo/characters/Alice", json={"description": "new"})
@@ -192,6 +201,9 @@ class TestAssetRouterNoLeak:
         )
         app = FastAPI()
         app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
+        from server.project_access import require_project_access
+
+        app.dependency_overrides[require_project_access] = lambda: None
         app.include_router(characters.router, prefix="/api/v1")
         with TestClient(app) as client:
             resp = client.delete("/api/v1/projects/demo/characters/Alice")

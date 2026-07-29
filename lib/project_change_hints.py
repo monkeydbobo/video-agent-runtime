@@ -11,13 +11,15 @@ from contextvars import ContextVar
 from threading import RLock
 from typing import Any, Literal
 
+from lib.project_paths import current_project_id_scope, current_project_user_scope
+
 logger = logging.getLogger(__name__)
 
 ProjectChangeSource = Literal["webui", "worker", "filesystem"]
-ProjectChangeListener = Callable[[str, ProjectChangeSource, tuple[str, ...]], None]
+ProjectChangeListener = Callable[[str, ProjectChangeSource, tuple[str, ...], str | None, str | None], None]
 ProjectChangeBatch = dict[str, Any]
 ProjectChangeBatchListener = Callable[
-    [str, ProjectChangeSource, tuple[ProjectChangeBatch, ...]],
+    [str, ProjectChangeSource, tuple[ProjectChangeBatch, ...], str | None, str | None],
     None,
 ]
 
@@ -53,12 +55,14 @@ def emit_project_change_hint(
     """Notify listeners that project files were just written."""
     resolved_source = source or get_project_change_source()
     paths = tuple(dict.fromkeys(str(path) for path in (changed_paths or ())))
+    user_id = current_project_user_scope()
+    project_id = current_project_id_scope(project_name)
     with _listeners_lock:
         listeners = list(_listeners)
 
     for listener in listeners:
         try:
-            listener(project_name, resolved_source, paths)
+            listener(project_name, resolved_source, paths, user_id, project_id)
         except Exception:
             logger.exception("项目变更 hint listener 执行失败")
 
@@ -90,13 +94,15 @@ def emit_project_change_batch(
     payload = tuple(dict(change) for change in changes if isinstance(change, dict))
     if not payload:
         return
+    user_id = current_project_user_scope()
+    project_id = current_project_id_scope(project_name)
 
     with _listeners_lock:
         listeners = list(_batch_listeners)
 
     for listener in listeners:
         try:
-            listener(project_name, resolved_source, payload)
+            listener(project_name, resolved_source, payload, user_id, project_id)
         except Exception:
             logger.exception("项目变更 batch listener 执行失败")
 

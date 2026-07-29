@@ -2,15 +2,27 @@
 
 from __future__ import annotations
 
+import pytest
+
 from lib.project_manager import ProjectManager
+
+pytestmark = pytest.mark.integration
 
 
 def test_get_global_assets_root_creates_subdirs(tmp_path):
     pm = ProjectManager(tmp_path / "projects")
     root = pm.get_global_assets_root()
-    assert root == tmp_path / "projects" / "_global_assets"
+    # 无 legacy 目录时默认落到 default 用户私有根
+    assert root == tmp_path / "projects" / "users" / "default" / "assets"
     for sub in ("character", "scene", "prop"):
         assert (root / sub).is_dir()
+
+
+def test_get_global_assets_root_legacy_fallback(tmp_path):
+    pm = ProjectManager(tmp_path / "projects")
+    legacy = pm.projects_root / "_global_assets"
+    legacy.mkdir(parents=True)
+    assert pm.get_global_assets_root() == legacy
 
 
 def test_list_projects_skips_global_assets(tmp_path):

@@ -25,6 +25,7 @@ async def _derive_provider_id_for_enqueue(
     payload: dict[str, Any] | None,
     task_type: str,
     media_type: str,
+    user_id: str,
 ) -> str | None:
     """入队时按 project + payload 派生 provider_id，供 claim SQL 池过滤使用。
 
@@ -42,7 +43,7 @@ async def _derive_provider_id_for_enqueue(
         if project_name:
             project = await asyncio.to_thread(get_project_manager().load_project, project_name)
 
-        resolver = ConfigResolver(async_session_factory)
+        resolver = ConfigResolver(async_session_factory, user_id=user_id)
         if is_video:
             resolved = await resolver.resolve_video_backend(project, payload or {})
         elif is_audio:
@@ -114,6 +115,7 @@ class GenerationQueue:
                 payload=payload,
                 task_type=task_type,
                 media_type=media_type,
+                user_id=user_id,
             )
 
         async with self._session_factory() as session:
@@ -254,18 +256,18 @@ class GenerationQueue:
             repo = TaskRepository(session)
             return await repo.get_cancel_preview(task_id)
 
-    async def cancel_all_queued(self, project_name: str) -> dict[str, Any]:
+    async def cancel_all_queued(self, project_name: str, *, user_id: str | None = None) -> dict[str, Any]:
         async with self._session_factory() as session:
             repo = TaskRepository(session)
-            result = await repo.cancel_all_queued(project_name)
+            result = await repo.cancel_all_queued(project_name, user_id=user_id)
         if result["cancelled_count"] > 0:
             logger.info("批量取消 project=%s 共取消 %d 个", project_name, result["cancelled_count"])
         return result
 
-    async def get_cancel_all_preview(self, project_name: str) -> int:
+    async def get_cancel_all_preview(self, project_name: str, *, user_id: str | None = None) -> int:
         async with self._session_factory() as session:
             repo = TaskRepository(session)
-            return await repo.get_cancel_all_preview(project_name)
+            return await repo.get_cancel_all_preview(project_name, user_id=user_id)
 
     async def get_task(self, task_id: str) -> dict[str, Any] | None:
 
@@ -276,6 +278,7 @@ class GenerationQueue:
     async def list_tasks(
         self,
         *,
+        user_id: str | None = None,
         project_name: str | None = None,
         project_names: list[str] | None = None,
         status: str | None = None,
@@ -288,6 +291,7 @@ class GenerationQueue:
         async with self._session_factory() as session:
             repo = TaskRepository(session)
             return await repo.list_tasks(
+                user_id=user_id,
                 project_name=project_name,
                 project_names=project_names,
                 status=status,
@@ -301,16 +305,22 @@ class GenerationQueue:
         self,
         project_name: str | None = None,
         *,
+        user_id: str | None = None,
         project_names: list[str] | None = None,
     ) -> dict[str, int]:
 
         async with self._session_factory() as session:
             repo = TaskRepository(session)
-            return await repo.get_stats(project_name=project_name, project_names=project_names)
+            return await repo.get_stats(
+                user_id=user_id,
+                project_name=project_name,
+                project_names=project_names,
+            )
 
     async def get_recent_tasks_snapshot(
         self,
         *,
+        user_id: str | None = None,
         project_name: str | None = None,
         project_names: list[str] | None = None,
         limit: int = 200,
@@ -319,6 +329,7 @@ class GenerationQueue:
         async with self._session_factory() as session:
             repo = TaskRepository(session)
             return await repo.get_recent_tasks_snapshot(
+                user_id=user_id,
                 project_name=project_name,
                 project_names=project_names,
                 limit=limit,
@@ -328,6 +339,7 @@ class GenerationQueue:
         self,
         *,
         last_event_id: int,
+        user_id: str | None = None,
         project_name: str | None = None,
         project_names: list[str] | None = None,
         limit: int = 200,
@@ -337,6 +349,7 @@ class GenerationQueue:
             repo = TaskRepository(session)
             return await repo.get_events_since(
                 last_event_id=last_event_id,
+                user_id=user_id,
                 project_name=project_name,
                 project_names=project_names,
                 limit=limit,
@@ -345,13 +358,18 @@ class GenerationQueue:
     async def get_latest_event_id(
         self,
         *,
+        user_id: str | None = None,
         project_name: str | None = None,
         project_names: list[str] | None = None,
     ) -> int:
 
         async with self._session_factory() as session:
             repo = TaskRepository(session)
-            return await repo.get_latest_event_id(project_name=project_name, project_names=project_names)
+            return await repo.get_latest_event_id(
+                user_id=user_id,
+                project_name=project_name,
+                project_names=project_names,
+            )
 
     async def acquire_or_renew_worker_lease(
         self,

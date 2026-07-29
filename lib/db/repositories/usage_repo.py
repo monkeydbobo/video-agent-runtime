@@ -227,7 +227,7 @@ class UsageRepository(BaseRepository):
 
             # 自定义供应商价格预查（避免 CostCalculator 内 sync-over-async）；与费用预估链路共用
             # CustomProviderRepository.resolve_price，非自定义 / 畸形 id / 查询异常 / 缺价统一降级为无价。
-            custom_price = await CustomProviderRepository(self.session).resolve_price(
+            custom_price = await CustomProviderRepository(self.session, user_id=row.user_id).resolve_price(
                 effective_provider, row.model or ""
             )
 
@@ -371,6 +371,7 @@ class UsageRepository(BaseRepository):
     @staticmethod
     def _build_filters(
         *,
+        user_id: str | None = None,
         project_name: str | None = None,
         project_names: list[str] | None = None,
         provider: str | None = None,
@@ -380,6 +381,8 @@ class UsageRepository(BaseRepository):
         end_date: datetime | None = None,
     ) -> list:
         filters: list = []
+        if user_id:
+            filters.append(ApiCall.user_id == user_id)
         if project_name:
             filters.append(ApiCall.project_name == project_name)
         if project_names is not None:
@@ -401,6 +404,7 @@ class UsageRepository(BaseRepository):
     async def get_stats(
         self,
         *,
+        user_id: str | None = None,
         project_name: str | None = None,
         project_names: list[str] | None = None,
         provider: str | None = None,
@@ -408,6 +412,7 @@ class UsageRepository(BaseRepository):
         end_date: datetime | None = None,
     ) -> dict[str, Any]:
         filters = self._build_filters(
+            user_id=user_id,
             project_name=project_name,
             project_names=project_names,
             provider=provider,
@@ -477,6 +482,7 @@ class UsageRepository(BaseRepository):
     async def get_stats_grouped_by_provider(
         self,
         *,
+        user_id: str | None = None,
         project_name: str | None = None,
         project_names: list[str] | None = None,
         provider: str | None = None,
@@ -484,6 +490,7 @@ class UsageRepository(BaseRepository):
         end_date: datetime | None = None,
     ) -> dict[str, Any]:
         filters = self._build_filters(
+            user_id=user_id,
             project_name=project_name,
             project_names=project_names,
             provider=provider,
@@ -603,6 +610,7 @@ class UsageRepository(BaseRepository):
     async def get_calls(
         self,
         *,
+        user_id: str | None = None,
         project_name: str | None = None,
         project_names: list[str] | None = None,
         call_type: CallType | None = None,
@@ -613,6 +621,7 @@ class UsageRepository(BaseRepository):
         page_size: int = 20,
     ) -> dict[str, Any]:
         filters = self._build_filters(
+            user_id=user_id,
             project_name=project_name,
             project_names=project_names,
             call_type=call_type,
@@ -707,8 +716,12 @@ class UsageRepository(BaseRepository):
             bucket[currency] = round(bucket.get(currency, 0) + total, 6)
         return result
 
-    async def get_projects_list(self, *, project_names: list[str] | None = None) -> list[str]:
+    async def get_projects_list(
+        self, *, user_id: str | None = None, project_names: list[str] | None = None
+    ) -> list[str]:
         stmt = select(ApiCall.project_name).distinct().order_by(ApiCall.project_name)
+        if user_id:
+            stmt = stmt.where(ApiCall.user_id == user_id)
         if project_names is not None:
             stmt = stmt.where(ApiCall.project_name.in_(project_names))
         stmt = self._scope_query(stmt, ApiCall)

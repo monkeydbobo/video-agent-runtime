@@ -106,16 +106,20 @@ class ScriptGenerator:
     读取 Step 1/2 的 Markdown 中间文件，调用 TextBackend 生成最终 JSON 剧本
     """
 
-    def __init__(self, project_path: str | Path, generator: Optional["TextGenerator"] = None):
+    def __init__(self, project_path: str | Path, generator: Optional["TextGenerator"] = None, *, user_id: str):
         """
         初始化生成器
 
         Args:
             project_path: 项目目录路径，如 projects/test0205
             generator: TextGenerator 实例（可选）。若为 None 则仅支持 build_prompt() dry-run。
+            user_id: 项目所有者。视频能力解析按此身份读供应商配置，必传且不设默认——
+                供应商配置按用户分片后，落到非所有者的分片会按别人的模型上限派生
+                片段时长枚举。
         """
         self.project_path = Path(project_path)
         self.generator = generator
+        self._user_id = user_id
 
         # 加载 project.json
         self.project_json = self._load_project_json()
@@ -143,11 +147,11 @@ class ScriptGenerator:
         return raw_outline if isinstance(raw_outline, dict) else {}
 
     @classmethod
-    async def create(cls, project_path: str | Path) -> "ScriptGenerator":
+    async def create(cls, project_path: str | Path, *, user_id: str) -> "ScriptGenerator":
         """异步工厂方法，自动从 DB 加载供应商配置创建 TextGenerator。"""
         project_name = Path(project_path).name
-        generator = await TextGenerator.create(TextTaskType.SCRIPT, project_name)
-        return cls(project_path, generator)
+        generator = await TextGenerator.create(TextTaskType.SCRIPT, project_name, user_id=user_id)
+        return cls(project_path, generator, user_id=user_id)
 
     async def generate(
         self,
@@ -509,7 +513,7 @@ class ScriptGenerator:
         宽松捕获：除 ValueError 外，DB 未 migration / 连接失败等 SQLAlchemy 异常也走 fallback，
         保证在缺能力元数据的环境（如裸 CI 测试容器）中 generate() 仍能跑通。
         """
-        resolver = ConfigResolver(async_session_factory)
+        resolver = ConfigResolver(async_session_factory, user_id=self._user_id)
         try:
             return await resolver.video_capabilities_for_project(self.project_json)
         except (ValueError, SQLAlchemyError) as exc:

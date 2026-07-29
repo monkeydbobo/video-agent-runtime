@@ -23,9 +23,10 @@ from server.agent_runtime.session_manager import (
     SessionBusyError,
     SessionCapacityError,
 )
-from server.auth import CurrentUser, CurrentUserFlexible
+from server.auth import CurrentUser, CurrentUserFlexible, CurrentUserInfo
+from server.project_access import require_project_access
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_project_access)])
 
 assistant_service = AssistantService(project_root=PROJECT_ROOT)
 
@@ -35,10 +36,14 @@ def get_assistant_service() -> AssistantService:
 
 
 async def _validate_session_ownership(
-    service: AssistantService, session_id: str, project_name: str, _t: Callable[..., str]
-) -> "SessionMeta":
-    """Validate session belongs to the specified project and return it."""
-    session = await service.get_session(session_id)
+    service: AssistantService,
+    session_id: str,
+    project_name: str,
+    user: CurrentUserInfo,
+    _t: Callable[..., str],
+) -> SessionMeta:
+    """Validate session belongs to the specified project and user; return it."""
+    session = await service.get_session(session_id, user_id=user.id)
     if session is None:
         raise HTTPException(status_code=404, detail=_t("session_not_found", session_id=session_id))
     if session.project_name != project_name:
@@ -46,13 +51,19 @@ async def _validate_session_ownership(
     return session
 
 
+def _bind_assistant_user(service: AssistantService, user: CurrentUserInfo) -> None:
+    """将当前请求用户绑定到会话运行时（凭证/用量/MCP 工具 user_id）。"""
+    service.bind_user(user.id)
+
+
 async def _assistant_service_for_stream(
     project_name: str,
     session_id: str,
+    _user: CurrentUserFlexible,
     _t: Translator,
 ) -> tuple[AssistantService, SessionMeta]:
     service = get_assistant_service()
-    meta = await _validate_session_ownership(service, session_id, project_name, _t)
+    meta = await _validate_session_ownership(service, session_id, project_name, _user, _t)
     return service, meta
 
 
@@ -83,6 +94,7 @@ async def send_message(
 ):
     try:
         service = get_assistant_service()
+        _bind_assistant_user(service, _user)
         result = await service.send_or_create(
             project_name,
             req.content,
@@ -127,8 +139,9 @@ async def list_sessions(
     offset: int = Query(default=0, ge=0),
 ):
     try:
-        sessions = await get_assistant_service().list_sessions(
-            project_name=project_name, status=status, limit=limit, offset=offset
+        service = get_assistant_service()
+        sessions = await service.list_sessions(
+            project_name=project_name, status=status, limit=limit, offset=offset, user_id=_user.id
         )
         return {"sessions": [s.model_dump() for s in sessions]}
     except HTTPException:
@@ -142,7 +155,7 @@ async def list_sessions(
 async def get_session(project_name: str, session_id: str, _user: CurrentUser, _t: Translator):
     try:
         service = get_assistant_service()
-        session = await _validate_session_ownership(service, session_id, project_name, _t)
+        session = await _validate_session_ownership(service, session_id, project_name, _user, _t)
         return session.model_dump()
     except HTTPException:
         raise
@@ -155,7 +168,7 @@ async def get_session(project_name: str, session_id: str, _user: CurrentUser, _t
 async def delete_session(project_name: str, session_id: str, _user: CurrentUser, _t: Translator):
     try:
         service = get_assistant_service()
-        await _validate_session_ownership(service, session_id, project_name, _t)
+        await _validate_session_ownership(service, session_id, project_name, _user, _t)
         deleted = await service.delete_session(session_id)
         if not deleted:
             raise HTTPException(status_code=404, detail=_t("session_not_found", session_id=session_id))
@@ -194,7 +207,7 @@ async def list_entries(
     """冷读会话事件日志（历史回放；``after`` 为 seq 游标）。"""
     try:
         service = get_assistant_service()
-        meta = await _validate_session_ownership(service, session_id, project_name, _t)
+        meta = await _validate_session_ownership(service, session_id, project_name, _user, _t)
         return await service.list_session_entries(session_id, meta=meta, after_seq=after)
     except HTTPException:
         raise
@@ -242,7 +255,7 @@ async def stream_entries(
 async def interrupt_session(project_name: str, session_id: str, _user: CurrentUser, _t: Translator):
     try:
         service = get_assistant_service()
-        meta = await _validate_session_ownership(service, session_id, project_name, _t)
+        meta = await _validate_session_ownership(service, session_id, project_name, _user, _t)
         result = await service.interrupt_session(session_id, meta=meta)
         return result
     except HTTPException:
@@ -270,7 +283,7 @@ async def answer_question(
         raise HTTPException(status_code=400, detail=_t("answers_required"))
     try:
         service = get_assistant_service()
-        meta = await _validate_session_ownership(service, session_id, project_name, _t)
+        meta = await _validate_session_ownership(service, session_id, project_name, _user, _t)
         result = await service.answer_user_question(
             session_id=session_id,
             question_id=question_id,

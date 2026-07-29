@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 rate_limiter = get_shared_rate_limiter()
 
-_CacheKey = tuple[str, str, str | None]
+_CacheKey = tuple[str, str, str, str | None]
 
 
 class _BackendCache:
@@ -92,6 +92,8 @@ async def _get_or_create_backend(
     provider_settings: dict,
     resolver: ConfigResolver,
     default_model: str | None,
+    *,
+    user_id: str,
 ) -> Any:
     """组 key + 提供 factory closure，缓存纪律统一委托 :class:`_BackendCache`。"""
     effective_model = provider_settings.get("model") or default_model or None
@@ -105,7 +107,10 @@ async def _get_or_create_backend(
             rate_limiter=rate_limiter,
         )
 
-    return await _backend_cache.get_or_create((media_type, provider_name, effective_model), _factory)
+    return await _backend_cache.get_or_create(
+        (user_id, media_type, provider_name, effective_model),
+        _factory,
+    )
 
 
 async def _get_or_create_video_backend(
@@ -121,7 +126,9 @@ async def _get_or_create_video_backend(
     通过 resolver 按需加载供应商配置。
     default_video_model: 全局默认视频模型，当 provider_settings 中无 model 时作为 fallback。
     """
-    return await _get_or_create_backend("video", provider_name, provider_settings, resolver, default_video_model)
+    return await _get_or_create_backend(
+        "video", provider_name, provider_settings, resolver, default_video_model, user_id=resolver.user_id
+    )
 
 
 async def _get_or_create_image_backend(
@@ -132,7 +139,9 @@ async def _get_or_create_image_backend(
     default_image_model: str | None = None,
 ):
     """获取或创建 ImageBackend 实例（带缓存）。"""
-    return await _get_or_create_backend("image", provider_name, provider_settings, resolver, default_image_model)
+    return await _get_or_create_backend(
+        "image", provider_name, provider_settings, resolver, default_image_model, user_id=resolver.user_id
+    )
 
 
 async def _get_or_create_audio_backend(
@@ -143,7 +152,9 @@ async def _get_or_create_audio_backend(
     default_audio_model: str | None = None,
 ):
     """获取或创建 AudioBackend 实例（带缓存）。audio 无媒体特例：自定义 + 简单族统一经构造缝。"""
-    return await _get_or_create_backend("audio", provider_name, provider_settings, resolver, default_audio_model)
+    return await _get_or_create_backend(
+        "audio", provider_name, provider_settings, resolver, default_audio_model, user_id=resolver.user_id
+    )
 
 
 @dataclass(frozen=True)
@@ -267,7 +278,7 @@ async def resolve_generation_context(
     from lib.db import async_session_factory
 
     project_path = await asyncio.to_thread(get_project_manager().get_project_path, project_name)
-    resolver = ConfigResolver(async_session_factory)
+    resolver = ConfigResolver(async_session_factory, user_id=user_id)
 
     image_result: ImageLaneResult | None = None
     video_result: VideoLaneResult | None = None

@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from lib.config.repository import ProviderConfigRepository, SystemSettingRepository
-from lib.db.base import Base
+from lib.db.base import DEFAULT_USER_ID, Base
 
 
 @pytest.fixture
@@ -20,14 +20,14 @@ async def session():
 
 
 async def test_set_and_get(session: AsyncSession):
-    repo = ProviderConfigRepository(session)
+    repo = ProviderConfigRepository(session, user_id=DEFAULT_USER_ID)
     await repo.set("gemini-aistudio", "api_key", "AIza-test", is_secret=True)
     config = await repo.get_all("gemini-aistudio")
     assert config == {"api_key": "AIza-test"}
 
 
 async def test_set_overwrites(session: AsyncSession):
-    repo = ProviderConfigRepository(session)
+    repo = ProviderConfigRepository(session, user_id=DEFAULT_USER_ID)
     await repo.set("gemini-aistudio", "api_key", "old", is_secret=True)
     await repo.set("gemini-aistudio", "api_key", "new", is_secret=True)
     config = await repo.get_all("gemini-aistudio")
@@ -35,7 +35,7 @@ async def test_set_overwrites(session: AsyncSession):
 
 
 async def test_delete(session: AsyncSession):
-    repo = ProviderConfigRepository(session)
+    repo = ProviderConfigRepository(session, user_id=DEFAULT_USER_ID)
     await repo.set("grok", "api_key", "xai-test", is_secret=True)
     await repo.delete("grok", "api_key")
     config = await repo.get_all("grok")
@@ -43,7 +43,7 @@ async def test_delete(session: AsyncSession):
 
 
 async def test_get_secrets_masked(session: AsyncSession):
-    repo = ProviderConfigRepository(session)
+    repo = ProviderConfigRepository(session, user_id=DEFAULT_USER_ID)
     await repo.set("gemini-aistudio", "api_key", "AIzaSyD-longkey123", is_secret=True)
     await repo.set("gemini-aistudio", "base_url", "https://example.com", is_secret=False)
     masked = await repo.get_all_masked("gemini-aistudio")
@@ -54,7 +54,7 @@ async def test_get_secrets_masked(session: AsyncSession):
 
 
 async def test_get_configured_keys(session: AsyncSession):
-    repo = ProviderConfigRepository(session)
+    repo = ProviderConfigRepository(session, user_id=DEFAULT_USER_ID)
     await repo.set("ark", "api_key", "ark-test", is_secret=True)
     keys = await repo.get_configured_keys("ark")
     assert keys == ["api_key"]

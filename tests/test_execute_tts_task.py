@@ -5,13 +5,20 @@ compute_affected_fingerprints tts 分支 / 任务注册表。"""
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from typing import cast
 
 import pytest
 
 from lib.config.resolver import ConfigResolver, ProviderModel
+from lib.db.base import DEFAULT_USER_ID
 from server.services import generation_context, generation_tasks
 from server.services.generation_context import AudioLaneResult, GenerationContext
+
+
+def _stub_resolver(user_id: str = DEFAULT_USER_ID) -> ConfigResolver:
+    """缓存 key 含 user_id，故 resolver 需携带归属；backend 构造缝已被 fake 替换。"""
+    return cast(ConfigResolver, SimpleNamespace(user_id=user_id))
 
 
 def _audio_ctx(generator, *, voice="Cherry", speed=None):
@@ -156,7 +163,7 @@ class TestGetOrCreateAudioBackend:
         monkeypatch.setattr(generation_context, "assemble_backend", _fake_assemble)
         monkeypatch.setattr(generation_context, "_backend_cache", generation_context._BackendCache())
 
-        resolver = cast(ConfigResolver, None)
+        resolver = _stub_resolver()
         b1 = await generation_context._get_or_create_audio_backend("custom-3", {"model": "tts-1"}, resolver)
         b2 = await generation_context._get_or_create_audio_backend("custom-3", {"model": "tts-1"}, resolver)
 
@@ -174,7 +181,7 @@ class TestGetOrCreateAudioBackend:
         monkeypatch.setattr(generation_context, "assemble_backend", _fake_assemble)
         monkeypatch.setattr(generation_context, "_backend_cache", generation_context._BackendCache())
 
-        resolver = cast(ConfigResolver, None)
+        resolver = _stub_resolver()
         b1 = await generation_context._get_or_create_audio_backend(
             "dashscope", {}, resolver, default_audio_model="qwen3-tts-flash"
         )
@@ -197,7 +204,7 @@ class TestGetOrCreateAudioBackend:
         await generation_context._get_or_create_audio_backend(
             "dashscope",
             {"model": "explicit-model"},
-            cast(ConfigResolver, None),
+            _stub_resolver(),
             default_audio_model="fallback-model",
         )
         assert calls == ["explicit-model"]

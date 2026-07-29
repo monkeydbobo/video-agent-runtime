@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from lib.db.base import DEFAULT_USER_ID
 from lib.project_manager import ProjectManager
 
 
@@ -577,7 +578,7 @@ class TestProjectManagerMore:
             return _FakeTextBackend(), "gemini-aistudio"
 
         monkeypatch.setattr("lib.text_generator.create_text_backend_for_task", _fake_create_backend)
-        overview = await pm.generate_overview("demo")
+        overview = await pm.generate_overview("demo", user_id=DEFAULT_USER_ID)
         assert overview["genre"] == "悬疑"
         assert "generated_at" in overview
         assert overview["language"] == "zh"
@@ -594,7 +595,7 @@ class TestProjectManagerMore:
         pm_empty.create_project("demo")
         pm_empty.create_project_metadata("demo", "Demo")
         with pytest.raises(ValueError):
-            await pm_empty.generate_overview("demo")
+            await pm_empty.generate_overview("demo", user_id=DEFAULT_USER_ID)
 
     @pytest.mark.parametrize("lang", ["zh", "en", "vi"])
     @pytest.mark.asyncio
@@ -608,7 +609,7 @@ class TestProjectManagerMore:
             return _FakeTextBackend(language=lang), "gemini-aistudio"
 
         monkeypatch.setattr("lib.text_generator.create_text_backend_for_task", _fake_create_backend)
-        overview = await pm.generate_overview("demo")
+        overview = await pm.generate_overview("demo", user_id=DEFAULT_USER_ID)
         assert overview["language"] == lang
         assert pm.load_project("demo")["source_language"] == lang
 
@@ -627,7 +628,7 @@ class TestProjectManagerMore:
 
         monkeypatch.setattr("lib.text_generator.create_text_backend_for_task", _fake_create_backend)
         with pytest.raises(ValidationError):
-            await pm.generate_overview("demo")
+            await pm.generate_overview("demo", user_id=DEFAULT_USER_ID)
         assert "source_language" not in pm.load_project("demo")
 
     @pytest.mark.parametrize("source_kind", [None, "novel", "screenplay"])
@@ -648,7 +649,7 @@ class TestProjectManagerMore:
             return backend, "gemini-aistudio"
 
         monkeypatch.setattr("lib.text_generator.create_text_backend_for_task", _fake_create_backend)
-        await pm.generate_overview("demo")
+        await pm.generate_overview("demo", user_id=DEFAULT_USER_ID)
 
         source_content = pm._read_source_files("demo")
         expected_kind = source_kind or "novel"
@@ -676,7 +677,7 @@ class TestProjectManagerMore:
             return backend, "gemini-aistudio"
 
         monkeypatch.setattr("lib.text_generator.create_text_backend_for_task", _fake_create_backend)
-        await pm.generate_overview("demo")
+        await pm.generate_overview("demo", user_id=DEFAULT_USER_ID)
 
         source_content = pm._read_source_files("demo")
         assert backend.last_request is not None
@@ -705,7 +706,7 @@ class TestProjectManagerMore:
             return backend, "gemini-aistudio"
 
         monkeypatch.setattr("lib.text_generator.create_text_backend_for_task", _fake_create_backend)
-        await pm.generate_overview("demo")
+        await pm.generate_overview("demo", user_id=DEFAULT_USER_ID)
 
         source_content = pm._read_source_files("demo")
         assert backend.last_request is not None

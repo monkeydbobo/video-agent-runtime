@@ -8,6 +8,14 @@ from server.routers import tasks as tasks_router
 from tests.conftest import make_translator
 
 
+@pytest.fixture(autouse=True)
+def _allow_test_project_access(monkeypatch):
+    async def _allow(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(tasks_router, "ensure_project_access", _allow)
+
+
 class _FakeRequest:
     def __init__(self, disconnect_after: int):
         self._calls = 0
@@ -27,16 +35,16 @@ class _FakeQueue:
         self.task = task
         self.cursors = []
 
-    async def get_latest_event_id(self, project_name=None, project_names=None):
+    async def get_latest_event_id(self, project_name=None, project_names=None, *, user_id=None):
         return self.latest
 
-    async def get_recent_tasks_snapshot(self, project_name=None, project_names=None, limit=1000):
+    async def get_recent_tasks_snapshot(self, project_name=None, project_names=None, limit=1000, *, user_id=None):
         return self.snapshot
 
-    async def get_task_stats(self, project_name=None, project_names=None):
+    async def get_task_stats(self, project_name=None, project_names=None, *, user_id=None):
         return self.stats
 
-    async def get_events_since(self, last_event_id, project_name=None, project_names=None, limit=200):
+    async def get_events_since(self, last_event_id, project_name=None, project_names=None, limit=200, *, user_id=None):
         self.cursors.append(last_event_id)
         if self.events:
             events = self.events
@@ -178,6 +186,9 @@ class TestTaskErrorLocalization:
         app.dependency_overrides[get_current_user_flexible] = lambda: CurrentUserInfo(
             id="default", sub="testuser", role="admin"
         )
+        from tests.conftest import allow_project_access
+
+        allow_project_access(app)
         app.include_router(tasks_router.router, prefix="/api/v1")
         return TestClient(app)
 

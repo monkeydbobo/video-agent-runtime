@@ -19,7 +19,11 @@ from server.error_handlers import register_error_handlers
 from server.routers import agent_chat
 
 
-def _make_client() -> TestClient:
+def _make_client(monkeypatch) -> TestClient:
+    async def _allow_test_project(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(agent_chat, "ensure_project_access", _allow_test_project)
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
     app.include_router(agent_chat.router, prefix="/api/v1")
@@ -65,7 +69,7 @@ class TestAgentChatEndpoint:
 
     def test_new_session_returns_reply(self, monkeypatch):
         self._patch_service(monkeypatch, reply_text="已为你生成剧本")
-        with _make_client() as client:
+        with _make_client(monkeypatch) as client:
             resp = client.post(
                 "/api/v1/agent/chat",
                 json={
@@ -81,7 +85,7 @@ class TestAgentChatEndpoint:
 
     def test_reuse_existing_session(self, monkeypatch):
         self._patch_service(monkeypatch, reply_text="继续对话")
-        with _make_client() as client:
+        with _make_client(monkeypatch) as client:
             resp = client.post(
                 "/api/v1/agent/chat",
                 json={
@@ -95,7 +99,7 @@ class TestAgentChatEndpoint:
 
     def test_project_not_found_returns_404(self, monkeypatch):
         self._patch_service(monkeypatch, project_exists=False)
-        with _make_client() as client:
+        with _make_client(monkeypatch) as client:
             resp = client.post(
                 "/api/v1/agent/chat",
                 json={
@@ -111,7 +115,7 @@ class TestAgentChatEndpoint:
         """
         mock_service = self._patch_service(monkeypatch)
         mock_service.send_or_create = AsyncMock(side_effect=RuntimeError("新会话首条用户消息写入事件日志失败"))
-        with _make_client() as client:
+        with _make_client(monkeypatch) as client:
             resp = client.post(
                 "/api/v1/agent/chat",
                 json={
@@ -125,7 +129,7 @@ class TestAgentChatEndpoint:
         """send_or_create 抛 SessionCapacityError：并发槽位占满 -> 503。"""
         mock_service = self._patch_service(monkeypatch)
         mock_service.send_or_create = AsyncMock(side_effect=SessionCapacityError())
-        with _make_client() as client:
+        with _make_client(monkeypatch) as client:
             resp = client.post(
                 "/api/v1/agent/chat",
                 json={"project_name": "demo", "message": "帮我写剧本"},
@@ -136,7 +140,7 @@ class TestAgentChatEndpoint:
         """send_or_create 抛 SessionBusyError：会话正在处理中的并发冲突 -> 409。"""
         mock_service = self._patch_service(monkeypatch)
         mock_service.send_or_create = AsyncMock(side_effect=SessionBusyError("会话正在处理中"))
-        with _make_client() as client:
+        with _make_client(monkeypatch) as client:
             resp = client.post(
                 "/api/v1/agent/chat",
                 json={"project_name": "demo", "message": "帮我写剧本"},
@@ -147,7 +151,7 @@ class TestAgentChatEndpoint:
         """send_or_create 抛普通 ValueError（如空消息内容）-> 400，不与会话忙冲突。"""
         mock_service = self._patch_service(monkeypatch)
         mock_service.send_or_create = AsyncMock(side_effect=ValueError("消息内容不能为空"))
-        with _make_client() as client:
+        with _make_client(monkeypatch) as client:
             resp = client.post(
                 "/api/v1/agent/chat",
                 json={"project_name": "demo", "message": "帮我写剧本"},
@@ -156,7 +160,7 @@ class TestAgentChatEndpoint:
 
     def test_timeout_status_propagated(self, monkeypatch):
         self._patch_service(monkeypatch, reply_text="部分响应", status="timeout")
-        with _make_client() as client:
+        with _make_client(monkeypatch) as client:
             resp = client.post(
                 "/api/v1/agent/chat",
                 json={
@@ -174,7 +178,7 @@ class TestAgentChatEndpoint:
         service = self._patch_service(monkeypatch)
         service.send_or_create.side_effect = AgentConfigurationError()
 
-        with _make_client() as client:
+        with _make_client(monkeypatch) as client:
             resp = client.post(
                 "/api/v1/agent/chat",
                 json={"project_name": "demo", "message": "测试"},
@@ -325,7 +329,7 @@ class TestEntryLogFallback:
         monkeypatch.setattr(agent_chat, "get_assistant_service", lambda: mock_service)
         monkeypatch.setattr(agent_chat, "_collect_reply", AsyncMock(return_value=("", "completed")))
 
-        with _make_client() as client:
+        with _make_client(monkeypatch) as client:
             resp = client.post(
                 "/api/v1/agent/chat",
                 json={"project_name": "demo", "message": "问题"},
@@ -379,7 +383,7 @@ class TestTruncatedReplyBackfill:
                 "draft_rev": 0,
             },
         )
-        with _make_client() as client:
+        with _make_client(monkeypatch) as client:
             resp = client.post("/api/v1/agent/chat", json={"project_name": "demo", "message": "问题"})
         assert resp.status_code == 200
         body = resp.json()
@@ -405,7 +409,7 @@ class TestTruncatedReplyBackfill:
                 "draft_rev": 0,
             },
         )
-        with _make_client() as client:
+        with _make_client(monkeypatch) as client:
             resp = client.post("/api/v1/agent/chat", json={"project_name": "demo", "message": "问题"})
         assert resp.status_code == 200
         body = resp.json()
@@ -427,7 +431,7 @@ class TestTruncatedReplyBackfill:
                 "draft_rev": 0,
             },
         )
-        with _make_client() as client:
+        with _make_client(monkeypatch) as client:
             resp = client.post("/api/v1/agent/chat", json={"project_name": "demo", "message": "问题"})
         assert resp.status_code == 200
         body = resp.json()
@@ -451,7 +455,7 @@ class TestTruncatedReplyBackfill:
                 "draft_rev": 0,
             },
         )
-        with _make_client() as client:
+        with _make_client(monkeypatch) as client:
             resp = client.post("/api/v1/agent/chat", json={"project_name": "demo", "message": "问题"})
         assert resp.status_code == 200
         body = resp.json()
@@ -475,7 +479,7 @@ class TestTruncatedReplyBackfill:
                 "draft_rev": 0,
             },
         )
-        with _make_client() as client:
+        with _make_client(monkeypatch) as client:
             resp = client.post("/api/v1/agent/chat", json={"project_name": "demo", "message": "问题"})
         assert resp.status_code == 200
         body = resp.json()
@@ -490,7 +494,7 @@ class TestTruncatedReplyBackfill:
             live_status="error",
             entries_exc=RuntimeError("db unavailable"),
         )
-        with _make_client() as client:
+        with _make_client(monkeypatch) as client:
             resp = client.post("/api/v1/agent/chat", json={"project_name": "demo", "message": "问题"})
         assert resp.status_code == 200
         body = resp.json()
@@ -512,7 +516,7 @@ class TestTruncatedReplyBackfill:
                 "draft_rev": 0,
             },
         )
-        with _make_client() as client:
+        with _make_client(monkeypatch) as client:
             resp = client.post("/api/v1/agent/chat", json={"project_name": "demo", "message": "问题"})
         assert resp.status_code == 200
         body = resp.json()
@@ -533,7 +537,7 @@ class TestTruncatedReplyBackfill:
                 "draft_rev": 0,
             },
         )
-        with _make_client() as client:
+        with _make_client(monkeypatch) as client:
             resp = client.post("/api/v1/agent/chat", json={"project_name": "demo", "message": "问题"})
         assert resp.status_code == 200
         body = resp.json()
@@ -557,7 +561,7 @@ class TestTruncatedReplyBackfill:
                 "draft_rev": 0,
             },
         )
-        with _make_client() as client:
+        with _make_client(monkeypatch) as client:
             resp = client.post("/api/v1/agent/chat", json={"project_name": "demo", "message": "问题"})
         assert resp.status_code == 200
         body = resp.json()
@@ -572,7 +576,7 @@ class TestTruncatedReplyBackfill:
             live_status="completed",
             entries_payload={"session_id": "sess-1", "status": "completed", "entries": []},
         )
-        with _make_client() as client:
+        with _make_client(monkeypatch) as client:
             resp = client.post("/api/v1/agent/chat", json={"project_name": "demo", "message": "问题"})
         assert resp.status_code == 200
         body = resp.json()

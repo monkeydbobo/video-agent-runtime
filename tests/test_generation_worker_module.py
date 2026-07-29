@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from lib.db import Base
+from lib.db.base import DEFAULT_USER_ID
 from lib.generation_worker import (
     _ORPHAN_RESCAN_LEASE_LOST_MULT,
     DEFAULT_PROVIDER,
@@ -195,7 +196,9 @@ class TestExtractProviderAlignsWithExecution:
         task = {"payload": {}, "project_name": "demo", "task_type": "storyboard"}
 
         worker_provider = await _extract_provider(task)
-        resolved = await ConfigResolver(async_session_factory).resolve_image_backend(project, {}, capability="t2i")
+        resolved = await ConfigResolver(async_session_factory, user_id=DEFAULT_USER_ID).resolve_image_backend(
+            project, {}, capability="t2i"
+        )
         assert worker_provider == resolved.provider_id == "openai"
 
     async def test_video_alignment(self, monkeypatch):
@@ -207,7 +210,9 @@ class TestExtractProviderAlignsWithExecution:
         task = {"payload": {}, "project_name": "demo", "task_type": "video"}
 
         worker_provider = await _extract_provider(task)
-        resolved = await ConfigResolver(async_session_factory).resolve_video_backend(project, {})
+        resolved = await ConfigResolver(async_session_factory, user_id=DEFAULT_USER_ID).resolve_video_backend(
+            project, {}
+        )
         assert worker_provider == resolved.provider_id == "ark"
 
 

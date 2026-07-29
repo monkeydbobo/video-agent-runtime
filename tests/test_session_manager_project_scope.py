@@ -32,7 +32,7 @@ async def _make_store():
     return store, engine
 
 
-async def _fake_provider_env():
+async def _fake_provider_env(**_kwargs):
     """Stub for OptionsAssembler 凭证注入 — 跳过 DB 访问。"""
     return {}
 

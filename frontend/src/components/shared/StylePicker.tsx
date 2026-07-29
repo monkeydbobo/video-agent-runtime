@@ -1,6 +1,7 @@
 import { useEffect, useRef, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Upload, X } from "lucide-react";
+import { PrivateMediaImg } from "@/components/ui/PrivateMedia";
 import {
   DEFAULT_TEMPLATE_ID,
   getTemplatesByCategory,
@@ -228,11 +229,19 @@ export function StylePicker({ value, onChange }: StylePickerProps) {
 
           {value.uploadedPreview ? (
             <div className="relative overflow-hidden rounded-[10px] border border-hairline">
-              <img
-                src={value.uploadedPreview}
-                alt={t("templates:upload_reference")}
-                className="h-40 w-full object-cover"
-              />
+              {value.uploadedPreview.startsWith("blob:") ? (
+                <img
+                  src={value.uploadedPreview}
+                  alt={t("templates:upload_reference")}
+                  className="h-40 w-full object-cover"
+                />
+              ) : (
+                <PrivateMediaImg
+                  src={value.uploadedPreview}
+                  alt={t("templates:upload_reference")}
+                  className="h-40 w-full object-cover"
+                />
+              )}
               <button
                 type="button"
                 onClick={handleClearUpload}

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from lib.db.base import Base
+from lib.db.base import DEFAULT_USER_ID, Base
 from lib.db.repositories.asset_repo import AssetRepository
 
 
@@ -22,7 +22,7 @@ async def session():
 
 @pytest.fixture
 async def repo(session):
-    return AssetRepository(session)
+    return AssetRepository(session, user_id=DEFAULT_USER_ID)
 
 
 async def test_create_and_get_by_id(repo):

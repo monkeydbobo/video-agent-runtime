@@ -99,6 +99,7 @@ interface ConfigStatusState {
   hasMediaType: (type: string) => boolean;
   fetch: () => Promise<void>;
   refresh: () => Promise<void>;
+  reset: () => void;
 }
 
 export const useConfigStatusStore = create<ConfigStatusState>((set, get) => {
@@ -154,6 +155,18 @@ export const useConfigStatusStore = create<ConfigStatusState>((set, get) => {
         inflight = null;
       });
       return inflight;
+    },
+
+    reset: () => {
+      inflight = null;
+      set({
+        issues: [],
+        availableMediaTypes: [],
+        isComplete: true,
+        loading: false,
+        initialized: false,
+        pendingRefresh: false,
+      });
     },
   };
 });

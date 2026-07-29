@@ -12,7 +12,10 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.sse import EventSourceResponse, ServerSentEvent
 
 from lib.api_errors import BadRequestError, NotFoundError
+from lib.i18n import Translator
+from lib.project_paths import current_project_id_scope, current_project_user_scope
 from server.auth import CurrentUserFlexible
+from server.project_access import ensure_project_access
 from server.services.project_events import ProjectEventService
 
 logger = logging.getLogger(__name__)
@@ -29,12 +32,15 @@ def get_project_event_service(request: Request) -> ProjectEventService:
 async def _project_events_service(
     project_name: str,
     request: Request,
+    _user: CurrentUserFlexible,
+    _t: Translator,
 ) -> ProjectEventService:
-    """Resolve the service and validate the project exists before streaming starts.
+    """Resolve the service and validate project access before streaming starts.
 
     The 404 must be raised here (before the EventSourceResponse begins) — once the
     stream is open, no HTTP status can be returned.
     """
+    await ensure_project_access(project_name, _user, _t)
     service = get_project_event_service(request)
     try:
         await asyncio.to_thread(service.pm.get_project_path, project_name)
@@ -57,7 +63,12 @@ async def stream_project_events(
     service: ProjectEventService = Depends(_project_events_service),
 ) -> AsyncIterator[ServerSentEvent]:
     try:
-        async with service.stream_events(project_name, idle_timeout=PROJECT_EVENTS_SSE_POLL_SECONDS) as stream:
+        async with service.stream_events(
+            project_name,
+            user_id=current_project_user_scope(),
+            project_id=current_project_id_scope(project_name),
+            idle_timeout=PROJECT_EVENTS_SSE_POLL_SECONDS,
+        ) as stream:
             async for item in stream:
                 # 每轮迭代顶部都查断线;_idle 仅作为「队列空闲时也要醒一次」的唤醒兜底,
                 # 不再独占断线检测的时机——持续高频事件流下断线一样能立刻发现。

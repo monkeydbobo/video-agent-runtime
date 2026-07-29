@@ -305,6 +305,10 @@ class SessionManager:
             E2BWorkspaceManager(projects_root=self.projects_root) if self._execution_backend == "e2b" else None
         )
         self.sessions: dict[str, ManagedSession] = {}
+        # 归属身份：凭证注入 / 用量记账 / transcript store / MCP 工具都读它。
+        # 每个请求进入路由时经 bind_user() 重绑；未绑定时按管理员默认归属运行
+        # （后台任务与直接构造 SessionManager 的场景）。
+        self._user_id: str = DEFAULT_USER_ID
         self._disconnecting: set[str] = set()
         self._session_actor_shutdown_timeout: float = 15.0  # total budget for send_disconnect + cancel fallback
         self._connect_locks: dict[str, asyncio.Lock] = {}
@@ -346,7 +350,7 @@ class SessionManager:
             max_turns_provider=lambda: self.max_turns,
             resolve_project_cwd=self._resolve_project_cwd,
             session_factory_provider=lambda: getattr(self, "_session_factory", None),
-            user_id_provider=lambda: getattr(self, "_user_id", DEFAULT_USER_ID),
+            user_id_provider=lambda: self._user_id,
             execution_backend=self._execution_backend,
             e2b_workspaces=self._e2b_workspaces,
             sandbox_id_provider=self._get_persisted_sandbox_id if self._execution_backend == "e2b" else None,
@@ -356,6 +360,16 @@ class SessionManager:
     async def _get_persisted_sandbox_id(self, session_id: str) -> str | None:
         meta = await self.meta_store.get(session_id)
         return meta.sandbox_id if meta else None
+
+    def bind_user(self, user_id: str) -> None:
+        """绑定当前请求的归属身份。
+
+        供应商凭证、用量记账、transcript store 命名空间与 MCP 工具的项目归属校验都
+        取自这里，故每个进入 assistant 路由的请求都必须重绑，不能沿用上一个请求的值。
+        """
+        if not user_id:
+            raise ValueError("user_id is required")
+        self._user_id = user_id
 
     def configure_sandbox_runtime(self, *, in_docker: bool, sandbox_enabled: bool) -> None:
         """startup 期注入平台运行时事实（Docker 嵌套、内核沙箱可用性）。
@@ -384,7 +398,7 @@ class SessionManager:
             from lib.db import async_session_factory
 
             async with async_session_factory() as session:
-                svc = ConfigService(session)
+                svc = ConfigService(session, user_id=self._user_id)
                 raw = await svc.get_setting("assistant_max_turns", "")
                 raw = raw.strip()
                 if raw:
@@ -1059,7 +1073,7 @@ class SessionManager:
             model=resolve_assistant_model(result_msg, managed.assistant_model),
             prompt=managed.last_user_prompt[:500] if managed.last_user_prompt else None,
             provider=PROVIDER_ANTHROPIC,
-            user_id=getattr(self, "_user_id", DEFAULT_USER_ID),
+            user_id=self._user_id,
             status="success" if final_status == "completed" else "failed",
             input_tokens=input_tokens,
             output_tokens=output_tokens,
@@ -1196,7 +1210,7 @@ class SessionManager:
         """返回会话清理延迟秒数，默认 300（5 分钟）。"""
         try:
             async with async_session_factory() as session:
-                svc = ConfigService(session)
+                svc = ConfigService(session, user_id=self._user_id)
                 val = await svc.get_setting("agent_session_cleanup_delay_seconds", "300")
             return max(int(val), 10)
         except Exception:
@@ -1207,7 +1221,7 @@ class SessionManager:
         """返回最大并发会话数，默认 5。"""
         try:
             async with async_session_factory() as session:
-                svc = ConfigService(session)
+                svc = ConfigService(session, user_id=self._user_id)
                 val = await svc.get_setting("agent_max_concurrent_sessions", "5")
             return max(int(val), 1)
         except Exception:
@@ -1455,7 +1469,12 @@ class SessionManager:
 
                 tag_coro = _tag()
             await asyncio.gather(
-                self.meta_store.create(managed.project_name, sdk_id, sandbox_id=sandbox_id),
+                self.meta_store.create(
+                    managed.project_name,
+                    sdk_id,
+                    sandbox_id=sandbox_id,
+                    user_id=self._user_id,
+                ),
                 *([] if tag_coro is None else [tag_coro]),
             )
             await self.meta_store.update_status(sdk_id, "running")

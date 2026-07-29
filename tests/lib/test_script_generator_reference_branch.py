@@ -7,7 +7,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy.exc import OperationalError
 
+from lib.db.base import DEFAULT_USER_ID
 from lib.script_generator import ScriptGenerator
+
+pytestmark = pytest.mark.integration
 
 STEP1_UNITS_JSON = _json.dumps(
     {
@@ -56,7 +59,7 @@ def reference_project(tmp_path: Path) -> Path:
 @pytest.mark.asyncio
 async def test_script_generator_build_prompt_selects_reference_branch(reference_project: Path):
     """当 generation_mode == reference_video 时，build_prompt 必须走 reference 分支。"""
-    gen = ScriptGenerator(reference_project)
+    gen = ScriptGenerator(reference_project, user_id=DEFAULT_USER_ID)
     prompt = await gen.build_prompt(episode=1)
     # reference 分支特征标签
     assert "ReferenceVideoScript" in prompt
@@ -68,7 +71,7 @@ async def test_script_generator_build_prompt_selects_reference_branch(reference_
 
 @pytest.mark.asyncio
 async def test_script_generator_reads_step1_reference_units(reference_project: Path):
-    gen = ScriptGenerator(reference_project)
+    gen = ScriptGenerator(reference_project, user_id=DEFAULT_USER_ID)
     prompt = await gen.build_prompt(episode=1)
     # 结构化 step1 的 unit 须经机械渲染进入 prompt（unit_id / shot 文本 / references）
     assert "E1U01" in prompt
@@ -96,7 +99,7 @@ async def test_script_generator_uses_reference_schema_on_generate(reference_proj
         )
     )
 
-    gen = ScriptGenerator(reference_project, generator=fake_generator)
+    gen = ScriptGenerator(reference_project, generator=fake_generator, user_id=DEFAULT_USER_ID)
 
     out = await gen.generate(episode=1)
     assert out.exists()
@@ -161,7 +164,7 @@ async def test_script_generator_reference_branch_inherits_drama_content_mode(tmp
         )
     )
 
-    gen = ScriptGenerator(project_dir, generator=fake_generator)
+    gen = ScriptGenerator(project_dir, generator=fake_generator, user_id=DEFAULT_USER_ID)
     out = await gen.generate(episode=1)
 
     import json as _j
@@ -201,7 +204,7 @@ def test_resolve_max_refs_from_caps(tmp_path: Path, caps, expected):
     }
     (project_dir / "project.json").write_text(_j.dumps(project), encoding="utf-8")
 
-    gen = ScriptGenerator(project_dir)
+    gen = ScriptGenerator(project_dir, user_id=DEFAULT_USER_ID)
     assert gen._resolve_max_refs(caps) == expected
 
 
@@ -237,7 +240,7 @@ def test_resolve_max_refs_from_registry_fallback(tmp_path: Path, video_backend, 
     }
     (project_dir / "project.json").write_text(_j.dumps(project), encoding="utf-8")
 
-    gen = ScriptGenerator(project_dir)
+    gen = ScriptGenerator(project_dir, user_id=DEFAULT_USER_ID)
     assert gen._resolve_max_refs(None) == expected
 
 
@@ -280,7 +283,7 @@ async def test_build_prompt_injects_max_duration_from_registry(
     drafts.mkdir(parents=True)
     (drafts / "step1_reference_units.json").write_text(STEP1_UNITS_JSON, encoding="utf-8")
 
-    gen = ScriptGenerator(project_dir)
+    gen = ScriptGenerator(project_dir, user_id=DEFAULT_USER_ID)
     prompt = await gen.build_prompt(episode=1)
     assert f"{expected_max_duration_sec} 秒" in prompt
     assert "当前模型上限" in prompt
@@ -319,7 +322,7 @@ async def test_build_prompt_no_video_backend_raises_value_error(tmp_path: Path):
     drafts.mkdir(parents=True)
     (drafts / "step1_reference_units.json").write_text(STEP1_UNITS_JSON, encoding="utf-8")
 
-    gen = ScriptGenerator(project_dir)
+    gen = ScriptGenerator(project_dir, user_id=DEFAULT_USER_ID)
     with patch(
         "lib.script_generator.ScriptGenerator._fetch_video_capabilities",
         new=AsyncMock(return_value=None),
@@ -333,13 +336,29 @@ async def test_fetch_video_capabilities_swallows_db_errors(reference_project: Pa
     """CI 回归：裸测试容器缺 migration 时 ConfigResolver 会抛 OperationalError；
     _fetch_video_capabilities 必须 fallback 返 None，不让 generate() 崩溃。
     """
-    gen = ScriptGenerator(reference_project)
+    gen = ScriptGenerator(reference_project, user_id=DEFAULT_USER_ID)
     with patch(
         "lib.script_generator.ConfigResolver.video_capabilities_for_project",
         new=AsyncMock(side_effect=OperationalError("SELECT ...", {}, Exception("no such table: system_setting"))),
     ):
         caps = await gen._fetch_video_capabilities()
     assert caps is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_video_capabilities_resolves_as_project_owner(reference_project: Path):
+    """caps 必须按项目所有者身份解析，不能落到 DEFAULT_USER_ID。
+
+    供应商配置按用户分片后，读管理员分片会按别人的模型上限派生片段时长枚举，
+    与 executor 按任务所有者 clamp 的口径背离。
+    """
+    with patch("lib.script_generator.ConfigResolver") as resolver_cls:
+        resolver_cls.return_value.video_capabilities_for_project = AsyncMock(return_value={"max_duration": 8})
+        gen = ScriptGenerator(reference_project, user_id="alice-id")
+        caps = await gen._fetch_video_capabilities()
+
+    assert caps == {"max_duration": 8}
+    assert resolver_cls.call_args.kwargs["user_id"] == "alice-id"
 
 
 @pytest.mark.asyncio
@@ -377,7 +396,7 @@ async def test_effective_generation_mode_honors_episode_override(tmp_path: Path)
     drafts.mkdir(parents=True)
     (drafts / "step1_reference_units.json").write_text(STEP1_UNITS_JSON, encoding="utf-8")
 
-    gen = ScriptGenerator(project_dir)
+    gen = ScriptGenerator(project_dir, user_id=DEFAULT_USER_ID)
     prompt = await gen.build_prompt(episode=1)
     # 走 reference 分支：模板包含 ReferenceVideoScript 与 references 字段说明
     assert "ReferenceVideoScript" in prompt
@@ -392,7 +411,7 @@ async def test_reference_step1_legacy_md_prompts_resplit(reference_project: Path
     (drafts / "step1_reference_units.json").unlink()
     (drafts / "step1_reference_units.md").write_text("| E1U1 | Shot1(4s) |", encoding="utf-8")
 
-    gen = ScriptGenerator(reference_project)
+    gen = ScriptGenerator(reference_project, user_id=DEFAULT_USER_ID)
     with pytest.raises(FileNotFoundError, match="split-reference-video-units"):
         await gen.build_prompt(episode=1)
 
@@ -402,7 +421,7 @@ async def test_reference_step1_missing_raises(reference_project: Path):
     drafts = reference_project / "drafts" / "episode_1"
     (drafts / "step1_reference_units.json").unlink()
 
-    gen = ScriptGenerator(reference_project)
+    gen = ScriptGenerator(reference_project, user_id=DEFAULT_USER_ID)
     with pytest.raises(FileNotFoundError, match="video_unit 拆分"):
         await gen.build_prompt(episode=1)
 
@@ -416,7 +435,7 @@ async def test_reference_step1_rejects_out_of_enum_duration(reference_project: P
         encoding="utf-8",
     )
 
-    gen = ScriptGenerator(reference_project)
+    gen = ScriptGenerator(reference_project, user_id=DEFAULT_USER_ID)
     # 固定能力来源为 project.json 的 _supported_durations=[4,8]，隔离 DB 全局默认干扰
     with patch(
         "lib.script_generator.ScriptGenerator._fetch_video_capabilities",
@@ -432,6 +451,6 @@ async def test_reference_step1_rejects_duplicate_unit_ids(reference_project: Pat
     unit = {"unit_id": "E1U01", "shots": [{"duration": 4, "text": "@[主角] 转身"}]}
     (drafts / "step1_reference_units.json").write_text(_json.dumps({"units": [unit, dict(unit)]}), encoding="utf-8")
 
-    gen = ScriptGenerator(reference_project)
+    gen = ScriptGenerator(reference_project, user_id=DEFAULT_USER_ID)
     with pytest.raises(ValueError, match="unit_id 重复"):
         await gen.build_prompt(episode=1)

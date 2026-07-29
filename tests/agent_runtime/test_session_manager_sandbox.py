@@ -32,7 +32,7 @@ async def test_build_options_includes_sandbox_settings(
     proj_dir.mkdir(parents=True)
     (proj_dir / "project.json").write_text('{"title": "t"}', encoding="utf-8")
 
-    async def fake_env():
+    async def fake_env(**_kwargs):
         return {"ANTHROPIC_API_KEY": "sk", "ARK_API_KEY": ""}
 
     monkeypatch.setattr("server.agent_runtime.options_assembler.load_provider_env_overrides", fake_env)
@@ -175,7 +175,7 @@ async def test_build_options_bash_in_allowed_tools_by_sandbox(
     proj_dir.mkdir(parents=True, exist_ok=True)
     (proj_dir / "project.json").write_text('{"title":"t"}', encoding="utf-8")
 
-    async def fake_env():
+    async def fake_env(**_kwargs):
         return {"ANTHROPIC_API_KEY": "sk"}
 
     monkeypatch.setattr("server.agent_runtime.options_assembler.load_provider_env_overrides", fake_env)

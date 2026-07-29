@@ -5,13 +5,13 @@ from __future__ import annotations
 from sqlalchemy import Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from lib.db.base import Base, TimestampMixin
+from lib.db.base import Base, TimestampMixin, UserOwnedMixin
 
 
-class Asset(TimestampMixin, Base):
+class Asset(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "assets"
     __table_args__ = (
-        UniqueConstraint("type", "name", name="uq_asset_type_name"),
+        UniqueConstraint("user_id", "type", "name", name="uq_asset_user_type_name"),
         Index("ix_asset_type", "type"),
         Index("ix_asset_name", "name"),
     )

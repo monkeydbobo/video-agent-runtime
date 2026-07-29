@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from lib.config.resolver import ConfigResolver, ProviderModel
 from lib.config.service import ProviderStatus
-from lib.db.base import Base
+from lib.db.base import DEFAULT_USER_ID, Base
 
 
 def _ready(name: str, media_types: list[str]) -> ProviderStatus:
@@ -106,7 +106,7 @@ class TestResolveNarrationVoice:
     async def test_project_override_wins(self):
         factory, engine = await _make_factory()
         try:
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             assert await resolver.resolve_narration_voice({"narration_voice": "Ethan"}) == "Ethan"
         finally:
             await engine.dispose()
@@ -114,7 +114,7 @@ class TestResolveNarrationVoice:
     async def test_default_when_no_override(self):
         factory, engine = await _make_factory()
         try:
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             assert await resolver.resolve_narration_voice(None) == "Cherry"
             assert await resolver.resolve_narration_voice({}) == "Cherry"
             # 空白覆盖不算覆盖
@@ -127,7 +127,7 @@ class TestResolveNarrationSpeed:
     async def test_project_override_wins(self):
         factory, engine = await _make_factory()
         try:
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             assert await resolver.resolve_narration_speed({"narration_speed": 1.5}) == 1.5
         finally:
             await engine.dispose()
@@ -138,9 +138,9 @@ class TestResolveNarrationSpeed:
         factory, engine = await _make_factory()
         try:
             async with factory() as session:
-                await ConfigService(session).set_setting("narration_speed", "1.2")
+                await ConfigService(session, user_id=DEFAULT_USER_ID).set_setting("narration_speed", "1.2")
                 await session.commit()
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             assert await resolver.resolve_narration_speed(None) == 1.2
             assert await resolver.resolve_narration_speed({}) == 1.2
         finally:
@@ -149,7 +149,7 @@ class TestResolveNarrationSpeed:
     async def test_none_when_unset(self):
         factory, engine = await _make_factory()
         try:
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             assert await resolver.resolve_narration_speed(None) is None
         finally:
             await engine.dispose()
@@ -157,7 +157,7 @@ class TestResolveNarrationSpeed:
     async def test_numeric_string_override_accepted(self):
         factory, engine = await _make_factory()
         try:
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             # 项目级语速宽容解析：数字字符串与数字同样生效（口径与 default_duration 一致）
             assert await resolver.resolve_narration_speed({"narration_speed": "1.2"}) == 1.2
             assert await resolver.resolve_narration_speed({"narration_speed": " 0.8 "}) == 0.8
@@ -171,9 +171,9 @@ class TestResolveNarrationSpeed:
         factory, engine = await _make_factory()
         try:
             async with factory() as session:
-                await ConfigService(session).set_setting("narration_speed", "1.2")
+                await ConfigService(session, user_id=DEFAULT_USER_ID).set_setting("narration_speed", "1.2")
                 await session.commit()
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             # 非正/非有限/空白的字符串覆盖按未设置处理，回退全局
             for bad in ("0", "-1.5", "inf", "nan", "", "  "):
                 assert await resolver.resolve_narration_speed({"narration_speed": bad}) == 1.2
@@ -186,9 +186,9 @@ class TestResolveNarrationSpeed:
         factory, engine = await _make_factory()
         try:
             async with factory() as session:
-                await ConfigService(session).set_setting("narration_speed", "not-a-number")
+                await ConfigService(session, user_id=DEFAULT_USER_ID).set_setting("narration_speed", "not-a-number")
                 await session.commit()
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             assert await resolver.resolve_narration_speed(None) is None
             # 项目级损坏值同样按未设置处理，回退全局/None
             assert await resolver.resolve_narration_speed({"narration_speed": "fast"}) is None
@@ -201,9 +201,9 @@ class TestResolveNarrationSpeed:
         factory, engine = await _make_factory()
         try:
             async with factory() as session:
-                await ConfigService(session).set_setting("narration_speed", "1.2")
+                await ConfigService(session, user_id=DEFAULT_USER_ID).set_setting("narration_speed", "1.2")
                 await session.commit()
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             # 项目级损坏值按未设置处理后回退到全局有效值，而非直接 None
             assert await resolver.resolve_narration_speed({"narration_speed": "fast"}) == 1.2
         finally:
@@ -214,13 +214,13 @@ class TestResolveNarrationSpeed:
 
         factory, engine = await _make_factory()
         try:
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             # 项目级非正/非有限值不进 TTS 请求；超出 float 范围的巨大整数等同非有限值
             for bad in (0, -1.5, float("nan"), float("inf"), 10**400):
                 assert await resolver.resolve_narration_speed({"narration_speed": bad}) is None
             # 全局 setting 损坏成非有限值同样按未设置处理
             async with factory() as session:
-                await ConfigService(session).set_setting("narration_speed", "inf")
+                await ConfigService(session, user_id=DEFAULT_USER_ID).set_setting("narration_speed", "inf")
                 await session.commit()
             assert await resolver.resolve_narration_speed(None) is None
         finally:
@@ -234,9 +234,11 @@ class TestPublicAudioResolverApi:
         factory, engine = await _make_factory()
         try:
             async with factory() as session:
-                await ConfigService(session).set_setting("default_audio_backend", "dashscope/qwen3-tts-flash")
+                await ConfigService(session, user_id=DEFAULT_USER_ID).set_setting(
+                    "default_audio_backend", "dashscope/qwen3-tts-flash"
+                )
                 await session.commit()
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             assert await resolver.default_audio_backend() == ("dashscope", "qwen3-tts-flash")
         finally:
             await engine.dispose()
@@ -244,7 +246,7 @@ class TestPublicAudioResolverApi:
     async def test_resolve_audio_backend_payload_short_circuit(self):
         factory, engine = await _make_factory()
         try:
-            resolver = ConfigResolver(factory)
+            resolver = ConfigResolver(factory, user_id=DEFAULT_USER_ID)
             result = await resolver.resolve_audio_backend(
                 None, {"audio_provider": "dashscope", "audio_model": "qwen3-tts-flash"}
             )
@@ -260,7 +262,7 @@ class TestServiceDefaultAudioBackend:
         factory, engine = await _make_factory()
         try:
             async with factory() as session:
-                svc = ConfigService(session)
+                svc = ConfigService(session, user_id=DEFAULT_USER_ID)
                 assert await svc.get_default_audio_backend() == ("dashscope", "qwen3-tts-flash")
         finally:
             await engine.dispose()
@@ -274,7 +276,7 @@ class TestServiceNarrationVoice:
         factory, engine = await _make_factory()
         try:
             async with factory() as session:
-                svc = ConfigService(session)
+                svc = ConfigService(session, user_id=DEFAULT_USER_ID)
                 await svc.set_setting("narration_voice", "  ")
                 await session.commit()
                 assert await svc.get_narration_voice() == "Cherry"

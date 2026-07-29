@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from lib.custom_provider import make_provider_id
 from lib.custom_provider.backends import CustomImageBackend
 from lib.custom_provider.loader import load_custom_backend
-from lib.db.base import Base
+from lib.db.base import DEFAULT_USER_ID, Base
 from lib.db.repositories.custom_provider_repo import CustomProviderRepository
 
 
@@ -30,7 +30,7 @@ async def session():
 
 
 async def _seed(session, *, models: list[dict]) -> str:
-    repo = CustomProviderRepository(session)
+    repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
     # display_name 列 NOT NULL：缺省补 model_id 作显示名
     for m in models:
         m.setdefault("display_name", m["model_id"])
@@ -52,7 +52,9 @@ class TestLoadCustomBackend:
             session,
             models=[{"model_id": "dall-e-3", "endpoint": "openai-images", "is_enabled": True}],
         )
-        result = await load_custom_backend(session=session, provider_id=pid, model_id="dall-e-3", media_type="image")
+        result = await load_custom_backend(
+            session=session, user_id=DEFAULT_USER_ID, provider_id=pid, model_id="dall-e-3", media_type="image"
+        )
         assert isinstance(result, CustomImageBackend)
         assert result.model == "dall-e-3"
         mock_cls.assert_called_once_with(api_key="sk-relay", base_url="https://relay.test/v1", model="dall-e-3")
@@ -67,13 +69,19 @@ class TestLoadCustomBackend:
                 {"model_id": "active-m", "endpoint": "openai-images", "is_enabled": True, "is_default": True},
             ],
         )
-        result = await load_custom_backend(session=session, provider_id=pid, model_id="disabled-m", media_type="image")
+        result = await load_custom_backend(
+            session=session, user_id=DEFAULT_USER_ID, provider_id=pid, model_id="disabled-m", media_type="image"
+        )
         assert result.model == "active-m"
 
     async def test_provider_not_found_fails_loud(self, session):
         with pytest.raises(ValueError, match="不存在"):
             await load_custom_backend(
-                session=session, provider_id=make_provider_id(999), model_id="x", media_type="image"
+                session=session,
+                user_id=DEFAULT_USER_ID,
+                provider_id=make_provider_id(999),
+                model_id="x",
+                media_type="image",
             )
 
     async def test_no_default_model_for_media_fails_loud(self, session):
@@ -83,4 +91,6 @@ class TestLoadCustomBackend:
             models=[{"model_id": "dall-e-3", "endpoint": "openai-images", "is_enabled": True}],
         )
         with pytest.raises(ValueError, match="没有默认"):
-            await load_custom_backend(session=session, provider_id=pid, model_id=None, media_type="video")
+            await load_custom_backend(
+                session=session, user_id=DEFAULT_USER_ID, provider_id=pid, model_id=None, media_type="video"
+            )

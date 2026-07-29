@@ -417,10 +417,13 @@ class EpisodePlanner:
         self.pm = ProjectManager(str(self.project_path.parent))
 
     @classmethod
-    async def create(cls, project_path: str | Path) -> EpisodePlanner:
-        """异步工厂：按项目配置创建文本后端（与剧本生成同一条 SCRIPT 任务配置链）。"""
+    async def create(cls, project_path: str | Path, *, user_id: str) -> EpisodePlanner:
+        """异步工厂：按项目配置创建文本后端（与剧本生成同一条 SCRIPT 任务配置链）。
+
+        ``user_id`` 必传且不设默认，见 ``TextGenerator.__init__``。
+        """
         project_name = Path(project_path).name
-        generator = await TextGenerator.create(TextTaskType.SCRIPT, project_name)
+        generator = await TextGenerator.create(TextTaskType.SCRIPT, project_name, user_id=user_id)
         return cls(project_path, generator)
 
     # ---------------------------------------------------------------- plan

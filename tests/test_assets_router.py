@@ -28,6 +28,11 @@ async def _assets_env(tmp_path, monkeypatch):
     monkeypatch.setattr(assets, "async_session_factory", factory)
     monkeypatch.setattr(assets, "get_project_manager", lambda: pm)
 
+    async def _allow_test_project(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(assets, "ensure_project_access", _allow_test_project)
+
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
     app.include_router(assets.router, prefix="/api/v1")
@@ -199,7 +204,7 @@ class TestFromProject:
         )
         assert r.status_code == 200, r.text
         ip = r.json()["asset"]["image_path"]
-        assert ip and ip.startswith("_global_assets/character/")
+        assert ip and ip.startswith("users/default/assets/character/")
         # 落盘文件与源文件相同字节
         assert (pm.projects_root / ip).read_bytes() == b"img"
 

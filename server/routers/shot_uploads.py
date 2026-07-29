@@ -14,7 +14,7 @@ import logging
 from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from lib.i18n import Translator
 from lib.image_utils import normalize_storyboard_upload
@@ -25,6 +25,7 @@ from lib.script_editor import ScriptEditError
 from lib.storyboard_sequence import find_storyboard_item, get_storyboard_items
 from lib.version_manager import VersionManager
 from server.auth import CurrentUser
+from server.project_access import require_project_access
 from server.services.generation_tasks import emit_generation_success_batch
 from server.services.upload_finalize import (
     UploadTooLargeError,
@@ -39,7 +40,7 @@ from server.services.upload_finalize import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_project_access)])
 
 
 @router.post("/projects/{project_name}/shots/{shot_id}/upload/{kind}")

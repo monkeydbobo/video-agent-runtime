@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from lib.config.resolver import ConfigResolver
-from lib.db.base import Base
+from lib.db.base import DEFAULT_USER_ID, Base
 from lib.db.repositories.usage_repo import SettlementInput, UsageRepository
 from lib.providers import PROVIDER_GEMINI
 from server.services.cost_estimation import CostEstimationService
@@ -126,8 +126,8 @@ def _make_ad_script(shot_ids: list[str], durations: list[int]) -> dict:
 
 class TestCostEstimationService:
     async def test_estimate_single_episode(self, db_factory):
-        resolver = ConfigResolver(db_factory)
-        service = CostEstimationService(resolver, db_factory)
+        resolver = ConfigResolver(db_factory, user_id=DEFAULT_USER_ID)
+        service = CostEstimationService(resolver, db_factory, user_id=DEFAULT_USER_ID)
 
         project_data = {
             "title": "Test",
@@ -149,8 +149,8 @@ class TestCostEstimationService:
                 assert all(isinstance(v, (int, float)) for v in cost.values())
 
     async def test_actual_costs_included(self, db_factory):
-        resolver = ConfigResolver(db_factory)
-        service = CostEstimationService(resolver, db_factory)
+        resolver = ConfigResolver(db_factory, user_id=DEFAULT_USER_ID)
+        service = CostEstimationService(resolver, db_factory, user_id=DEFAULT_USER_ID)
 
         await _seed_call(
             db_factory,
@@ -176,8 +176,8 @@ class TestCostEstimationService:
 
     async def test_grid_actual_costs_apportioned_to_scenes(self, db_factory):
         """Grid actual cost should be split evenly among scenes sharing the grid_id."""
-        resolver = ConfigResolver(db_factory)
-        service = CostEstimationService(resolver, db_factory)
+        resolver = ConfigResolver(db_factory, user_id=DEFAULT_USER_ID)
+        service = CostEstimationService(resolver, db_factory, user_id=DEFAULT_USER_ID)
 
         grid_id = "grid_abc123"
         seg_ids = [f"E1S{i:03d}" for i in range(1, 10)]  # 9 scenes
@@ -221,8 +221,8 @@ class TestCostEstimationService:
 
     async def test_grid_partial_generation_some_without_grid_id(self, db_factory):
         """Scenes without grid_id should have empty actual image cost."""
-        resolver = ConfigResolver(db_factory)
-        service = CostEstimationService(resolver, db_factory)
+        resolver = ConfigResolver(db_factory, user_id=DEFAULT_USER_ID)
+        service = CostEstimationService(resolver, db_factory, user_id=DEFAULT_USER_ID)
 
         grid_id = "grid_partial"
         seg_ids = [f"E1S{i:03d}" for i in range(1, 6)]  # 5 scenes
@@ -264,8 +264,8 @@ class TestCostEstimationService:
 
     async def test_single_mode_unaffected_by_grid_logic(self, db_factory):
         """Single generation mode should be completely unaffected by grid apportionment."""
-        resolver = ConfigResolver(db_factory)
-        service = CostEstimationService(resolver, db_factory)
+        resolver = ConfigResolver(db_factory, user_id=DEFAULT_USER_ID)
+        service = CostEstimationService(resolver, db_factory, user_id=DEFAULT_USER_ID)
 
         await _seed_call(
             db_factory,
@@ -294,8 +294,8 @@ class TestCostEstimationService:
 
     async def test_project_level_actual_split_by_asset_type(self, db_factory):
         """project-level image 成本应按 output_path 前缀拆分为 characters/scenes/props 三项。"""
-        resolver = ConfigResolver(db_factory)
-        service = CostEstimationService(resolver, db_factory)
+        resolver = ConfigResolver(db_factory, user_id=DEFAULT_USER_ID)
+        service = CostEstimationService(resolver, db_factory, user_id=DEFAULT_USER_ID)
 
         # 3 条 project-level image 调用，分别落在 characters / scenes / props
         for sub in ("characters", "scenes", "props"):
@@ -326,8 +326,8 @@ class TestCostEstimationService:
         + warning,其他正常集仍参与估算。"""
         import logging
 
-        resolver = ConfigResolver(db_factory)
-        service = CostEstimationService(resolver, db_factory)
+        resolver = ConfigResolver(db_factory, user_id=DEFAULT_USER_ID)
+        service = CostEstimationService(resolver, db_factory, user_id=DEFAULT_USER_ID)
 
         project_data = {
             "title": "Test",
@@ -372,11 +372,13 @@ class TestCostEstimationService:
         from lib.config.service import ConfigService
 
         async with db_factory() as session:
-            await ConfigService(session).set_setting("default_audio_backend", "dashscope/qwen3-tts-flash")
+            await ConfigService(session, user_id=DEFAULT_USER_ID).set_setting(
+                "default_audio_backend", "dashscope/qwen3-tts-flash"
+            )
             await session.commit()
 
-        resolver = ConfigResolver(db_factory)
-        service = CostEstimationService(resolver, db_factory)
+        resolver = ConfigResolver(db_factory, user_id=DEFAULT_USER_ID)
+        service = CostEstimationService(resolver, db_factory, user_id=DEFAULT_USER_ID)
 
         project_data = {
             "title": "Test",
@@ -402,8 +404,8 @@ class TestCostEstimationService:
 
     async def test_audio_actual_costs_included(self, db_factory):
         """旁白实际费用按 segment 聚合进 actual.audio。"""
-        resolver = ConfigResolver(db_factory)
-        service = CostEstimationService(resolver, db_factory)
+        resolver = ConfigResolver(db_factory, user_id=DEFAULT_USER_ID)
+        service = CostEstimationService(resolver, db_factory, user_id=DEFAULT_USER_ID)
 
         await _seed_call(
             db_factory,
@@ -431,8 +433,8 @@ class TestCostEstimationService:
 
     async def test_ad_storyboard_estimates_per_shot(self, db_factory):
         """ad 项目（分镜路径）：逐镜头返回分镜图 + 视频估值，聚合进集/项目两级合计。"""
-        resolver = ConfigResolver(db_factory)
-        service = CostEstimationService(resolver, db_factory)
+        resolver = ConfigResolver(db_factory, user_id=DEFAULT_USER_ID)
+        service = CostEstimationService(resolver, db_factory, user_id=DEFAULT_USER_ID)
 
         project_data = {
             "title": "Ad",
@@ -460,11 +462,13 @@ class TestCostEstimationService:
         from lib.config.service import ConfigService
 
         async with db_factory() as session:
-            await ConfigService(session).set_setting("default_audio_backend", "dashscope/qwen3-tts-flash")
+            await ConfigService(session, user_id=DEFAULT_USER_ID).set_setting(
+                "default_audio_backend", "dashscope/qwen3-tts-flash"
+            )
             await session.commit()
 
-        resolver = ConfigResolver(db_factory)
-        service = CostEstimationService(resolver, db_factory)
+        resolver = ConfigResolver(db_factory, user_id=DEFAULT_USER_ID)
+        service = CostEstimationService(resolver, db_factory, user_id=DEFAULT_USER_ID)
 
         project_data = {
             "title": "Ad",
@@ -479,8 +483,8 @@ class TestCostEstimationService:
 
     async def test_ad_reference_video_skips_image_estimate(self, db_factory):
         """ad + 参考生视频路径跳过分镜步骤：不产生分镜图估值，视频估值保留。"""
-        resolver = ConfigResolver(db_factory)
-        service = CostEstimationService(resolver, db_factory)
+        resolver = ConfigResolver(db_factory, user_id=DEFAULT_USER_ID)
+        service = CostEstimationService(resolver, db_factory, user_id=DEFAULT_USER_ID)
 
         project_data = {
             "title": "Ad",
@@ -502,8 +506,8 @@ class TestCostEstimationService:
         assert result["project_totals"]["estimate"]["video"]
 
     async def test_empty_episodes(self, db_factory):
-        resolver = ConfigResolver(db_factory)
-        service = CostEstimationService(resolver, db_factory)
+        resolver = ConfigResolver(db_factory, user_id=DEFAULT_USER_ID)
+        service = CostEstimationService(resolver, db_factory, user_id=DEFAULT_USER_ID)
 
         result = await service.compute(
             {"title": "T", "content_mode": "narration", "episodes": []}, {}, project_name="p"
@@ -514,8 +518,8 @@ class TestCostEstimationService:
 
     async def test_cost_estimation_uses_t2i_default_when_split_fields_present(self, db_factory):
         """project 仅有 image_provider_t2i 时，cost estimation 用此值估算（T2I 是 cost estimation 锚点）。"""
-        resolver = ConfigResolver(db_factory)
-        service = CostEstimationService(resolver, db_factory)
+        resolver = ConfigResolver(db_factory, user_id=DEFAULT_USER_ID)
+        service = CostEstimationService(resolver, db_factory, user_id=DEFAULT_USER_ID)
 
         project_data = {
             "title": "Test",
@@ -535,8 +539,8 @@ class TestCostEstimationService:
         """project 没有 image_provider_t2i 时，cost_estimation 不再自行 fallback I2I 或 legacy
         （legacy 由 ProjectManager.load_project 的 lazy upgrade 处理；I2I 和 T2I 是正交能力槽，
         互替会算到错误价目）。无 T2I 字段则使用 resolver 默认值。"""
-        resolver = ConfigResolver(db_factory)
-        service = CostEstimationService(resolver, db_factory)
+        resolver = ConfigResolver(db_factory, user_id=DEFAULT_USER_ID)
+        service = CostEstimationService(resolver, db_factory, user_id=DEFAULT_USER_ID)
 
         project_data = {
             "title": "Test",
@@ -557,8 +561,8 @@ class TestCostEstimationService:
 
     async def test_cost_estimation_resolve_resolution_exception_degrades_gracefully(self, db_factory, monkeypatch):
         """resolve_resolution 抛异常时预估整体降级而非中断，与 image/video/audio 三处 except 兜底同构。"""
-        resolver = ConfigResolver(db_factory)
-        service = CostEstimationService(resolver, db_factory)
+        resolver = ConfigResolver(db_factory, user_id=DEFAULT_USER_ID)
+        service = CostEstimationService(resolver, db_factory, user_id=DEFAULT_USER_ID)
 
         async def _raise(self, project, provider_id, model_id):
             raise RuntimeError("boom")
@@ -581,7 +585,7 @@ class TestCostEstimationService:
         from lib.db.repositories.custom_provider_repo import CustomProviderRepository
 
         async with db_factory() as session:
-            await CustomProviderRepository(session).create_provider(
+            await CustomProviderRepository(session, user_id=DEFAULT_USER_ID).create_provider(
                 display_name="Custom",
                 discovery_format="openai",
                 base_url="https://api.example.com",
@@ -615,8 +619,8 @@ class TestCostEstimationService:
             )
             await session.commit()
 
-        resolver = ConfigResolver(db_factory)
-        service = CostEstimationService(resolver, db_factory)
+        resolver = ConfigResolver(db_factory, user_id=DEFAULT_USER_ID)
+        service = CostEstimationService(resolver, db_factory, user_id=DEFAULT_USER_ID)
 
         project_data = {
             "title": "Test",
@@ -648,7 +652,7 @@ class TestCostEstimationService:
         from lib.db.repositories.custom_provider_repo import CustomProviderRepository
 
         async with db_factory() as session:
-            await CustomProviderRepository(session).create_provider(
+            await CustomProviderRepository(session, user_id=DEFAULT_USER_ID).create_provider(
                 display_name="Custom",
                 discovery_format="openai",
                 base_url="https://api.example.com",
@@ -666,8 +670,8 @@ class TestCostEstimationService:
             )
             await session.commit()
 
-        resolver = ConfigResolver(db_factory)
-        service = CostEstimationService(resolver, db_factory)
+        resolver = ConfigResolver(db_factory, user_id=DEFAULT_USER_ID)
+        service = CostEstimationService(resolver, db_factory, user_id=DEFAULT_USER_ID)
 
         seg_ids = [f"E1S{i:03d}" for i in range(1, 10)]  # 9 scenes → 1 张 grid_9
         project_data = {
@@ -690,8 +694,8 @@ class TestCostEstimationService:
 
     async def test_custom_provider_without_price_degrades_to_zero(self, db_factory):
         """自定义供应商查无价格模型：预估降级为 0（记 debug 日志、不抛错），与现状降级口径一致。"""
-        resolver = ConfigResolver(db_factory)
-        service = CostEstimationService(resolver, db_factory)
+        resolver = ConfigResolver(db_factory, user_id=DEFAULT_USER_ID)
+        service = CostEstimationService(resolver, db_factory, user_id=DEFAULT_USER_ID)
 
         project_data = {
             "title": "Test",
@@ -711,8 +715,8 @@ class TestCostEstimationService:
 
     async def test_custom_provider_malformed_id_degrades_to_zero(self, db_factory):
         """畸形 custom- provider id（非数字后缀）：parse_provider_id 的 ValueError 需降级为 0，不抛错。"""
-        resolver = ConfigResolver(db_factory)
-        service = CostEstimationService(resolver, db_factory)
+        resolver = ConfigResolver(db_factory, user_id=DEFAULT_USER_ID)
+        service = CostEstimationService(resolver, db_factory, user_id=DEFAULT_USER_ID)
 
         project_data = {
             "title": "Test",

@@ -27,6 +27,7 @@ interface EndpointCatalogState {
   fetch: () => Promise<void>;
   /** 强制刷新（设置页主动重拉时用）。 */
   refresh: () => Promise<void>;
+  reset: () => void;
 }
 
 function deriveMaps(endpoints: EndpointDescriptor[]): {
@@ -79,4 +80,14 @@ export const useEndpointCatalogStore = create<EndpointCatalogState>((set, get) =
       set({ loading: false });
     }
   },
+
+  reset: () =>
+    set({
+      endpoints: [],
+      endpointToMediaType: {},
+      endpointPaths: {},
+      endpointToImageCapabilities: {},
+      loading: false,
+      initialized: false,
+    }),
 }));

@@ -52,6 +52,9 @@ def _client(monkeypatch, fake_pm):
     monkeypatch.setattr(products, "get_project_manager", lambda: fake_pm)
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
+    from tests.conftest import allow_project_access
+
+    allow_project_access(app)
     app.include_router(products.router, prefix="/api/v1")
     return TestClient(app)
 

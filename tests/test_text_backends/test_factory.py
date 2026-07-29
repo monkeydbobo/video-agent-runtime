@@ -8,6 +8,7 @@ provider/model，构造经统一缝下沉到 ProviderSpec 表。这些测试 moc
 import contextlib
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from lib.db.base import DEFAULT_USER_ID
 from lib.text_backends.base import TextTaskType
 from lib.text_backends.factory import create_text_backend_for_task
 
@@ -39,7 +40,7 @@ async def test_creates_gemini_aistudio_backend():
         mock_backend = MagicMock()
         mock_create.return_value = mock_backend
 
-        backend, provider_id = await create_text_backend_for_task(TextTaskType.SCRIPT)
+        backend, provider_id = await create_text_backend_for_task(TextTaskType.SCRIPT, user_id=DEFAULT_USER_ID)
 
         # aistudio：base_url 无条件透传用户值（含空串），由 backend 内部处理
         mock_create.assert_called_once_with(
@@ -66,7 +67,9 @@ async def test_creates_ark_backend():
         mock_backend = MagicMock()
         mock_create.return_value = mock_backend
 
-        backend, provider_id = await create_text_backend_for_task(TextTaskType.OVERVIEW, "my-project")
+        backend, provider_id = await create_text_backend_for_task(
+            TextTaskType.OVERVIEW, "my-project", user_id=DEFAULT_USER_ID
+        )
 
         # ark：用户未配 base_url → 回落 registry default
         mock_create.assert_called_once_with(
@@ -94,7 +97,9 @@ async def test_creates_ark_agent_plan_backend_uses_plan_endpoint():
         mock_backend = MagicMock()
         mock_create.return_value = mock_backend
 
-        backend, provider_id = await create_text_backend_for_task(TextTaskType.OVERVIEW, "my-project")
+        backend, provider_id = await create_text_backend_for_task(
+            TextTaskType.OVERVIEW, "my-project", user_id=DEFAULT_USER_ID
+        )
 
         mock_create.assert_called_once_with(
             "ark-agent-plan",
@@ -117,7 +122,7 @@ async def test_user_base_url_overrides_default_for_ark_agent_plan():
         patch("lib.text_backends.factory.ConfigResolver", return_value=mock_resolver),
         patch("lib.text_backends.registry.create_backend") as mock_create,
     ):
-        await create_text_backend_for_task(TextTaskType.OVERVIEW, "my-project")
+        await create_text_backend_for_task(TextTaskType.OVERVIEW, "my-project", user_id=DEFAULT_USER_ID)
         assert mock_create.call_args.kwargs["base_url"] == "https://custom.example.com/v9"
 
 
@@ -134,7 +139,7 @@ async def test_creates_vertex_backend():
         mock_backend = MagicMock()
         mock_create.return_value = mock_backend
 
-        backend, provider_id = await create_text_backend_for_task(TextTaskType.STYLE_ANALYSIS)
+        backend, provider_id = await create_text_backend_for_task(TextTaskType.STYLE_ANALYSIS, user_id=DEFAULT_USER_ID)
 
         mock_create.assert_called_once_with(
             "gemini",
@@ -157,7 +162,7 @@ async def test_creates_grok_backend_omits_base_url_when_unset():
         patch("lib.text_backends.factory.ConfigResolver", return_value=mock_resolver),
         patch("lib.text_backends.registry.create_backend") as mock_create,
     ):
-        await create_text_backend_for_task(TextTaskType.SCRIPT)
+        await create_text_backend_for_task(TextTaskType.SCRIPT, user_id=DEFAULT_USER_ID)
         mock_create.assert_called_once_with("grok", model="grok-4", api_key="grok-key")
 
 
@@ -172,7 +177,7 @@ async def test_creates_openai_backend_passes_user_base_url():
         patch("lib.text_backends.factory.ConfigResolver", return_value=mock_resolver),
         patch("lib.text_backends.registry.create_backend") as mock_create,
     ):
-        await create_text_backend_for_task(TextTaskType.SCRIPT)
+        await create_text_backend_for_task(TextTaskType.SCRIPT, user_id=DEFAULT_USER_ID)
         mock_create.assert_called_once_with(
             "openai",
             model="gpt-5",
@@ -192,7 +197,7 @@ async def test_creates_dashscope_backend_derives_base_url_and_passes_provider_na
         patch("lib.text_backends.factory.ConfigResolver", return_value=mock_resolver),
         patch("lib.text_backends.registry.create_backend") as mock_create,
     ):
-        await create_text_backend_for_task(TextTaskType.SCRIPT)
+        await create_text_backend_for_task(TextTaskType.SCRIPT, user_id=DEFAULT_USER_ID)
         mock_create.assert_called_once_with(
             "openai",
             model="qwen-max",
@@ -213,7 +218,7 @@ async def test_creates_minimax_backend_derives_base_url_and_passes_provider_name
         patch("lib.text_backends.factory.ConfigResolver", return_value=mock_resolver),
         patch("lib.text_backends.registry.create_backend") as mock_create,
     ):
-        await create_text_backend_for_task(TextTaskType.SCRIPT)
+        await create_text_backend_for_task(TextTaskType.SCRIPT, user_id=DEFAULT_USER_ID)
         mock_create.assert_called_once_with(
             "openai",
             model="minimax-text-01",

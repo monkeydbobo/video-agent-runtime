@@ -32,7 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async
 
 from lib.audio_backends.base import AudioCapability, AudioSynthesisRequest, AudioSynthesisResult
 from lib.config.resolver import ConfigResolver
-from lib.db.base import Base
+from lib.db.base import DEFAULT_USER_ID, Base
 from lib.db.models.api_call import ApiCall
 from lib.db.models.custom_provider import CustomProvider, CustomProviderModel
 from lib.db.repositories.usage_repo import SettlementInput, UsageRepository
@@ -766,6 +766,7 @@ class TestTextChannel:
             ),
             Ledger(session_factory=acct.factory),
             "gemini-aistudio",
+            user_id=DEFAULT_USER_ID,
         )
 
         await gen.generate(TextGenerationRequest(prompt="文" * 700), project_name="demo")
@@ -789,6 +790,7 @@ class TestTextChannel:
             _FakeTextBackend(provider="gemini", model="gemini-3-flash-preview"),
             Ledger(session_factory=acct.factory),
             "gemini-aistudio",
+            user_id=DEFAULT_USER_ID,
         )
 
         await gen.generate(TextGenerationRequest(prompt="p"))
@@ -810,6 +812,7 @@ class TestTextChannel:
             _FakeTextBackend(provider="gemini", model="gemini-3-flash-preview", error=ValueError("t" * 600)),
             Ledger(session_factory=acct.factory),
             "gemini-aistudio",
+            user_id=DEFAULT_USER_ID,
         )
 
         with pytest.raises(ValueError):
@@ -861,6 +864,7 @@ class TestTextChannel:
             ),
             Ledger(session_factory=acct.factory),
             provider_key,
+            user_id=DEFAULT_USER_ID,
         )
 
         await gen.generate(TextGenerationRequest(prompt="p"), project_name="demo")
@@ -924,6 +928,7 @@ class TestIdentityInvariant:
                 _FakeTextBackend(provider="gemini", model="m"),
                 Ledger(session_factory=acct.factory),
                 cast(str, None),
+                user_id=DEFAULT_USER_ID,
             )
 
 

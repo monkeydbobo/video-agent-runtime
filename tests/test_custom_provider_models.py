@@ -40,6 +40,7 @@ class TestCustomProviderTable:
             )
         expected = {
             "id",
+            "user_id",
             "display_name",
             "discovery_format",
             "base_url",

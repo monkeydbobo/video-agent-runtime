@@ -249,10 +249,18 @@ class ConfigResolver:
         self,
         session_factory: async_sessionmaker,
         *,
+        user_id: str,
         _bound_session: AsyncSession | None = None,
     ) -> None:
+        if not user_id:
+            raise ValueError("user_id is required for ConfigResolver")
         self._session_factory = session_factory
+        self._user_id = user_id
         self._bound_session = _bound_session
+
+    @property
+    def user_id(self) -> str:
+        return self._user_id
 
     # ── Session 管理 ──
 
@@ -263,16 +271,16 @@ class ConfigResolver:
             yield self
         else:
             async with self._session_factory() as sess:
-                yield ConfigResolver(self._session_factory, _bound_session=sess)
+                yield ConfigResolver(self._session_factory, user_id=self._user_id, _bound_session=sess)
 
     @asynccontextmanager
     async def _open_session(self) -> AsyncIterator[tuple[AsyncSession, ConfigService]]:
         """获取 (session, ConfigService)，优先复用 bound session。"""
         if self._bound_session is not None:
-            yield self._bound_session, ConfigService(self._bound_session)
+            yield self._bound_session, ConfigService(self._bound_session, user_id=self._user_id)
         else:
             async with self._session_factory() as session:
-                yield session, ConfigService(session)
+                yield session, ConfigService(session, user_id=self._user_id)
 
     # ── 公开 API ──
 
@@ -356,7 +364,7 @@ class ConfigResolver:
             db_id = parse_provider_id(provider_id)
         except ValueError:
             return None
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=self._user_id)
         model = await repo.get_model_by_ids(db_id, model_id)
         return model.resolution if (model and model.resolution) else None
 
@@ -669,7 +677,7 @@ class ConfigResolver:
                 db_pid = parse_provider_id(provider_id)
             except ValueError as exc:
                 raise ValueError(f"invalid custom provider_id: {provider_id}") from exc
-            repo = CustomProviderRepository(session)
+            repo = CustomProviderRepository(session, user_id=self._user_id)
             model = await repo.get_model_by_ids(db_pid, model_id)
             if model is None:
                 raise ValueError(f"custom model not found: {provider_id}/{model_id}")
@@ -781,7 +789,7 @@ class ConfigResolver:
         provider_id: str,
     ) -> dict[str, str]:
         config = await svc.get_provider_config(provider_id)
-        cred_repo = CredentialRepository(session)
+        cred_repo = CredentialRepository(session, user_id=self._user_id)
         active = await cred_repo.get_active(provider_id)
         if active:
             active.overlay_config(config)
@@ -808,7 +816,7 @@ class ConfigResolver:
         session: AsyncSession,
     ) -> dict[str, dict[str, str]]:
         configs = await svc.get_all_provider_configs()
-        cred_repo = CredentialRepository(session)
+        cred_repo = CredentialRepository(session, user_id=self._user_id)
         active_creds = await cred_repo.get_active_credentials_bulk()
         for provider_id, cred in active_creds.items():
             cfg = configs.setdefault(provider_id, {})
@@ -888,7 +896,7 @@ class ConfigResolver:
         from lib.custom_provider import make_provider_id
         from lib.db.repositories.custom_provider_repo import CustomProviderRepository
 
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=self._user_id)
         custom_models = await repo.list_enabled_models_by_media_type(media_type)
         for model in custom_models:
             if model.is_default:

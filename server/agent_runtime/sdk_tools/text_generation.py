@@ -110,8 +110,8 @@ def _load_novel_source(project_path: Path, source: str | None) -> str:
 # ---------------------------------------------------------------------------
 
 
-async def _resolve_video_capabilities(project_name: str) -> dict[str, Any]:
-    resolver = ConfigResolver(async_session_factory)
+async def _resolve_video_capabilities(project_name: str, *, user_id: str) -> dict[str, Any]:
+    resolver = ConfigResolver(async_session_factory, user_id=user_id)
     return await resolver.video_capabilities(project_name)
 
 
@@ -123,7 +123,7 @@ def get_video_capabilities_tool(ctx: ToolContext):
     )
     async def _handler(_args: dict[str, Any]) -> dict[str, Any]:
         try:
-            payload = await _resolve_video_capabilities(ctx.project_name)
+            payload = await _resolve_video_capabilities(ctx.project_name, user_id=ctx.user_id)
             return {"content": [{"type": "text", "text": json.dumps(payload, ensure_ascii=False, indent=2)}]}
         except FileNotFoundError as exc:
             return {
@@ -221,7 +221,7 @@ def generate_episode_script_tool(ctx: ToolContext):
                     }
 
             if dry_run:
-                generator = ScriptGenerator(project_path)
+                generator = ScriptGenerator(project_path, user_id=ctx.user_id)
                 prompt = await generator.build_prompt(episode)
                 return {
                     "content": [{"type": "text", "text": f"DRY RUN — 以下是将发送给文本模型的 Prompt:\n\n{prompt}"}]
@@ -244,7 +244,7 @@ def generate_episode_script_tool(ctx: ToolContext):
                     "is_error": True,
                 }
 
-            generator = await ScriptGenerator.create(project_path)
+            generator = await ScriptGenerator.create(project_path, user_id=ctx.user_id)
             result_path = await generator.generate(episode=episode)
             return {"content": [{"type": "text", "text": f"✅ 剧本生成完成: {result_path}"}]}
         except FileNotFoundError as exc:
@@ -308,7 +308,7 @@ def confirm_script_review_tool(ctx: ToolContext):
 # ---------------------------------------------------------------------------
 
 
-async def _fetch_caps_with_fallback(project: dict[str, Any]) -> tuple[int | None, list[int]]:
+async def _fetch_caps_with_fallback(project: dict[str, Any], *, user_id: str) -> tuple[int | None, list[int]]:
     """Script normalization is best-effort: prompt生成 不该被能力查询失败堵住。
 
     Soft-fallbacks to ``duration_presets.DEFAULT_FALLBACK`` so the LLM still
@@ -316,7 +316,7 @@ async def _fetch_caps_with_fallback(project: dict[str, Any]) -> tuple[int | None
     自定义供应商写入层的保守默认同一真相源，避免软回退口径含供应商未必支持的时长。
     """
     try:
-        default_int, durations = await fetch_video_caps(project)
+        default_int, durations = await fetch_video_caps(project, user_id=user_id)
     except (FileNotFoundError, ValueError) as exc:
         logger.info("video_capabilities 不可解析，使用 fallback %s：%s", DEFAULT_FALLBACK, exc)
         return None, list(DEFAULT_FALLBACK)
@@ -362,7 +362,7 @@ def normalize_drama_script_tool(ctx: ToolContext):
             except ValueError as exc:
                 return {"content": [{"type": "text", "text": f"❌ {exc}"}], "is_error": True}
 
-            default_duration, supported_durations = await _fetch_caps_with_fallback(project)
+            default_duration, supported_durations = await _fetch_caps_with_fallback(project, user_id=ctx.user_id)
             # 分集大纲（故事节点 / 钩子）随内容抽取前移到 step1，驱动内容覆盖与末场落地（见 ADR 0041）。
             episode_outline, next_episode_outline = episode_outline_context(project, episode)
             prompt = build_normalize_prompt(
@@ -400,7 +400,9 @@ def normalize_drama_script_tool(ctx: ToolContext):
             # supported_durations 动态构造），直接产出 utterances + source_text + 视觉描述，
             # 消除「结构→自由文本→结构」双重转写。本地解析复用同一 schema 保持同口径校验。
             schema = build_drama_normalized_script_model(supported_durations)
-            generator = await TextGenerator.create(TextTaskType.SCRIPT, project_name=ctx.project_name)
+            generator = await TextGenerator.create(
+                TextTaskType.SCRIPT, project_name=ctx.project_name, user_id=ctx.user_id
+            )
             result = await generator.generate(
                 TextGenerationRequest(
                     prompt=prompt,
@@ -444,7 +446,9 @@ def normalize_drama_script_tool(ctx: ToolContext):
 # ---------------------------------------------------------------------------
 
 
-async def _fetch_reference_caps_with_fallback(project: dict[str, Any]) -> tuple[int | None, list[int], int, int | None]:
+async def _fetch_reference_caps_with_fallback(
+    project: dict[str, Any], *, user_id: str
+) -> tuple[int | None, list[int], int, int | None]:
     """解析 rv 拆分所需的视频能力：``(default_duration, supported_durations, max_duration, max_refs)``。
 
     与 ``_fetch_caps_with_fallback`` 同口径 best-effort：resolver 故障时回退
@@ -456,7 +460,7 @@ async def _fetch_reference_caps_with_fallback(project: dict[str, Any]) -> tuple[
     构建自相矛盾。
     """
     try:
-        resolver = ConfigResolver(async_session_factory)
+        resolver = ConfigResolver(async_session_factory, user_id=user_id)
         caps = await resolver.video_capabilities_for_project(project)
     except Exception as exc:  # noqa: BLE001
         logger.warning("video_capabilities 查询异常，使用 fallback %s：%s", DEFAULT_FALLBACK, exc)
@@ -556,7 +560,7 @@ def split_reference_video_units_tool(ctx: ToolContext):
             props = props if isinstance(props, dict) else {}
 
             default_duration, supported_durations, max_duration, max_refs = await _fetch_reference_caps_with_fallback(
-                project
+                project, user_id=ctx.user_id
             )
             prompt = build_reference_units_split_prompt(
                 novel_text=novel_text,
@@ -586,7 +590,9 @@ def split_reference_video_units_tool(ctx: ToolContext):
             # 结构化输出：response_schema 按 supported_durations 卡死单 shot 时长枚举，直接产出
             # unit → shots 叙事文本 + 时长；references 不进 LLM 输出、由下方机械派生。
             schema = build_reference_units_step1_model(supported_durations)
-            generator = await TextGenerator.create(TextTaskType.SCRIPT, project_name=ctx.project_name)
+            generator = await TextGenerator.create(
+                TextTaskType.SCRIPT, project_name=ctx.project_name, user_id=ctx.user_id
+            )
             result = await generator.generate(
                 TextGenerationRequest(
                     prompt=prompt,
@@ -748,7 +754,7 @@ def split_narration_segments_tool(ctx: ToolContext):
 
             # narration 仅需 (default_duration, supported_durations)：无 unit 总时长 / references 概念，
             # 复用与 drama normalize 同口径的 best-effort 能力查询（resolver 故障软回退 [4,6,8]）。
-            default_duration, supported_durations = await _fetch_caps_with_fallback(project)
+            default_duration, supported_durations = await _fetch_caps_with_fallback(project, user_id=ctx.user_id)
             prompt = build_narration_split_prompt(
                 novel_text=novel_text,
                 project_overview=project.get("overview", {}),
@@ -774,7 +780,9 @@ def split_narration_segments_tool(ctx: ToolContext):
 
             # 结构化输出：response_schema 复用既有 NarrationStep1Draft（片段 schema）；
             # 本地解析复用同一 schema 保持同口径校验。片段时长的成员约束由下方 _validate_narration_segments 兜底。
-            generator = await TextGenerator.create(TextTaskType.SCRIPT, project_name=ctx.project_name)
+            generator = await TextGenerator.create(
+                TextTaskType.SCRIPT, project_name=ctx.project_name, user_id=ctx.user_id
+            )
             result = await generator.generate(
                 TextGenerationRequest(
                     prompt=prompt,

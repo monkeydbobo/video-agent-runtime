@@ -6,11 +6,13 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from lib.db.base import Base
+from lib.db.base import DEFAULT_USER_ID, Base
 from lib.db.repositories.usage_repo import UsageRepository
 from lib.ledger import Ledger
 from lib.text_backends.base import TextGenerationRequest, TextGenerationResult
 from lib.text_generator import TextGenerator
+
+pytestmark = pytest.mark.integration
 
 
 @dataclass
@@ -55,7 +57,7 @@ class TestTextGenerator:
     async def test_generate_records_usage_on_success(self, wired):
         # backend.name 为裸 "gemini"，记账须取解析层 provider_id（"gemini-aistudio"）。
         backend = _make_backend()
-        gen = TextGenerator(backend, wired.ledger, "gemini-aistudio")
+        gen = TextGenerator(backend, wired.ledger, "gemini-aistudio", user_id=DEFAULT_USER_ID)
 
         result = await gen.generate(
             TextGenerationRequest(prompt="测试"),
@@ -79,7 +81,7 @@ class TestTextGenerator:
     async def test_generate_records_usage_on_failure(self, wired):
         backend = _make_backend()
         backend.generate = AsyncMock(side_effect=RuntimeError("API 超时"))
-        gen = TextGenerator(backend, wired.ledger, "gemini-aistudio")
+        gen = TextGenerator(backend, wired.ledger, "gemini-aistudio", user_id=DEFAULT_USER_ID)
 
         with pytest.raises(RuntimeError, match="API 超时"):
             await gen.generate(
@@ -94,9 +96,23 @@ class TestTextGenerator:
         assert item["cost_amount"] == 0.0
         assert "API 超时" in item["error_message"]
 
+    async def test_generate_records_usage_under_owner(self, wired):
+        """用量必须记到 TextGenerator 持有的归属身份下，不能落到 DEFAULT_USER_ID。
+
+        取供应商凭证与记账共用这一身份：落错既会拿别人的 API Key 调上游，也会把
+        花费记到别人账上。
+        """
+        backend = _make_backend()
+        gen = TextGenerator(backend, wired.ledger, "gemini-aistudio", user_id="alice-id")
+
+        await gen.generate(TextGenerationRequest(prompt="测试"), project_name="demo")
+
+        assert (await wired.get_calls(project_name="demo", user_id="alice-id"))["total"] == 1
+        assert (await wired.get_calls(project_name="demo", user_id=DEFAULT_USER_ID))["total"] == 0
+
     async def test_generate_without_project_name(self, wired):
         backend = _make_backend()
-        gen = TextGenerator(backend, wired.ledger, "gemini-aistudio")
+        gen = TextGenerator(backend, wired.ledger, "gemini-aistudio", user_id=DEFAULT_USER_ID)
 
         result = await gen.generate(TextGenerationRequest(prompt="工具箱调用"))
 

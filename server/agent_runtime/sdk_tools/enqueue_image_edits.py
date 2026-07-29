@@ -31,13 +31,15 @@ _LABEL_ZH: dict[str, str] = {
 }
 
 
-async def _i2i_provider_available(project: dict[str, Any]) -> bool:
+async def _i2i_provider_available(project: dict[str, Any], *, user_id: str) -> bool:
     """项目 i2i 槽解析不出可用供应商时返回 False——与 HTTP 端点入队前 fail-fast 同一判断点
     （见 ``server/routers/generate.py::_require_i2i_image_provider_configured``），批量编辑
     只需要一次「是否可用」的项目级判断，不像端点那样需要拿到 provider_id 传给入队。
     """
     try:
-        await ConfigResolver(async_session_factory).resolve_image_backend(project, None, capability="i2i")
+        await ConfigResolver(async_session_factory, user_id=user_id).resolve_image_backend(
+            project, None, capability="i2i"
+        )
     except ValueError:
         return False
     return True
@@ -169,7 +171,7 @@ def edit_images_tool(ctx: ToolContext):
             project = ctx.pm.load_project(ctx.project_name)
             project_path = ctx.project_path
 
-            if not await _i2i_provider_available(project):
+            if not await _i2i_provider_available(project, user_id=ctx.user_id):
                 return {
                     "content": [
                         {

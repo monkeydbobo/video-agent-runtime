@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from lib.config.resolver import ConfigResolver, get_provider_fallback
 from lib.custom_provider import make_provider_id
-from lib.db.base import Base
+from lib.db.base import DEFAULT_USER_ID, Base
 from lib.db.models.custom_provider import CustomProvider, CustomProviderModel
 
 
@@ -30,7 +30,7 @@ async def db_session():
 @pytest.fixture
 async def resolver(db_session: AsyncSession) -> ConfigResolver:
     factory = async_sessionmaker(bind=db_session.get_bind(), class_=AsyncSession, expire_on_commit=False)  # type: ignore[call-overload]
-    return ConfigResolver(factory, _bound_session=db_session)
+    return ConfigResolver(factory, user_id=DEFAULT_USER_ID, _bound_session=db_session)
 
 
 async def _add_custom_video_model(db_session: AsyncSession, model_id: str, resolution: str | None) -> str:

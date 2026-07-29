@@ -63,11 +63,17 @@ async def test_load_provider_env_overrides_injects_anthropic_and_empties() -> No
         "ANTHROPIC_BASE_URL": "https://anthropic.example.com",
     }
 
-    async def fake_build(_session):
+    seen_user_ids: list[str] = []
+
+    async def fake_build(_session, *, user_id):
+        seen_user_ids.append(user_id)
         return fake_dict
 
     with patch("lib.config.service.build_anthropic_env_dict", side_effect=fake_build):
-        env = await load_provider_env_overrides()
+        env = await load_provider_env_overrides(user_id="alice-id")
+
+    # 凭证必须按会话所有者读取，否则 SDK 子进程会拿到别人的 Key
+    assert seen_user_ids == ["alice-id"]
 
     assert env["ANTHROPIC_API_KEY"] == "sk-from-db"
     assert env["ANTHROPIC_BASE_URL"] == "https://anthropic.example.com"

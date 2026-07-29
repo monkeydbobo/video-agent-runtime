@@ -38,10 +38,10 @@ class _FakeMetaStore:
     def __init__(self, metas=None):
         self.metas = {m.id: m for m in (metas or [])}
 
-    async def get(self, session_id):
+    async def get(self, session_id, *, user_id=None):
         return self.metas.get(session_id)
 
-    async def list(self, project_name=None, status=None, limit=50, offset=0):
+    async def list(self, project_name=None, status=None, limit=50, offset=0, *, user_id=None):
         return list(self.metas.values())
 
     async def delete(self, session_id):

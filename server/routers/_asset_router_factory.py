@@ -17,7 +17,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 
 from lib.asset_types import ASSET_SPECS, validate_asset_name
@@ -25,6 +25,7 @@ from lib.i18n import Translator
 from lib.project_change_hints import project_change_source
 from lib.project_manager import ProjectManager
 from server.auth import CurrentUser
+from server.project_access import require_project_access
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +85,7 @@ def build_asset_router(
     update_fields: tuple[str, ...] = ("description", spec.sheet_field, *spec.extra_string_fields)
     update_list_fields: tuple[str, ...] = spec.extra_list_fields
 
-    router = APIRouter()
+    router = APIRouter(dependencies=[Depends(require_project_access)])
 
     @router.post(f"/projects/{{project_name}}/{spec.subdir}")
     async def add_entry(

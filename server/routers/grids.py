@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from lib.api_errors import ApiError, BadRequestError, NotFoundError
@@ -22,8 +22,13 @@ from lib.i18n import Translator
 from lib.project_manager import get_project_manager
 from lib.storyboard_sequence import get_storyboard_items, group_scenes_by_segment_break
 from server.auth import CurrentUser
+from server.project_access import require_project_access
 
-router = APIRouter(prefix="/projects/{project_name}", tags=["grids"])
+router = APIRouter(
+    prefix="/projects/{project_name}",
+    tags=["grids"],
+    dependencies=[Depends(require_project_access)],
+)
 
 
 def _build_grid_task_payload(

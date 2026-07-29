@@ -161,6 +161,7 @@ class CapacityTable:
         from lib.config.service import ConfigService
         from lib.custom_provider.endpoints import endpoint_to_media_type
         from lib.db import safe_session_factory
+        from lib.db.base import DEFAULT_USER_ID
         from lib.db.repositories.custom_provider_repo import CustomProviderRepository
 
         default_image = _read_int_env("IMAGE_MAX_WORKERS", 5, minimum=1)
@@ -169,7 +170,7 @@ class CapacityTable:
 
         limits: dict[str, dict[str, int]] = {}
         async with safe_session_factory() as session:
-            svc = ConfigService(session)
+            svc = ConfigService(session, user_id=DEFAULT_USER_ID)
             all_configs = await svc.get_all_provider_configs()
             for provider_id, meta in PROVIDER_REGISTRY.items():
                 config = all_configs.get(provider_id, {})
@@ -187,7 +188,7 @@ class CapacityTable:
                 # _lane_limits 统一负责"不支持的 lane → 0"，三个装载路径共用同一投影点
                 limits[provider_id] = cls._lane_limits(meta.media_types, image_max, video_max, audio_max)
 
-            repo = CustomProviderRepository(session)
+            repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
             for provider, models in await repo.list_providers_with_models():
                 pid = provider.provider_id  # "custom-{id}"
                 media_types = {endpoint_to_media_type(m.endpoint) for m in models if m.is_enabled}
@@ -341,8 +342,10 @@ async def _extract_provider(task: dict[str, Any]) -> str:
 
         from lib.config.resolver import ConfigResolver
         from lib.db import async_session_factory
+        from lib.db.base import DEFAULT_USER_ID
 
-        resolver = ConfigResolver(async_session_factory)
+        user_id = task.get("user_id") or DEFAULT_USER_ID
+        resolver = ConfigResolver(async_session_factory, user_id=user_id)
         if is_video:
             resolved = await resolver.resolve_video_backend(project, payload)
         elif is_audio:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -11,6 +12,14 @@ from lib.json_io import atomic_write_json
 from lib.project_manager import ProjectManager
 from server.auth import CurrentUserInfo, get_current_user
 from server.routers import script_review as router_mod
+
+
+@pytest.fixture(autouse=True)
+def _allow_test_project_access(monkeypatch):
+    async def _allow(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr("server.project_access.ensure_project_access", _allow)
 
 
 def _drama_step1() -> dict:

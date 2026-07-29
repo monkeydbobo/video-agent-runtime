@@ -59,6 +59,27 @@ class TestTaskRepository:
         done = await repo.get(first["task_id"])
         assert done["status"] == "succeeded"
 
+    async def test_enqueue_dedupe_is_scoped_by_user(self, db_session):
+        repo = TaskRepository(db_session)
+        first = await repo.enqueue(
+            project_name="same-name",
+            task_type="storyboard",
+            media_type="image",
+            resource_id="E1S01",
+            user_id="alice",
+        )
+        second = await repo.enqueue(
+            project_name="same-name",
+            task_type="storyboard",
+            media_type="image",
+            resource_id="E1S01",
+            user_id="bob",
+        )
+
+        assert not first["deduped"]
+        assert not second["deduped"]
+        assert first["task_id"] != second["task_id"]
+
     async def test_enqueue_dedupe_respects_resource_type(self, db_session):
         """同名不同资产类型（如角色和道具都叫「玉佩」）不应互相去重。"""
         repo = TaskRepository(db_session)

@@ -36,6 +36,7 @@ async def load_custom_backend(
     provider_id: str,
     model_id: str | None,
     media_type: str,
+    user_id: str,
 ) -> CustomTextBackend | CustomImageBackend | CustomVideoBackend | CustomAudioBackend:
     """装载并构造自定义供应商 backend。
 
@@ -45,7 +46,7 @@ async def load_custom_backend(
     Raises:
         ValueError: provider 不存在，或该 media_type 无默认启用 model。
     """
-    repo = CustomProviderRepository(session)
+    repo = CustomProviderRepository(session, user_id=user_id)
     db_id = parse_provider_id(provider_id)
     provider = await repo.get_provider(db_id)
     if provider is None:

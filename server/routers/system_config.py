@@ -126,7 +126,7 @@ async def _get_latest_release() -> tuple[dict[str, str], datetime]:
     return payload, now
 
 
-async def _build_options(svc: ConfigService, session: AsyncSession) -> _OptionsDict:
+async def _build_options(svc: ConfigService, session: AsyncSession, user_id: str) -> _OptionsDict:
     """Compute available backends from ready providers."""
     statuses = await svc.get_all_providers_status()
     ready_providers = {s.name for s in statuses if s.status == "ready"}
@@ -158,7 +158,7 @@ async def _build_options(svc: ConfigService, session: AsyncSession) -> _OptionsD
     from lib.db.repositories.custom_provider_repo import CustomProviderRepository
 
     try:
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=user_id)
         providers = await repo.list_providers()
         provider_name_map = {p.id: p.display_name for p in providers}
         enabled_models = await repo.list_all_enabled_models()
@@ -247,7 +247,7 @@ async def get_system_config(
     if not anthropic_key:
         from lib.db.repositories.agent_credential_repo import AgentCredentialRepository
 
-        active_cred = await AgentCredentialRepository(session).get_active()
+        active_cred = await AgentCredentialRepository(session).get_active(_user.id)
         if active_cred is not None:
             anthropic_key = active_cred.api_key
 
@@ -280,7 +280,7 @@ async def get_system_config(
         "text_backend_complex": all_s.get("text_backend_complex") or "",
     }
 
-    options = await _build_options(svc, session)
+    options = await _build_options(svc, session, _user.id)
 
     return {"settings": settings, "options": options}
 

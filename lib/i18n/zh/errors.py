@@ -158,6 +158,11 @@ MESSAGES = {
     "product_not_found": "产品「{name}」不存在",
     "product_deleted": "产品「{name}」已删除",
     # API Keys
+    "auth_required": "未认证",
+    "auth_token_required": "缺少认证 token",
+    "api_key_invalid": "API Key 无效、已过期或不存在",
+    "api_key_identity_incomplete": "API Key 身份不完整",
+    "media_token_scope_required": "project 与 asset_path 至少指定一项",
     "jwt_auth_required": "API Key 无权执行此操作，请使用 JWT 认证",
     "api_key_name_exists": "名称 '{name}' 已存在",
     "api_key_not_found": "API Key {key_id} 不存在",

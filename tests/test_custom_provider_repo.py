@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from lib.db.base import Base
+from lib.db.base import DEFAULT_USER_ID, Base
 from lib.db.repositories.custom_provider_repo import CustomProviderPrice, CustomProviderRepository
 
 
@@ -22,7 +22,7 @@ async def session():
 
 class TestProviderCRUD:
     async def test_create_provider_without_models(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         provider = await repo.create_provider(
             display_name="My OpenAI",
             discovery_format="openai",
@@ -37,7 +37,7 @@ class TestProviderCRUD:
         assert provider.api_key == "sk-test-123"
 
     async def test_create_provider_with_models(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         models = [
             {
                 "model_id": "gpt-4o",
@@ -74,7 +74,7 @@ class TestProviderCRUD:
         assert result[1].price_input == 0.04
 
     async def test_get_provider(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         created = await repo.create_provider(
             display_name="Test",
             discovery_format="openai",
@@ -87,11 +87,11 @@ class TestProviderCRUD:
         assert found.display_name == "Test"
 
     async def test_get_provider_returns_none(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         assert await repo.get_provider(999) is None
 
     async def test_list_providers(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         await repo.create_provider(
             display_name="Provider A",
             discovery_format="openai",
@@ -111,7 +111,7 @@ class TestProviderCRUD:
         assert providers[1].display_name == "Provider B"
 
     async def test_update_provider(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         p = await repo.create_provider(
             display_name="Old Name",
             discovery_format="openai",
@@ -130,12 +130,12 @@ class TestProviderCRUD:
         assert updated.base_url == "https://old.com"  # unchanged
 
     async def test_update_provider_nonexistent(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         result = await repo.update_provider(999, display_name="Nope")
         assert result is None
 
     async def test_delete_provider_cascades_to_models(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         p = await repo.create_provider(
             display_name="ToDelete",
             discovery_format="openai",
@@ -163,14 +163,14 @@ class TestProviderCRUD:
         assert await repo.list_models(p.id) == []
 
     async def test_delete_provider_nonexistent(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         # Should not raise
         await repo.delete_provider(999)
 
 
 class TestConcurrencyColumns:
     async def test_create_without_workers_defaults_to_null(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         p = await repo.create_provider(
             display_name="P",
             discovery_format="openai",
@@ -185,7 +185,7 @@ class TestConcurrencyColumns:
         assert got.audio_max_workers is None
 
     async def test_create_with_workers_round_trip(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         p = await repo.create_provider(
             display_name="P",
             discovery_format="openai",
@@ -203,7 +203,7 @@ class TestConcurrencyColumns:
         assert got.audio_max_workers == 1
 
     async def test_update_workers_including_clear_to_null(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         p = await repo.create_provider(
             display_name="P",
             discovery_format="openai",
@@ -229,7 +229,7 @@ class TestConcurrencyColumns:
         """DB 层 CHECK 约束拦截 0 与负值，repo 直写也无法绕过（create_provider 内部 flush 即触发）。"""
         from sqlalchemy.exc import IntegrityError
 
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         with pytest.raises(IntegrityError):
             await repo.create_provider(
                 display_name="P",
@@ -252,12 +252,12 @@ class TestModelManagement:
         return p.id
 
     async def test_list_models_empty(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         pid = await self._make_provider(repo, session)
         assert await repo.list_models(pid) == []
 
     async def test_replace_models(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         p = await repo.create_provider(
             display_name="TestProvider",
             discovery_format="openai",
@@ -284,7 +284,7 @@ class TestModelManagement:
         assert "new-2" in model_ids
 
     async def test_replace_models_with_empty_list(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         p = await repo.create_provider(
             display_name="TestProvider",
             discovery_format="openai",
@@ -302,7 +302,7 @@ class TestModelManagement:
         assert await repo.list_models(p.id) == []
 
     async def test_update_model(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         p = await repo.create_provider(
             display_name="TestProvider",
             discovery_format="openai",
@@ -334,12 +334,12 @@ class TestModelManagement:
         assert updated_models[0].display_name == "GPT-4o"  # unchanged
 
     async def test_update_model_nonexistent(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         result = await repo.update_model(999, display_name="Nope")
         assert result is None
 
     async def test_delete_model(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         p = await repo.create_provider(
             display_name="TestProvider",
             discovery_format="openai",
@@ -361,12 +361,12 @@ class TestModelManagement:
         assert remaining[0].model_id == "m2"
 
     async def test_delete_model_nonexistent(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         # Should not raise
         await repo.delete_model(999)
 
     async def test_list_enabled_models_by_media_type(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         await repo.create_provider(
             display_name="Provider1",
             discovery_format="openai",
@@ -404,12 +404,12 @@ class TestModelManagement:
         assert video_models[0].model_id == "vid-1"
 
     async def test_list_enabled_models_by_media_type_empty(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         result = await repo.list_enabled_models_by_media_type("text")
         assert result == []
 
     async def test_get_default_model(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         p = await repo.create_provider(
             display_name="TestProvider",
             discovery_format="openai",
@@ -450,7 +450,7 @@ class TestModelManagement:
         assert default_image.model_id == "m3"
 
     async def test_get_default_model_returns_none_when_no_default(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         p = await repo.create_provider(
             display_name="TestProvider",
             discovery_format="openai",
@@ -471,7 +471,7 @@ class TestModelManagement:
         assert await repo.get_default_model(p.id, "text") is None
 
     async def test_get_default_model_ignores_disabled(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         p = await repo.create_provider(
             display_name="TestProvider",
             discovery_format="openai",
@@ -492,7 +492,7 @@ class TestModelManagement:
         assert await repo.get_default_model(p.id, "text") is None
 
     async def test_get_default_model_nonexistent_provider(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         assert await repo.get_default_model(999, "text") is None
 
 
@@ -522,27 +522,27 @@ class TestResolvePrice:
         return f"custom-{p.id}"
 
     async def test_non_custom_provider_returns_no_price(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         assert await repo.resolve_price("gemini-aistudio", "gemini-3-flash-preview") == CustomProviderPrice()
 
     async def test_valid_custom_provider_returns_declared_price(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         provider = await self._provider_with_model(repo, session)
         assert await repo.resolve_price(provider, "m1") == CustomProviderPrice(2.0, 4.0, "CNY")
 
     async def test_missing_model_returns_no_price(self, session: AsyncSession):
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         provider = await self._provider_with_model(repo, session)
         assert await repo.resolve_price(provider, "ghost") == CustomProviderPrice()
 
     async def test_malformed_id_degrades_to_no_price(self, session: AsyncSession):
         """畸形 custom- id（parse_provider_id 抛 ValueError）降级为无价，不抛错。"""
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         assert await repo.resolve_price("custom-abc/ghost", "m1") == CustomProviderPrice()
 
     async def test_query_exception_degrades_to_no_price(self, session: AsyncSession, monkeypatch: pytest.MonkeyPatch):
         """底层查询异常（如 DB 瞬时不可用）降级为无价，不冒泡。"""
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         provider = await self._provider_with_model(repo, session)
 
         async def _boom(*_args, **_kwargs):
@@ -553,7 +553,7 @@ class TestResolvePrice:
 
     async def test_disabled_model_still_priced(self, session: AsyncSession):
         """刻意豁免 enabled 校验：停用模型仍按其声明价取价（记账按实际调用的模型计费）。"""
-        repo = CustomProviderRepository(session)
+        repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
         provider = await self._provider_with_model(repo, session, is_enabled=False)
         assert await repo.resolve_price(provider, "m1") == CustomProviderPrice(2.0, 4.0, "CNY")
 
@@ -561,7 +561,7 @@ class TestResolvePrice:
 @pytest.mark.asyncio
 async def test_list_enabled_models_by_media_type_uses_endpoint(session):
     """list_enabled_models_by_media_type 应按 endpoint 推算 media_type 过滤。"""
-    repo = CustomProviderRepository(session)
+    repo = CustomProviderRepository(session, user_id=DEFAULT_USER_ID)
     await repo.create_provider(
         display_name="P",
         discovery_format="openai",

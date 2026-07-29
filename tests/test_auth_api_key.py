@@ -13,6 +13,8 @@ from fastapi import HTTPException
 
 import server.auth as auth_module
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture(autouse=True)
 def clear_cache():
@@ -92,11 +94,26 @@ class TestVerifyAndGetPayloadAsync:
     @pytest.mark.asyncio
     async def test_api_key_path_success(self):
         """arc- 前缀走 API Key 路径，成功返回 payload。"""
-        expected = {"sub": "apikey:mykey", "via": "apikey"}
+        expected = {"sub": "alice", "uid": "alice-id", "role": "user", "via": "apikey"}
         with patch("server.auth._verify_api_key", new=AsyncMock(return_value=expected)):
             result = await auth_module._verify_and_get_payload_async("arc-validkey")
         assert result["via"] == "apikey"
-        assert result["sub"] == "apikey:mykey"
+        assert result["uid"] == "alice-id"
+        assert result["role"] == "user"
+
+    @pytest.mark.asyncio
+    async def test_api_key_payload_to_user_uses_owner_identity(self):
+        """API Key 不得默认升为 admin/default。"""
+        user = auth_module._payload_to_user({"sub": "alice", "uid": "alice-id", "role": "user", "via": "apikey"})
+        assert user.id == "alice-id"
+        assert user.role == "user"
+        assert user.via == "apikey"
+
+    @pytest.mark.asyncio
+    async def test_api_key_incomplete_payload_rejected(self):
+        with pytest.raises(HTTPException) as exc_info:
+            auth_module._payload_to_user({"sub": "apikey:x", "via": "apikey"})
+        assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
     async def test_api_key_not_found_raises_401(self):
@@ -118,7 +135,10 @@ class TestVerifyAndGetPayloadAsync:
     async def test_jwt_path_not_called_for_api_key(self):
         """arc- 前缀时不应调用 verify_token。"""
         with (
-            patch("server.auth._verify_api_key", new=AsyncMock(return_value={"sub": "apikey:k", "via": "apikey"})),
+            patch(
+                "server.auth._verify_api_key",
+                new=AsyncMock(return_value={"sub": "alice", "uid": "alice-id", "role": "user", "via": "apikey"}),
+            ),
             patch("server.auth.verify_token") as mock_jwt,
         ):
             await auth_module._verify_and_get_payload_async("arc-somekey")

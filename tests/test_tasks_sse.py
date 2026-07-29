@@ -1,10 +1,19 @@
 """Tests for task router endpoints and SSE events."""
 
+import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from server.auth import CurrentUserInfo, get_current_user, get_current_user_flexible
 from server.routers import tasks as tasks_router
+
+
+@pytest.fixture(autouse=True)
+def _allow_test_project_access(monkeypatch):
+    async def _allow(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(tasks_router, "ensure_project_access", _allow)
 
 
 def _build_app():

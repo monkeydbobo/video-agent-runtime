@@ -113,6 +113,7 @@ function StudioWorkspace() {
     assistantState.setIsDraftSession(false);
 
     setProjectDetailLoading(true);
+    void API.ensureProjectMediaToken(projectName);
     API.getProject(projectName)
       .then((res) => {
         if (!cancelled) {

@@ -44,6 +44,9 @@ class TestAdProjectRejected:
 
         app = FastAPI()
         app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
+        from tests.conftest import allow_project_access
+
+        allow_project_access(app)
         app.include_router(grids.router, prefix="/api/v1")
         register_error_handlers(app)
         with TestClient(app) as client:
@@ -70,6 +73,9 @@ class TestAdProjectRejected:
 
         app = FastAPI()
         app.dependency_overrides[get_current_user] = lambda: CurrentUserInfo(id="default", sub="testuser", role="admin")
+        from tests.conftest import allow_project_access
+
+        allow_project_access(app)
         app.include_router(grids.router, prefix="/api/v1")
         register_error_handlers(app)
         with TestClient(app) as client:

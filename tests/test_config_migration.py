@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from lib.config.migration import migrate_json_to_db
 from lib.config.repository import ProviderConfigRepository, SystemSettingRepository
-from lib.db.base import Base
+from lib.db.base import DEFAULT_USER_ID, Base
 
 
 @pytest.fixture
@@ -48,7 +48,7 @@ def json_file(tmp_path: Path) -> Path:
 
 async def test_migrate_provider_configs(session: AsyncSession, json_file: Path):
     await migrate_json_to_db(session, json_file)
-    repo = ProviderConfigRepository(session)
+    repo = ProviderConfigRepository(session, user_id=DEFAULT_USER_ID)
     config = await repo.get_all("gemini-aistudio")
     assert config["api_key"] == "AIza-test-key"
     assert config["image_rpm"] == "15"
@@ -75,7 +75,7 @@ async def test_migrate_renames_file(session: AsyncSession, json_file: Path):
 
 async def test_migrate_max_workers_to_all_configured_providers(session: AsyncSession, json_file: Path):
     await migrate_json_to_db(session, json_file)
-    repo = ProviderConfigRepository(session)
+    repo = ProviderConfigRepository(session, user_id=DEFAULT_USER_ID)
     ark = await repo.get_all("ark")
     assert ark.get("video_max_workers") == "2"
     grok = await repo.get_all("grok")

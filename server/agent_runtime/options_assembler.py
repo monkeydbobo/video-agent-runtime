@@ -24,7 +24,9 @@ from lib.agent_session_store import (
 from lib.agent_session_store.store import DbSessionStore
 from lib.db.base import DEFAULT_USER_ID
 from lib.db.engine import async_session_factory as default_async_session_factory
+from lib.db.repositories.project_repo import ProjectRepository
 from lib.i18n import DEFAULT_LOCALE, LOCALE_LANGUAGE_MAP
+from lib.project_paths import bind_project_user_scope, current_project_id_scope
 from server.agent_runtime.agent_access_policy import AgentAccessPolicy
 from server.agent_runtime.backend import AgentBackend
 from server.agent_runtime.e2b_workspace import REMOTE_PROJECT_ROOT, E2BWorkspaceManager
@@ -42,7 +44,7 @@ class AgentConfigurationError(RuntimeError):
     """Agent 模型凭证未配置或未启用。"""
 
 
-async def load_provider_env_overrides() -> dict[str, str]:
+async def load_provider_env_overrides(*, user_id: str) -> dict[str, str]:
     """构造 options.env 注入字典。
 
     - ANTHROPIC_* 从 DB active credential 取真值
@@ -56,7 +58,7 @@ async def load_provider_env_overrides() -> dict[str, str]:
     from lib.db import async_session_factory
 
     async with async_session_factory() as session:
-        anthropic_env = await build_anthropic_env_dict(session)
+        anthropic_env = await build_anthropic_env_dict(session, user_id=user_id)
 
     result = dict(anthropic_env)
     for key in OTHER_PROVIDER_ENV_KEYS:
@@ -128,10 +130,25 @@ class OptionsAssembler:
         self._session_store_resolved = False
 
     async def build_provider_env_overrides(self) -> dict[str, str]:
-        """DB 凭证注入入口。默认走模块级 ``load_provider_env_overrides``（现取 module
-        global 以便测试 patch）；构造时注入 ``provider_env_loader`` 则改用注入源。"""
-        loader = self._provider_env_loader or load_provider_env_overrides
-        return await loader()
+        """DB 凭证注入入口。默认按会话所有者 user_id 读 active credential；
+        构造时注入 ``provider_env_loader`` 则改用注入源。"""
+        if self._provider_env_loader is not None:
+            return await self._provider_env_loader()
+        return await load_provider_env_overrides(user_id=self._user_id_provider())
+
+    async def _bind_project_scope(self, project_name: str) -> str | None:
+        """从异步 DB 绑定 project_id，避免 PostgreSQL 路径解析退回 SQLite。"""
+        project_id = current_project_id_scope(project_name)
+        if project_id is not None:
+            return project_id
+        user_id = self._user_id_provider()
+        factory = self._session_factory_provider() or default_async_session_factory
+        async with factory() as session:
+            project = await ProjectRepository(session).get_by_name(user_id, project_name)
+        if project is None:
+            return None
+        bind_project_user_scope(user_id, project_ids={project_name: project.id})
+        return project.id
 
     def _build_append_prompt(self, project_name: str, locale: str = DEFAULT_LOCALE) -> str:
         """Build the append portion for SystemPromptPreset.
@@ -240,6 +257,7 @@ class OptionsAssembler:
 
         policy = self._access_policy_provider()
 
+        project_id = await self._bind_project_scope(project_name)
         project_cwd = self._resolve_project_cwd(project_name)
 
         # Build PreToolUse hooks — file access control MUST use hooks because
@@ -307,6 +325,8 @@ class OptionsAssembler:
         arcreel_server = build_arcreel_mcp_server(
             project_name=project_name,
             projects_root=self.projects_root,
+            user_id=self._user_id_provider(),
+            project_id=project_id,
         )
         mcp_servers: dict[str, Any] = {"arcreel": arcreel_server}
         if self._e2b_workspaces is not None:
