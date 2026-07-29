@@ -34,6 +34,12 @@ MESSAGES = {
     "unauthorized": "Tên đăng nhập hoặc mật khẩu không đúng",
     "username_taken": "Tên người dùng này đã được sử dụng",
     "registration_disabled": "Đăng ký hiện không khả dụng",
+    "google_not_configured": "Đăng nhập Google chưa được cấu hình",
+    "google_token_invalid": "Thông tin đăng nhập Google không hợp lệ hoặc đã hết hạn. Vui lòng thử lại",
+    "google_email_unverified": "Vui lòng xác minh email Google trước khi đăng nhập",
+    "google_account_disabled": "Tài khoản này đã bị vô hiệu hóa và không thể đăng nhập",
+    "google_email_conflict": "Email Google này đã liên kết với tài khoản khác. Vui lòng đăng nhập bằng cách hiện có",
+    "google_login_failed": "Đăng nhập Google thất bại. Vui lòng thử lại sau",
     "task_not_found": "Tác vụ '{id}' không tồn tại",
     # Lý do tác vụ thất bại (GenerationWorker lưu mã lỗi + tham số; tasks API kết xuất theo ngôn ngữ khi đọc)
     "task_fail_provider_unsupported_media": "Nhà cung cấp {provider_id} không hỗ trợ tạo {media_type}",

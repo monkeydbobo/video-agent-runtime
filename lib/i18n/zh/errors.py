@@ -34,6 +34,12 @@ MESSAGES = {
     "unauthorized": "用户名或密码错误",
     "username_taken": "该用户名已被占用",
     "registration_disabled": "当前未开放注册",
+    "google_not_configured": "Google 登录尚未配置",
+    "google_token_invalid": "Google 登录凭证无效或已过期，请重试",
+    "google_email_unverified": "请先在 Google 账号中验证邮箱后再登录",
+    "google_account_disabled": "该账号已被禁用，无法登录",
+    "google_email_conflict": "该 Google 邮箱已关联其他账号，请使用原有方式登录",
+    "google_login_failed": "Google 登录失败，请稍后重试",
     "task_not_found": "任务 '{id}' 不存在",
     # 任务失败原因（GenerationWorker 写入错误码 + 参数，tasks API 读取时按语言渲染）
     "task_fail_provider_unsupported_media": "供应商 {provider_id} 不支持 {media_type} 生成",

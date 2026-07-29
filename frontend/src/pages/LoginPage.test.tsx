@@ -39,6 +39,8 @@ describe("LoginPage brand identity", () => {
       isAuthenticated: false,
       isLoading: false,
       registrationEnabled: true,
+      googleEnabled: false,
+      googleClientId: null,
     });
   });
 
@@ -75,6 +77,8 @@ describe("LoginPage returnTo consumption", () => {
       username: null,
       isAuthenticated: false,
       isLoading: false,
+      googleEnabled: false,
+      googleClientId: null,
     });
     vi.stubGlobal(
       "fetch",
@@ -132,6 +136,8 @@ describe("LoginPage ↔ RegisterPage cross-nav preserves query", () => {
       isAuthenticated: false,
       isLoading: false,
       registrationEnabled: true,
+      googleEnabled: false,
+      googleClientId: null,
     });
   });
 

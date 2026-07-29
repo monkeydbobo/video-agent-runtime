@@ -1,4 +1,7 @@
-"""User model for multi-user infrastructure."""
+"""User model for multi-user infrastructure.
+
+作者: wanghaobo
+"""
 
 import sqlalchemy as sa
 from sqlalchemy import Boolean, String
@@ -12,6 +15,8 @@ class User(TimestampMixin, Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     username: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    # Populated for Google (and future email) accounts; password-only users may leave null.
+    email: Mapped[str | None] = mapped_column(String(320), unique=True, nullable=True)
     password_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     role: Mapped[str] = mapped_column(String, nullable=False, server_default="user")
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=sa.true())

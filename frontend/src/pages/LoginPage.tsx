@@ -1,13 +1,17 @@
+// @author wanghaobo
+
 import { useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { useAutoFocus } from "@/hooks/useAutoFocus";
 import { errMsg, voidPromise } from "@/utils/async";
+import { formatAuthErrorDetail } from "@/utils/auth-errors";
 import { useLocation, useSearch } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/stores/auth-store";
 import { safeReturnPath } from "@/utils/safe-url";
 import type { LoginResponse, ErrorResponse } from "@/api";
 import { AuthPageShell } from "@/components/auth/AuthPageShell";
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { FieldLabel } from "@/components/ui/FieldLabel";
 import { ACCENT_BTN_CLS, ACCENT_BUTTON_STYLE, INPUT_CLS } from "@/components/ui/darkroom-tokens";
 
@@ -22,6 +26,12 @@ export function LoginPage() {
   const login = useAuthStore((s) => s.login);
   const registrationEnabled = useAuthStore((s) => s.registrationEnabled);
   const usernameRef = useAutoFocus<HTMLInputElement>();
+
+  const finishAuth = (accessToken: string, displayName: string) => {
+    login(accessToken, displayName);
+    const returnTo = safeReturnPath(new URLSearchParams(search).get("from"));
+    setLocation(returnTo ?? "/app/projects");
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -44,16 +54,12 @@ export function LoginPage() {
 
       if (!resp.ok) {
         const data = await resp.json().catch(() => ({})) as Partial<ErrorResponse>;
-        const detail = data.detail;
-        throw new Error(typeof detail === "string" ? detail : t("auth:login_failed"));
+        const formatted = formatAuthErrorDetail(data.detail, t, "auth:login_failed");
+        throw new Error(formatted.message);
       }
 
       const data = await resp.json() as LoginResponse;
-      login(data.access_token, username);
-      // 登录成功后回跳到进入登录页前的原始地址（由 AuthGuard / 401 拦截以 ?from 传入），
-      // 经 safeReturnPath 校验为站内安全路径；非法或缺失时回退到项目列表。
-      const returnTo = safeReturnPath(new URLSearchParams(search).get("from"));
-      setLocation(returnTo ?? "/app/projects");
+      finishAuth(data.access_token, username);
     } catch (err) {
       setError(errMsg(err, t("auth:login_failed")));
     } finally {
@@ -112,6 +118,12 @@ export function LoginPage() {
             {loading && <Loader2 aria-hidden className="h-4 w-4 motion-safe:animate-spin" />}
             {loading ? t("auth:logging_in") : t("auth:login")}
           </button>
+
+          <GoogleSignInButton
+            disabled={loading}
+            onSuccess={finishAuth}
+            onError={(message) => setError(message)}
+          />
 
           {registrationEnabled ? (
             <button

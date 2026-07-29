@@ -10,6 +10,8 @@ describe("auth-store initialize", () => {
       isAuthenticated: false,
       isLoading: true,
       registrationEnabled: false,
+      googleEnabled: false,
+      googleClientId: null,
     });
     vi.restoreAllMocks();
   });

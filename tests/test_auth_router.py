@@ -94,6 +94,22 @@ class TestRegistrationRoute:
     def test_register_validates_username_and_password(self, client):
         resp = client.post("/api/v1/auth/register", json={"username": "!", "password": "short"})
         assert resp.status_code == 422
+        detail = resp.json()["detail"]
+        assert isinstance(detail, list)
+        locs = {tuple(item.get("loc", ())) for item in detail}
+        assert any(loc[-1] == "username" for loc in locs if loc)
+        assert any(loc[-1] == "password" for loc in locs if loc)
+
+
+class TestAuthStatusRoute:
+    def test_status_includes_google_flags(self, client):
+        resp = client.get("/api/v1/auth/status")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "enabled" in data
+        assert "registration_enabled" in data
+        assert "google_enabled" in data
+        assert "google_client_id" in data
 
 
 async def _return(value):

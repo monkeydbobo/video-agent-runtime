@@ -1,5 +1,5 @@
-import { fireEvent, render } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { fireEvent, render, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
 import { RegisterPage } from "@/pages/RegisterPage";
@@ -24,6 +24,8 @@ describe("RegisterPage ↔ LoginPage cross-nav preserves query", () => {
       username: null,
       isAuthenticated: false,
       isLoading: false,
+      googleEnabled: false,
+      googleClientId: null,
     });
   });
 
@@ -58,5 +60,64 @@ describe("RegisterPage brand identity", () => {
       "href",
       "http://localhost:3000/register",
     );
+  });
+});
+
+describe("RegisterPage validation errors", () => {
+  beforeEach(() => {
+    useAuthStore.setState({
+      token: null,
+      username: null,
+      isAuthenticated: false,
+      isLoading: false,
+      googleEnabled: false,
+      googleClientId: null,
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it("shows field-level messages from 422 detail arrays", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({
+          detail: [
+            {
+              type: "string_pattern_mismatch",
+              loc: ["body", "username"],
+              msg: "String should match pattern",
+            },
+            {
+              type: "string_too_short",
+              loc: ["body", "password"],
+              msg: "String should have at least 8 characters",
+              ctx: { min_length: 8 },
+            },
+          ],
+        }),
+      }),
+    );
+
+    const { container, getByRole } = renderRegisterAt("/register");
+    fireEvent.change(container.querySelector<HTMLInputElement>("#register-username")!, {
+      target: { value: "alice" },
+    });
+    fireEvent.change(container.querySelector<HTMLInputElement>("#register-password")!, {
+      target: { value: "password1" },
+    });
+    fireEvent.change(container.querySelector<HTMLInputElement>("#register-confirm-password")!, {
+      target: { value: "password1" },
+    });
+    fireEvent.submit(container.querySelector("form")!);
+
+    await waitFor(() => {
+      expect(container.querySelector("#register-username-error")).toHaveTextContent(
+        /用户名须以字母或数字开头/,
+      );
+      expect(container.querySelector("#register-password-error")).toHaveTextContent(/密码至少 8 位/);
+      expect(getByRole("alert")).toHaveTextContent(/用户名须以字母或数字开头/);
+      expect(getByRole("alert")).toHaveTextContent(/密码至少 8 位/);
+    });
   });
 });
