@@ -5,43 +5,8 @@ import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/stores/auth-store";
 import { formatAuthErrorDetail } from "@/utils/auth-errors";
 import { errMsg } from "@/utils/async";
+import { loadGisScript } from "@/utils/gis-loader";
 import type { ErrorResponse, LoginResponse } from "@/api";
-
-const GIS_SCRIPT_SRC = "https://accounts.google.com/gsi/client";
-const GIS_SCRIPT_ID = "google-gsi-client";
-
-let gisScriptPromise: Promise<void> | null = null;
-
-function loadGisScript(): Promise<void> {
-  if (typeof window === "undefined") {
-    return Promise.reject(new Error("no window"));
-  }
-  if (window.google?.accounts?.id) {
-    return Promise.resolve();
-  }
-  if (gisScriptPromise) return gisScriptPromise;
-
-  gisScriptPromise = new Promise<void>((resolve, reject) => {
-    const existing = document.getElementById(GIS_SCRIPT_ID) as HTMLScriptElement | null;
-    if (existing) {
-      existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener("error", () => reject(new Error("gis load failed")), { once: true });
-      return;
-    }
-    const script = document.createElement("script");
-    script.id = GIS_SCRIPT_ID;
-    script.src = GIS_SCRIPT_SRC;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => resolve();
-    script.onerror = () => {
-      gisScriptPromise = null;
-      reject(new Error("gis load failed"));
-    };
-    document.head.appendChild(script);
-  });
-  return gisScriptPromise;
-}
 
 interface GoogleSignInButtonProps {
   disabled?: boolean;
