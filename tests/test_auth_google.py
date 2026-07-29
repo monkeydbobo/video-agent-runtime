@@ -235,3 +235,16 @@ def test_verify_google_id_token_requires_verified_email(monkeypatch):
         with pytest.raises(auth_module.GoogleIdTokenError) as exc:
             auth_module.verify_google_id_token("tok")
         assert str(exc.value) == "google_email_unverified"
+
+
+def test_verify_google_id_token_logs_safe_verifier_failure(monkeypatch, caplog):
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "cid.apps.googleusercontent.com")
+
+    with patch("google.oauth2.id_token.verify_oauth2_token", side_effect=ValueError("sensitive details")):
+        with pytest.raises(auth_module.GoogleIdTokenError) as exc:
+            auth_module.verify_google_id_token("secret-id-token")
+
+    assert str(exc.value) == "google_token_invalid"
+    assert "reason=google_verifier_rejected error_type=ValueError" in caplog.text
+    assert "sensitive details" not in caplog.text
+    assert "secret-id-token" not in caplog.text
