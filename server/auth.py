@@ -499,8 +499,11 @@ async def login_or_register_google_user(claims: dict) -> tuple[CurrentUserInfo, 
                 email=email,
             )
             session.add(user)
-            session.add(identity)
             try:
+                # User 与 OAuthIdentity 未声明 ORM relationship；显式 flush 保证
+                # PostgreSQL 在插入有外键的身份记录前已写入对应用户。
+                await session.flush()
+                session.add(identity)
                 await session.commit()
             except IntegrityError:
                 await session.rollback()

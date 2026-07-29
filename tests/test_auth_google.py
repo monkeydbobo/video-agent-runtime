@@ -248,3 +248,56 @@ def test_verify_google_id_token_logs_safe_verifier_failure(monkeypatch, caplog):
     assert "reason=google_verifier_rejected error_type=ValueError" in caplog.text
     assert "sensitive details" not in caplog.text
     assert "secret-id-token" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_google_registration_flushes_user_before_adding_oauth_identity(google_env, monkeypatch):
+    """PostgreSQL enforces the identity's user_id foreign key during insert."""
+
+    class Result:
+        def scalar_one_or_none(self):
+            return None
+
+    class Session:
+        def __init__(self):
+            self.added: list[object] = []
+            self.flushed = False
+
+        async def execute(self, *_args, **_kwargs):
+            return Result()
+
+        def add(self, value: object):
+            self.added.append(value)
+
+        async def flush(self):
+            from lib.db.models.user import User
+
+            assert len(self.added) == 1
+            assert isinstance(self.added[0], User)
+            self.flushed = True
+
+        async def commit(self):
+            from lib.db.models.oauth_identity import OAuthIdentity
+
+            assert self.flushed
+            assert len(self.added) == 2
+            assert isinstance(self.added[1], OAuthIdentity)
+
+        async def rollback(self):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            pass
+
+    session = Session()
+    monkeypatch.setattr(db, "async_session_factory", lambda: session)
+
+    user, is_new = await auth_module.login_or_register_google_user(
+        {"sub": "google-sub-flush", "email": "flush@example.com"}
+    )
+
+    assert is_new is True
+    assert user.sub == "flush"
