@@ -1,3 +1,5 @@
+// @author wanghaobo
+
 import { create } from "zustand";
 import { getToken, setToken as saveToken, clearToken } from "@/utils/auth";
 import { clearMediaTokenCache } from "@/lib/mediaUrl";
@@ -11,6 +13,8 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   registrationEnabled: boolean;
+  googleEnabled: boolean;
+  googleClientId: string | null;
   initialize: () => void;
   login: (token: string, username: string) => void;
   logout: () => void;
@@ -51,12 +55,31 @@ function hydrateUsernameFromToken(token: string): void {
     });
 }
 
+function applyAuthStatus(payload: {
+  enabled: boolean;
+  registration_enabled: boolean;
+  google_enabled?: boolean;
+  google_client_id?: string | null;
+}): void {
+  const googleEnabled = payload.google_enabled === true && typeof payload.google_client_id === "string" && payload.google_client_id.length > 0;
+  useAuthStore.setState({
+    registrationEnabled: payload.registration_enabled,
+    googleEnabled,
+    googleClientId: googleEnabled ? payload.google_client_id ?? null : null,
+  });
+  if (!payload.enabled) {
+    useAuthStore.setState({ isAuthenticated: true });
+  }
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   username: null,
   isAuthenticated: false,
   isLoading: true,
   registrationEnabled: false,
+  googleEnabled: false,
+  googleClientId: null,
 
   initialize: () => {
     const token = getToken();
@@ -64,6 +87,28 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ token, isAuthenticated: true, isLoading: false });
       // localStorage only keeps the token; refill username for the lobby badge.
       hydrateUsernameFromToken(token);
+      // Still fetch status so Google button / registration flags are available if user logs out.
+      fetch("/api/v1/auth/status")
+        .then(async (res) => {
+          if (!res.ok) return;
+          const payload: unknown = await res.json();
+          if (
+            typeof payload === "object" &&
+            payload !== null &&
+            typeof (payload as { enabled?: unknown }).enabled === "boolean" &&
+            typeof (payload as { registration_enabled?: unknown }).registration_enabled === "boolean"
+          ) {
+            applyAuthStatus(payload as {
+              enabled: boolean;
+              registration_enabled: boolean;
+              google_enabled?: boolean;
+              google_client_id?: string | null;
+            });
+          }
+        })
+        .catch(() => {
+          /* ignore */
+        });
       return;
     }
     // 无 token 时先问后端是否启用了鉴权。`AUTH_ENABLED=false` 时后端全链路
@@ -83,14 +128,12 @@ export const useAuthStore = create<AuthState>((set) => ({
         ) {
           throw new Error("invalid /auth/status payload");
         }
-        const { enabled, registration_enabled: registrationEnabled } = payload as {
+        applyAuthStatus(payload as {
           enabled: boolean;
           registration_enabled: boolean;
-        };
-        set({ registrationEnabled });
-        if (!enabled) {
-          set({ isAuthenticated: true });
-        }
+          google_enabled?: boolean;
+          google_client_id?: string | null;
+        });
       })
       .catch((err) => {
         console.warn("[auth] /auth/status fetch failed; defaulting to login", err);

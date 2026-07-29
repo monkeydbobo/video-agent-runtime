@@ -34,6 +34,10 @@ MESSAGES = {
     "unauthorized": "Invalid username or password",
     "username_taken": "This username is already taken",
     "registration_disabled": "Registration is currently unavailable",
+    "google_login_disabled": "Google sign-in is not enabled",
+    "google_token_invalid": "Google sign-in credential is invalid or expired",
+    "google_email_unverified": "Please verify your Google email before signing in",
+    "google_email_taken": "This Google email is already linked to another account; sign in with your existing credentials",
     "task_not_found": "Task '{id}' does not exist",
     # Task failure reasons (GenerationWorker stores a code + params; tasks API renders per locale on read)
     "task_fail_provider_unsupported_media": "Provider {provider_id} does not support {media_type} generation",

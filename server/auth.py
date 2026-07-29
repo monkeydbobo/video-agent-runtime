@@ -337,6 +337,185 @@ async def create_registered_user(username: str, password: str) -> CurrentUserInf
     return CurrentUserInfo(id=user.id, sub=user.username, role=user.role)
 
 
+def get_google_client_id() -> str | None:
+    """Return configured Google OAuth Web Client ID, or ``None`` when unset."""
+    value = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+    return value or None
+
+
+def is_google_login_enabled() -> bool:
+    """Google GIS login is enabled when a Client ID is configured and auth is on."""
+    return is_auth_enabled() and get_google_client_id() is not None
+
+
+class GoogleIdTokenError(Exception):
+    """Raised when a Google ID token fails verification or is missing required claims."""
+
+
+class GoogleRegistrationClosedError(Exception):
+    """Raised when a new Google user cannot be created because registration is disabled."""
+
+
+def verify_google_id_token(id_token: str) -> dict:
+    """Verify a Google GIS ID token and return the claims dict.
+
+    Requires ``GOOGLE_CLIENT_ID``. Validates audience, issuer, and that email is
+    present and marked verified.
+    """
+    client_id = get_google_client_id()
+    if not client_id:
+        raise GoogleIdTokenError("google_login_disabled")
+
+    try:
+        from google.auth.transport import requests as google_requests
+        from google.oauth2 import id_token as google_id_token
+    except ImportError as exc:  # pragma: no cover - google-auth is a declared dependency
+        raise GoogleIdTokenError("google_token_invalid") from exc
+
+    try:
+        claims = google_id_token.verify_oauth2_token(
+            id_token,
+            google_requests.Request(),
+            audience=client_id,
+        )
+    except Exception as exc:
+        logger.warning("Google ID token 校验失败: %s", exc)
+        raise GoogleIdTokenError("google_token_invalid") from exc
+
+    if not isinstance(claims, dict):
+        raise GoogleIdTokenError("google_token_invalid")
+
+    iss = str(claims.get("iss") or "")
+    if iss not in {"accounts.google.com", "https://accounts.google.com"}:
+        raise GoogleIdTokenError("google_token_invalid")
+
+    sub = str(claims.get("sub") or "").strip()
+    email = str(claims.get("email") or "").strip().lower()
+    email_verified = claims.get("email_verified")
+    if not sub or not email:
+        raise GoogleIdTokenError("google_token_invalid")
+    if email_verified is not True and str(email_verified).lower() != "true":
+        raise GoogleIdTokenError("google_email_unverified")
+
+    return {"sub": sub, "email": email, "name": str(claims.get("name") or "").strip()}
+
+
+def _username_from_google_email(email: str) -> str:
+    """Derive a username that satisfies RegisterRequest's pattern from an email local-part."""
+    import re
+
+    local = email.split("@", 1)[0].lower()
+    cleaned = re.sub(r"[^a-z0-9_.-]", "", local)
+    cleaned = cleaned.lstrip("._-")
+    if not cleaned or not cleaned[0].isalnum():
+        cleaned = f"user{cleaned}"
+    if not cleaned[0].isalnum():
+        cleaned = "user"
+    return cleaned[:64]
+
+
+async def login_or_register_google_user(claims: dict) -> tuple[CurrentUserInfo, bool]:
+    """Find or create a user for a verified Google identity.
+
+    Matching key is ``(provider=google, subject)``. New users are only created
+    when registration is enabled; otherwise raises ``GoogleRegistrationClosedError``.
+
+    Returns ``(user, is_new)``.
+    """
+    from sqlalchemy.exc import IntegrityError
+
+    from lib.db import async_session_factory
+    from lib.db.models.oauth_identity import OAuthIdentity
+    from lib.db.models.user import User
+
+    subject = str(claims["sub"])
+    email = str(claims["email"])
+
+    async with async_session_factory() as session:
+        identity = (
+            await session.execute(
+                select(OAuthIdentity).where(
+                    OAuthIdentity.provider == "google",
+                    OAuthIdentity.subject == subject,
+                )
+            )
+        ).scalar_one_or_none()
+
+        if identity is not None:
+            user = (await session.execute(select(User).where(User.id == identity.user_id))).scalar_one_or_none()
+            if user is None or not user.is_active:
+                raise GoogleIdTokenError("google_token_invalid")
+            if identity.email != email:
+                identity.email = email
+            if user.email != email:
+                email_owner = (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
+                if email_owner is not None and email_owner.id != user.id:
+                    raise GoogleIdTokenError("google_email_taken")
+                user.email = email
+            try:
+                await session.commit()
+            except IntegrityError as exc:
+                # Another request may have claimed the email between the check and the commit.
+                await session.rollback()
+                raise GoogleIdTokenError("google_email_taken") from exc
+            return CurrentUserInfo(id=user.id, sub=user.username, role=user.role), False
+
+        if not is_registration_enabled():
+            raise GoogleRegistrationClosedError("registration_disabled")
+
+        # Do not auto-link to an existing password account that already owns this email.
+        email_owner = (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
+        if email_owner is not None:
+            raise GoogleIdTokenError("google_email_taken")
+
+        base_username = _username_from_google_email(email)
+        for attempt in range(8):
+            suffix = "" if attempt == 0 else f"-{secrets.token_hex(2)}"
+            username = f"{base_username[: max(1, 64 - len(suffix))]}{suffix}"
+            user = User(
+                id=str(uuid.uuid4()),
+                username=username,
+                email=email,
+                password_hash=None,
+                role="user",
+            )
+            identity = OAuthIdentity(
+                id=str(uuid.uuid4()),
+                user_id=user.id,
+                provider="google",
+                subject=subject,
+                email=email,
+            )
+            session.add(user)
+            session.add(identity)
+            try:
+                await session.commit()
+            except IntegrityError:
+                await session.rollback()
+                # Username conflict or race — retry with a new suffix.
+                # If the same Google subject raced another request, re-check identity.
+                existing = (
+                    await session.execute(
+                        select(OAuthIdentity).where(
+                            OAuthIdentity.provider == "google",
+                            OAuthIdentity.subject == subject,
+                        )
+                    )
+                ).scalar_one_or_none()
+                if existing is not None:
+                    user = (await session.execute(select(User).where(User.id == existing.user_id))).scalar_one_or_none()
+                    if user is None or not user.is_active:
+                        raise GoogleIdTokenError("google_token_invalid")
+                    return CurrentUserInfo(id=user.id, sub=user.username, role=user.role), False
+                email_owner = (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
+                if email_owner is not None:
+                    raise GoogleIdTokenError("google_email_taken")
+                continue
+            return CurrentUserInfo(id=user.id, sub=user.username, role=user.role), True
+
+        raise GoogleIdTokenError("google_token_invalid")
+
+
 def ensure_auth_password(env_path: str | None = None) -> str:
     """确保 AUTH_PASSWORD 已设置
 

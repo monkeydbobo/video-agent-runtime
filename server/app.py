@@ -742,16 +742,17 @@ _CONTENT_SECURITY_POLICY = "; ".join(
     (
         "default-src 'self'",
         "base-uri 'self'",
-        "connect-src 'self'",
+        "connect-src 'self' https://accounts.google.com/gsi/",
         "font-src 'self' data: https://fonts.gstatic.com",
         "form-action 'self'",
+        "frame-src https://accounts.google.com/gsi/",
         "frame-ancestors 'none'",
         "img-src 'self' data: blob: https:",
         "manifest-src 'self'",
         "media-src 'self' data: blob:",
         "object-src 'none'",
-        "script-src 'self' 'unsafe-inline'",
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style",
         "worker-src 'self' blob:",
     )
 )
