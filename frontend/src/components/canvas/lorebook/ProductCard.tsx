@@ -7,6 +7,7 @@ import { VersionTimeMachine } from "@/components/canvas/timeline/VersionTimeMach
 import { AspectFrame } from "@/components/ui/AspectFrame";
 import { GenerateButton } from "@/components/ui/GenerateButton";
 import { PreviewableImageFrame } from "@/components/ui/PreviewableImageFrame";
+import { PrivateMediaImg } from "@/components/ui/PrivateMedia";
 import { useAppStore } from "@/stores/app-store";
 import { useProjectsStore } from "@/stores/projects-store";
 import { errMsg } from "@/utils/async";
@@ -319,7 +320,7 @@ export function ProductCard({
           >
             <AspectFrame ratio="16:9">
               {sheetUrl && !imgError ? (
-                <img
+                <PrivateMediaImg
                   src={sheetUrl}
                   alt={`${name} ${t("dashboard:product_design")}`}
                   className="h-full w-full object-cover"

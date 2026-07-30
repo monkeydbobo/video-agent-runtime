@@ -127,6 +127,11 @@ function StudioWorkspace() {
 
     setProjectDetailLoading(true);
     void API.ensureProjectMediaToken(projectName);
+    // media_token 仅 5 分钟有效；停留在项目页时主动续签，避免立绘/分镜图因 401 回退成「待生成」
+    const mediaTokenRefreshId = window.setInterval(() => {
+      API.invalidateProjectMediaToken(projectName);
+      void API.ensureProjectMediaToken(projectName);
+    }, 4 * 60 * 1000);
     API.getProject(projectName)
       .then((res) => {
         if (!cancelled) {
@@ -145,6 +150,7 @@ function StudioWorkspace() {
 
     return () => {
       cancelled = true;
+      window.clearInterval(mediaTokenRefreshId);
       setCurrentProject(null, null);
     };
   }, [projectName, setCurrentProject, setProjectDetailLoading]);

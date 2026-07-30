@@ -63,6 +63,7 @@ import {
   ensureProjectMediaToken as fetchProjectMediaToken,
   getGlobalAssetUrlSync,
   getProjectFileUrlSync,
+  invalidateProjectMediaToken as dropProjectMediaToken,
   resolveAssetImageUrl,
 } from "@/lib/mediaUrl";
 import i18n from "./i18n";
@@ -964,6 +965,11 @@ class API {
   /** 预取项目级 media_token（进入项目时调用）。 */
   static ensureProjectMediaToken(projectName: string): Promise<string | null> {
     return fetchProjectMediaToken(projectName);
+  }
+
+  /** 丢弃项目级 media_token 缓存（主动续签前调用）。 */
+  static invalidateProjectMediaToken(projectName: string): void {
+    dropProjectMediaToken(projectName);
   }
 
   // ==================== Source 文件管理 ====================

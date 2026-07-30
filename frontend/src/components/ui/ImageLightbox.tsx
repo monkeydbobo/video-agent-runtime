@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { PrivateMediaImg } from "@/components/ui/PrivateMedia";
 import { UI_LAYERS } from "@/utils/ui-layers";
 import { useEscapeClose } from "@/hooks/useEscapeClose";
 
@@ -53,7 +54,7 @@ export function ImageLightbox({ src, alt, onClose }: ImageLightboxProps) {
           aria-label={`${alt} 全屏预览`}
           className="relative z-10 max-h-full max-w-full"
         >
-          <img
+          <PrivateMediaImg
             src={src}
             alt={alt}
             className="max-h-[calc(100vh-3rem)] max-w-[calc(100vw-2rem)] rounded-2xl border border-white/10 bg-black/35 object-contain shadow-[0_30px_120px_rgba(0,0,0,0.55)] sm:max-h-[calc(100vh-5rem)] sm:max-w-[calc(100vw-4rem)]"
