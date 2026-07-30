@@ -24,9 +24,8 @@ from server.agent_runtime.session_manager import (
     SessionCapacityError,
 )
 from server.auth import CurrentUser, CurrentUserFlexible, CurrentUserInfo
-from server.project_access import require_project_access
 
-router = APIRouter(dependencies=[Depends(require_project_access)])
+router = APIRouter()
 
 assistant_service = AssistantService(project_root=PROJECT_ROOT)
 
