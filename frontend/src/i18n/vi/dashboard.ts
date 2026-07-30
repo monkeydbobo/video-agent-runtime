@@ -1382,6 +1382,7 @@ export default {
   'tool_name_remove_segment': 'Xóa phân cảnh',
   'tool_name_split_segment': 'Tách phân cảnh',
   'tool_name_patch_project': 'Sửa tài sản dự án',
+  'tool_name_compose_video': 'Ghép video',
   // Skill display names (single source of truth: user-invocable SKILL.md
   // dưới agent_runtime_profile/.claude/skills/; tests/test_frontend_skill_i18n.py kiểm tra đồng bộ)
   'skill_name_manga_workflow': 'Quy trình video',

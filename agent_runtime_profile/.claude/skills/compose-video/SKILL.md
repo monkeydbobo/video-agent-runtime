@@ -13,32 +13,24 @@ description: 把已生成的视频片段按剧本顺序拼接为单集成片，�
 - **单集拼接** — 一次只处理一份剧本文件，不支持多集合并
 - **不实现片头片尾 / BGM 音量调节** — 这些需求请走 Web 端剪映草稿导出
 
-## CLI 用法
+## 调用方式
 
-脚本必须在含 `project.json` 的项目 cwd 内运行，并使用**相对项目根 cwd** 的剧本文件名：
+必须调用 `mcp__arcreel__compose_video`，不要在 E2B Bash 中直接运行 Python 合成脚本。该工具在
+Railway 主容器的当前项目目录执行，视频/音频文件无需上传到 E2B，FFmpeg 也由 Railway 镜像提供。
 
-```bash
-# 最简形式：按剧本顺序拼接 + 自动转场（按 transition_to_next）
-python .claude/skills/compose-video/scripts/compose_video.py scripts/episode_1.json
+最简调用：`script: "episode_1.json"`。
 
-# 混入 BGM（音乐文件相对项目根 cwd 或绝对路径）
-python .claude/skills/compose-video/scripts/compose_video.py scripts/episode_1.json --music background_music.mp3
-
-# 关闭转场（一律 cut 拼接，可用于规避 xfade 编码不一致问题）
-python .claude/skills/compose-video/scripts/compose_video.py scripts/episode_1.json --no-transitions
-
-# 自定义输出文件名（输出固定落在 output/ 下）
-python .claude/skills/compose-video/scripts/compose_video.py scripts/episode_1.json --output episode_1_final.mp4
-```
+可选参数：`music`（项目内相对路径）、`output`（项目内输出路径）和 `no_transitions: true`。
+`script` 必须是纯文件名；工具会校验其它文件路径不能越出当前项目目录。
 
 完整参数：
 
 | 参数 | 类型 | 说明 |
 |---|---|---|
-| `script` | 位置参数（必填） | 剧本文件名（相对项目 cwd） |
-| `--output OUTPUT` | 可选 | 输出文件名；缺省按剧本 `novel.chapter` 字段生成。无论何种取值，最终都落在 `output/` 子目录内 |
-| `--music MUSIC` | 可选 | BGM 文件路径（相对项目 cwd 或绝对路径），但**必须解析后位于项目目录内** |
-| `--no-transitions` | flag | 全部用 cut 直接拼接，忽略剧本里的 `transition_to_next` |
+| `script` | 必填 | 剧本文件名（纯文件名） |
+| `output` | 可选 | 输出文件名或项目内相对路径；最终落在 `output/` 子目录内 |
+| `music` | 可选 | 项目内 BGM 文件路径 |
+| `no_transitions` | 可选 | 全部用 cut 直接拼接，忽略剧本里的 `transition_to_next` |
 
 ## 工作流程
 
@@ -60,10 +52,10 @@ python .claude/skills/compose-video/scripts/compose_video.py scripts/episode_1.j
 
 ## 前置检查
 
-- [ ] 当前 cwd 是项目根（含 `project.json`）
+- [ ] 当前项目含 `project.json`（Railway 工具会绑定项目 cwd）
 - [ ] 剧本 content_mode 为 drama（顶层有 `scenes[]`）
 - [ ] 每个场景的 `generated_assets.video_clip` 都已生成
-- [ ] `ffmpeg` / `ffprobe` 都在 PATH（脚本会预检）
+- [ ] Railway 容器中的 `ffmpeg` / `ffprobe` 都在 PATH（脚本会预检）
 - [ ] BGM 文件存在（如指定 `--music`）
 
 ## 限制 / 缺失能力

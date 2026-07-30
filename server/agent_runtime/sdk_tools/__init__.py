@@ -17,6 +17,7 @@ from typing import Any
 from claude_agent_sdk import create_sdk_mcp_server
 
 from server.agent_runtime.sdk_tools._context import ToolContext
+from server.agent_runtime.sdk_tools.compose_video import compose_video_tool
 from server.agent_runtime.sdk_tools.enqueue_assets import (
     generate_assets_tool,
     list_pending_assets_tool,
@@ -86,6 +87,7 @@ ARCREEL_MCP_TOOL_IDS: tuple[str, ...] = (
     "remove_segment",
     "split_segment",
     "patch_project",
+    "compose_video",
 )
 
 
@@ -131,5 +133,6 @@ def build_arcreel_mcp_server(
             remove_segment_tool(ctx),
             split_segment_tool(ctx),
             patch_project_tool(ctx),
+            compose_video_tool(ctx),
         ],
     )
