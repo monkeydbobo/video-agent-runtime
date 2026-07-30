@@ -52,7 +52,7 @@ from lib.script_models import (
     script_duration_total,
 )
 from lib.script_skeleton import SKELETONS, resolve_declared_kind
-from lib.text_backends.base import DEFAULT_MAX_OUTPUT_TOKENS, TextGenerationRequest, TextTaskType
+from lib.text_backends.base import TextGenerationRequest, TextTaskType
 from lib.text_generator import TextGenerator
 from lib.text_utils import strip_json_code_fences
 
@@ -276,7 +276,6 @@ class ScriptGenerator:
             TextGenerationRequest(
                 prompt=self._build_drama_step2_prompt(content_scenes, episode),
                 response_schema=DramaVisualScript,
-                max_output_tokens=DEFAULT_MAX_OUTPUT_TOKENS,
             ),
             project_name=self.project_path.name,
         )
@@ -357,7 +356,6 @@ class ScriptGenerator:
             TextGenerationRequest(
                 prompt=prompt,
                 response_schema=schema,
-                max_output_tokens=DEFAULT_MAX_OUTPUT_TOKENS,
             ),
             project_name=project_name,
         )
