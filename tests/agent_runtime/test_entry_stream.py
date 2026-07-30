@@ -6,7 +6,7 @@ import asyncio
 import contextlib
 
 import pytest
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.sse import ServerSentEvent
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -16,7 +16,8 @@ from lib.i18n import DEFAULT_LOCALE, get_translator
 from server.agent_runtime.event_log import EventLogService, EventLogStore
 from server.agent_runtime.models import LiveMessage, SubscriptionReady
 from server.agent_runtime.service import AssistantService
-from server.auth import CurrentUserInfo, get_current_user, get_current_user_flexible
+from server.auth import CurrentUserInfo, create_token, get_current_user, get_current_user_flexible
+from server.project_access import register_project_owner, require_project_access_flexible
 from server.routers import assistant
 from tests.conftest import make_translator
 from tests.factories import make_session_meta
@@ -282,7 +283,37 @@ def _build_client(monkeypatch, fake_service) -> TestClient:
     return TestClient(app)
 
 
+def _build_query_token_client(monkeypatch, fake_service) -> TestClient:
+    """按生产挂载方式构造路由，保留真实 flexible 认证依赖。"""
+    monkeypatch.setattr(assistant, "get_assistant_service", lambda: fake_service)
+    monkeypatch.setenv("AUTH_ENABLED", "true")
+    monkeypatch.setenv("AUTH_TOKEN_SECRET", "entry-stream-query-token-secret-at-least-32-bytes")
+    app = FastAPI()
+    app.dependency_overrides[get_translator] = lambda: make_translator()
+    app.include_router(
+        assistant.router,
+        prefix="/api/v1/projects/{project_name}/assistant",
+        dependencies=[Depends(require_project_access_flexible)],
+    )
+    return TestClient(app)
+
+
 class TestEntryStreamRouter:
+    def test_query_token_authenticates_entry_stream(self, monkeypatch):
+        fake = _CursorCapturingService()
+        asyncio.run(register_project_owner(PROJECT, _FAKE_USER, project_id="entry-stream-project"))
+        client = _build_query_token_client(monkeypatch, fake)
+        token = create_token(_FAKE_USER.sub, user_id=_FAKE_USER.id, role=_FAKE_USER.role)
+
+        with client:
+            resp = client.get(
+                f"{PREFIX}/sessions/{SESSION_ID}/entries/stream",
+                params={"after": "0", "token": token},
+            )
+
+        assert resp.status_code == 200
+        assert fake.captured_after == 0
+
     def test_last_event_id_takes_precedence_over_after(self, monkeypatch):
         fake = _CursorCapturingService()
         with _build_client(monkeypatch, fake) as client:
