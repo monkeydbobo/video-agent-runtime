@@ -24,6 +24,21 @@ class TestVersionManagerMore:
         assert vm.get_version_prompt("characters", "Alice", 1) is None
         assert vm.has_versions("characters", "Alice") is False
 
+    def test_file_url_uses_logical_project_name(self, tmp_path):
+        """用户隔离目录以 UUID 落盘时，file_url 须按逻辑项目名拼接，不能用目录名。"""
+        project = tmp_path / "3c8a62e0-139e-484e-b669-b142578388be"
+        vm = VersionManager(project, project_name="proj-2284e596")
+
+        current = project / "characters" / "Alice.png"
+        current.parent.mkdir(parents=True, exist_ok=True)
+        current.write_bytes(b"png-v1")
+        vm.backup_current("characters", "Alice", current, "p1")
+
+        url = vm.get_version_file_url("characters", "Alice", 1)
+        assert url is not None
+        assert url.startswith("/api/v1/files/proj-2284e596/")
+        assert "3c8a62e0" not in url
+
     def test_add_backup_restore_paths(self, tmp_path):
         project = tmp_path / "demo"
         vm = VersionManager(project)

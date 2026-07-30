@@ -1203,8 +1203,11 @@ async def test_generate_episode_script_dry_run(fake_ctx: ToolContext, monkeypatc
     (project_path / "project.json").write_text(json.dumps({"content_mode": "narration"}), encoding="utf-8")
 
     class _FakeGenerator:
-        def __init__(self, _path, *, user_id):
+        def __init__(self, _path, *, user_id, project_name=None, project_manager=None, project_id=None):
             assert user_id == fake_ctx.user_id
+            assert project_name == fake_ctx.project_name
+            assert project_manager is fake_ctx.pm
+            assert project_id == fake_ctx.project_id
 
         async def build_prompt(self, _episode):
             return "fake prompt"
@@ -1249,8 +1252,11 @@ async def test_generate_episode_script_writes_to_default_project_scripts(fake_ct
 
     class _FakeGenerator:
         @classmethod
-        async def create(cls, _path, *, user_id):
+        async def create(cls, _path, *, user_id, project_name=None, project_id=None, project_manager=None):
             assert user_id == fake_ctx.user_id
+            assert project_name == fake_ctx.project_name
+            assert project_id == fake_ctx.project_id
+            assert project_manager is fake_ctx.pm
             return cls()
 
         async def generate(self, **kwargs) -> Path:
@@ -1277,8 +1283,11 @@ async def test_generate_episode_script_ad_skips_step1(fake_ctx: ToolContext, mon
 
     class _FakeGenerator:
         @classmethod
-        async def create(cls, _path, *, user_id):
+        async def create(cls, _path, *, user_id, project_name=None, project_id=None, project_manager=None):
             assert user_id == fake_ctx.user_id
+            assert project_name == fake_ctx.project_name
+            assert project_id == fake_ctx.project_id
+            assert project_manager is fake_ctx.pm
             return cls()
 
         async def generate(self, **_kwargs) -> Path:

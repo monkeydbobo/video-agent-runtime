@@ -221,7 +221,13 @@ def generate_episode_script_tool(ctx: ToolContext):
                     }
 
             if dry_run:
-                generator = ScriptGenerator(project_path, user_id=ctx.user_id)
+                generator = ScriptGenerator(
+                    project_path,
+                    user_id=ctx.user_id,
+                    project_name=ctx.project_name,
+                    project_manager=ctx.pm,
+                    project_id=ctx.project_id,
+                )
                 prompt = await generator.build_prompt(episode)
                 return {
                     "content": [{"type": "text", "text": f"DRY RUN — 以下是将发送给文本模型的 Prompt:\n\n{prompt}"}]
@@ -244,7 +250,16 @@ def generate_episode_script_tool(ctx: ToolContext):
                     "is_error": True,
                 }
 
-            generator = await ScriptGenerator.create(project_path, user_id=ctx.user_id)
+            # 用户隔离布局目录名是 UUID；必须传逻辑 project_name / project_id，
+            # 否则 ScriptGenerator.create 用 path.name 做 load_project 会报「项目不存在」
+            # （dry_run 只读磁盘，不经 ConfigResolver，故此前表现为 dry_run 正常、正式生成失败）。
+            generator = await ScriptGenerator.create(
+                project_path,
+                user_id=ctx.user_id,
+                project_name=ctx.project_name,
+                project_id=ctx.project_id,
+                project_manager=ctx.pm,
+            )
             result_path = await generator.generate(episode=episode)
             return {"content": [{"type": "text", "text": f"✅ 剧本生成完成: {result_path}"}]}
         except FileNotFoundError as exc:
