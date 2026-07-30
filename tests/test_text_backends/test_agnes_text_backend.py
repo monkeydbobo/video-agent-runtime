@@ -8,6 +8,7 @@ AgnesTextBackend 复用 OpenAITextBackend 的原生 + Instructor 降级流水线
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -17,23 +18,31 @@ from lib.providers import PROVIDER_AGNES
 from lib.text_backends.base import TextCapability, TextGenerationRequest
 
 
-def _make_mock_response(content="Hello", input_tokens=10, output_tokens=5):
-    """构造 mock ChatCompletion 响应。"""
-    usage = MagicMock()
-    usage.prompt_tokens = input_tokens
-    usage.completion_tokens = output_tokens
+def _make_mock_response(content="Hello", input_tokens=10, output_tokens=5, *, finish_reason="stop"):
+    """构造 mock 流式响应：delta chunk 序列 + 收尾 finish_reason chunk + 独立 usage chunk。
 
-    message = MagicMock()
-    message.content = content
+    与 OpenAITextBackend 同一条流式流水线（AgnesTextBackend 继承它），故 mock 形状也须是流。
+    """
+    usage = SimpleNamespace(prompt_tokens=input_tokens, completion_tokens=output_tokens)
+    chunks = [
+        SimpleNamespace(
+            choices=[SimpleNamespace(delta=SimpleNamespace(content=content), finish_reason=None)], usage=None
+        ),
+        SimpleNamespace(
+            choices=[SimpleNamespace(delta=SimpleNamespace(content=None), finish_reason=finish_reason)], usage=None
+        ),
+        SimpleNamespace(choices=[], usage=usage),
+    ]
 
-    choice = MagicMock()
-    choice.message = message
-    choice.finish_reason = "stop"
+    class _FakeStream:
+        def __aiter__(self):
+            return self._gen()
 
-    response = MagicMock()
-    response.choices = [choice]
-    response.usage = usage
-    return response
+        async def _gen(self):
+            for chunk in chunks:
+                yield chunk
+
+    return _FakeStream()
 
 
 class _PersonSchema(BaseModel):

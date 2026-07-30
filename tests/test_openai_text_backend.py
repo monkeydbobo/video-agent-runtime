@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -17,8 +18,66 @@ from lib.text_backends.base import (
 )
 
 
-def _make_mock_response(content="Hello", input_tokens=10, output_tokens=5):
-    """构造 mock ChatCompletion 响应。"""
+def _stream_chunks(chunks):
+    """把 chunk 列表包成 ``AsyncStream`` 那样的异步可迭代对象。
+
+    每次 ``__aiter__`` 都新建生成器，允许同一 mock 被重复迭代（``AsyncMock(return_value=...)``
+    每次 await 返回同一实例）。
+    """
+
+    class _FakeStream:
+        def __aiter__(self):
+            return self._gen()
+
+        async def _gen(self):
+            for chunk in chunks:
+                yield chunk
+
+    return _FakeStream()
+
+
+def _chunk(*, content=None, finish_reason=None, usage=None):
+    """构造单个 ChatCompletionChunk 形状的 delta chunk。
+
+    用 SimpleNamespace 而非 MagicMock：后者对任意属性都返回真值 mock，会让
+    ``getattr(chunk, "usage", None)`` 永不为 None，把「无 usage」的分支测不到。
+    """
+    choice = SimpleNamespace(delta=SimpleNamespace(content=content), finish_reason=finish_reason)
+    return SimpleNamespace(choices=[choice], usage=usage)
+
+
+def _usage_chunk(input_tokens, output_tokens):
+    """官方规范形态的收尾 usage chunk：choices 为空，仅携带 usage。"""
+    usage = SimpleNamespace(prompt_tokens=input_tokens, completion_tokens=output_tokens)
+    return SimpleNamespace(choices=[], usage=usage)
+
+
+def _make_mock_response(
+    content="Hello",
+    input_tokens=10,
+    output_tokens=5,
+    *,
+    finish_reason="stop",
+    include_usage=True,
+):
+    """构造 mock 流式响应：内容拆成两个 delta chunk（顺带覆盖聚合），再跟 finish_reason
+    chunk，末尾按需附独立 usage chunk。"""
+    mid = len(content) // 2
+    chunks = [
+        _chunk(content=content[:mid]),
+        _chunk(content=content[mid:]),
+        _chunk(finish_reason=finish_reason),
+    ]
+    if include_usage:
+        chunks.append(_usage_chunk(input_tokens, output_tokens))
+    return _stream_chunks(chunks)
+
+
+def _make_mock_completion(content="Hello", input_tokens=10, output_tokens=5, *, finish_reason="stop"):
+    """构造非流式 ChatCompletion 响应，供 dict-schema 降级路径（json_object 模式）使用。
+
+    降级路径刻意保持非流式（见 lib/text_backends/instructor_support.py），故其 mock 不能是流。
+    """
     usage = MagicMock()
     usage.prompt_tokens = input_tokens
     usage.completion_tokens = output_tokens
@@ -28,6 +87,7 @@ def _make_mock_response(content="Hello", input_tokens=10, output_tokens=5):
 
     choice = MagicMock()
     choice.message = message
+    choice.finish_reason = finish_reason
 
     response = MagicMock()
     response.choices = [choice]
@@ -150,12 +210,9 @@ class TestOpenAITextBackend:
         assert "response_format" in call_kwargs
 
     async def test_generate_usage_none_tolerant(self):
-        """usage 为 None 时不应崩溃。"""
-        response = _make_mock_response("OK")
-        response.usage = None
-
+        """流中无 usage chunk（供应商不支持 include_usage）时不应崩溃。"""
         mock_client = AsyncMock()
-        mock_client.chat.completions.create = AsyncMock(return_value=response)
+        mock_client.chat.completions.create = AsyncMock(return_value=_make_mock_response("OK", include_usage=False))
 
         with patch("lib.openai_shared.AsyncOpenAI", return_value=mock_client):
             from lib.text_backends.openai import OpenAITextBackend
@@ -426,7 +483,7 @@ class TestInstructorFallback:
         # 第二次调用（不带 response_format）返回正常结果
         fallback_json = json.dumps({"name": "Charlie", "age": 35})
         mock_client.chat.completions.create = AsyncMock(
-            side_effect=[_make_bad_request_error(), _make_mock_response(fallback_json, 12, 6)]
+            side_effect=[_make_bad_request_error(), _make_mock_completion(fallback_json, 12, 6)]
         )
 
         with patch("lib.openai_shared.AsyncOpenAI", return_value=mock_client):
@@ -575,7 +632,7 @@ class TestMaxOutputTokens:
         mock_client = AsyncMock()
         fallback_json = json.dumps({"name": "x"})
         mock_client.chat.completions.create = AsyncMock(
-            side_effect=[_make_bad_request_error(), _make_mock_response(fallback_json)]
+            side_effect=[_make_bad_request_error(), _make_mock_completion(fallback_json)]
         )
         with patch("lib.openai_shared.AsyncOpenAI", return_value=mock_client):
             from lib.text_backends.openai import OpenAITextBackend
@@ -597,7 +654,7 @@ class TestMaxOutputTokens:
         mock_client = AsyncMock()
         fallback_json = json.dumps({"name": "x"})
         mock_client.chat.completions.create = AsyncMock(
-            side_effect=[_make_bad_request_error(), _make_mock_response(fallback_json)]
+            side_effect=[_make_bad_request_error(), _make_mock_completion(fallback_json)]
         )
         with patch("lib.openai_shared.AsyncOpenAI", return_value=mock_client):
             from lib.text_backends.openai import OpenAITextBackend
@@ -654,8 +711,7 @@ class TestTruncation:
         from lib.text_backends.base import TextOutputTruncatedError
 
         mock_client = AsyncMock()
-        response = _make_mock_response(json.dumps({"name": "x"}))
-        response.choices[0].finish_reason = "length"
+        response = _make_mock_response(json.dumps({"name": "x"}), finish_reason="length")
         mock_client.chat.completions.create = AsyncMock(return_value=response)
 
         with patch("lib.openai_shared.AsyncOpenAI", return_value=mock_client):
@@ -673,8 +729,7 @@ class TestTruncation:
     async def test_free_text_truncation_only_warns(self, caplog):
         import logging
 
-        response = _make_mock_response("partial")
-        response.choices[0].finish_reason = "length"
+        response = _make_mock_response("partial", finish_reason="length")
         mock_client = AsyncMock()
         mock_client.chat.completions.create = AsyncMock(return_value=response)
 
@@ -687,3 +742,115 @@ class TestTruncation:
 
         assert result.text == "partial"
         assert any("被截断" in r.message for r in caplog.records)
+
+
+class TestStreaming:
+    """流式聚合：中转网关的 proxy_read_timeout 按读空闲间隔计，长输出必须靠 chunk 续命。"""
+
+    async def test_request_asks_for_stream_and_usage(self):
+        mock_client = AsyncMock()
+        mock_client.chat.completions.create = AsyncMock(return_value=_make_mock_response("ok"))
+
+        with patch("lib.openai_shared.AsyncOpenAI", return_value=mock_client):
+            from lib.text_backends.openai import OpenAITextBackend
+
+            await OpenAITextBackend(api_key="k").generate(TextGenerationRequest(prompt="hi"))
+
+        call_kwargs = mock_client.chat.completions.create.call_args[1]
+        assert call_kwargs["stream"] is True
+        assert call_kwargs["stream_options"] == {"include_usage": True}
+
+    async def test_multiple_chunks_are_joined_in_order(self):
+        stream = _stream_chunks(
+            [
+                _chunk(content="第一"),
+                _chunk(content="第二"),
+                _chunk(content="第三"),
+                _chunk(finish_reason="stop"),
+                _usage_chunk(11, 7),
+            ]
+        )
+        mock_client = AsyncMock()
+        mock_client.chat.completions.create = AsyncMock(return_value=stream)
+
+        with patch("lib.openai_shared.AsyncOpenAI", return_value=mock_client):
+            from lib.text_backends.openai import OpenAITextBackend
+
+            result = await OpenAITextBackend(api_key="k").generate(TextGenerationRequest(prompt="hi"))
+
+        assert result.text == "第一第二第三"
+        assert result.input_tokens == 11
+        assert result.output_tokens == 7
+
+    async def test_usage_carried_on_final_content_chunk(self):
+        """部分中转把 usage 挂在带 finish_reason 的收尾 chunk 上，而非独立空 choices chunk。"""
+        usage = SimpleNamespace(prompt_tokens=9, completion_tokens=4)
+        stream = _stream_chunks(
+            [
+                _chunk(content="hi"),
+                _chunk(finish_reason="stop", usage=usage),
+            ]
+        )
+        mock_client = AsyncMock()
+        mock_client.chat.completions.create = AsyncMock(return_value=stream)
+
+        with patch("lib.openai_shared.AsyncOpenAI", return_value=mock_client):
+            from lib.text_backends.openai import OpenAITextBackend
+
+            result = await OpenAITextBackend(api_key="k").generate(TextGenerationRequest(prompt="hi"))
+
+        assert result.text == "hi"
+        assert result.input_tokens == 9
+        assert result.output_tokens == 4
+
+    async def test_empty_choices_chunk_does_not_raise(self):
+        """usage-only chunk 的 choices 为空，取 choices[0] 会 IndexError。"""
+        mock_client = AsyncMock()
+        mock_client.chat.completions.create = AsyncMock(
+            return_value=_stream_chunks([_usage_chunk(3, 2), _chunk(content="x"), _chunk(finish_reason="stop")])
+        )
+
+        with patch("lib.openai_shared.AsyncOpenAI", return_value=mock_client):
+            from lib.text_backends.openai import OpenAITextBackend
+
+            result = await OpenAITextBackend(api_key="k").generate(TextGenerationRequest(prompt="hi"))
+
+        assert result.text == "x"
+
+    async def test_reasoning_content_is_not_collected(self):
+        """推理模型的思维链走 delta.reasoning_content，不属于可交付输出，须与非流式口径一致。"""
+        reasoning_delta = SimpleNamespace(content=None, reasoning_content="先想一想")
+        stream = _stream_chunks(
+            [
+                SimpleNamespace(choices=[SimpleNamespace(delta=reasoning_delta, finish_reason=None)], usage=None),
+                _chunk(content="答案"),
+                _chunk(finish_reason="stop"),
+                _usage_chunk(5, 5),
+            ]
+        )
+        mock_client = AsyncMock()
+        mock_client.chat.completions.create = AsyncMock(return_value=stream)
+
+        with patch("lib.openai_shared.AsyncOpenAI", return_value=mock_client):
+            from lib.text_backends.openai import OpenAITextBackend
+
+            result = await OpenAITextBackend(api_key="k").generate(TextGenerationRequest(prompt="hi"))
+
+        assert result.text == "答案"
+
+    async def test_missing_usage_warns(self, caplog):
+        import logging
+
+        mock_client = AsyncMock()
+        mock_client.chat.completions.create = AsyncMock(return_value=_make_mock_response("ok", include_usage=False))
+
+        with patch("lib.openai_shared.AsyncOpenAI", return_value=mock_client):
+            from lib.text_backends.openai import OpenAITextBackend
+
+            backend = OpenAITextBackend(api_key="k")
+            with caplog.at_level(logging.WARNING, logger="lib.text_backends.openai"):
+                result = await backend.generate(TextGenerationRequest(prompt="hi"))
+
+        assert result.input_tokens is None
+        assert result.output_tokens is None
+        assert any("未返回 usage" in r.message for r in caplog.records)
