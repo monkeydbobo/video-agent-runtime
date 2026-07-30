@@ -18,6 +18,7 @@ import json
 import logging
 import statistics
 from collections.abc import Callable, Mapping
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,7 @@ from lib.episode_ledger import (
 )
 from lib.episode_paths import episode_script_relpath
 from lib.project_manager import ProjectManager, resolve_source_kind
+from lib.project_paths import project_user_scope
 from lib.text_backends.base import (
     DEFAULT_MAX_OUTPUT_TOKENS,
     TextGenerationRequest,
@@ -408,23 +410,67 @@ class EpisodePlanner:
         project_path: str | Path,
         generator: TextGenerator | None = None,
         *,
+        project_name: str | None = None,
+        project_manager: ProjectManager | None = None,
+        user_id: str | None = None,
+        project_id: str | None = None,
         max_attempts: int = _MAX_PLAN_ATTEMPTS,
     ):
         self.project_path = Path(project_path)
-        self.project_name = self.project_path.name
+        self.project_name = project_name or self.project_path.name
         self.generator = generator
+        self.user_id = user_id
+        self.project_id = project_id
         self.max_attempts = max_attempts
-        self.pm = ProjectManager(str(self.project_path.parent))
+        self.pm = project_manager or ProjectManager(str(self.project_path.parent))
 
     @classmethod
-    async def create(cls, project_path: str | Path, *, user_id: str) -> EpisodePlanner:
+    async def create(
+        cls,
+        project_path: str | Path,
+        *,
+        user_id: str,
+        project_name: str | None = None,
+        project_id: str | None = None,
+        project_manager: ProjectManager | None = None,
+    ) -> EpisodePlanner:
         """异步工厂：按项目配置创建文本后端（与剧本生成同一条 SCRIPT 任务配置链）。
 
         ``user_id`` 必传且不设默认，见 ``TextGenerator.__init__``。
         """
-        project_name = Path(project_path).name
-        generator = await TextGenerator.create(TextTaskType.SCRIPT, project_name, user_id=user_id)
-        return cls(project_path, generator)
+        resolved_name = project_name or Path(project_path).name
+        scope = (
+            project_user_scope(user_id, project_name=resolved_name, project_id=project_id)
+            if project_id is not None
+            else nullcontext()
+        )
+        with scope:
+            generator = await TextGenerator.create(TextTaskType.SCRIPT, resolved_name, user_id=user_id)
+        return cls(
+            project_path,
+            generator,
+            project_name=resolved_name,
+            project_manager=project_manager,
+            user_id=user_id,
+            project_id=project_id,
+        )
+
+    def _project_scope(self):
+        if self.user_id is not None and self.project_id is not None:
+            return project_user_scope(
+                self.user_id,
+                project_name=self.project_name,
+                project_id=self.project_id,
+            )
+        return nullcontext()
+
+    def _load_project(self) -> dict[str, Any]:
+        with self._project_scope():
+            return self.pm.load_project(self.project_name)
+
+    def _update_project(self, mutate_fn: Callable[[dict], None]) -> dict[str, Any]:
+        with self._project_scope():
+            return self.pm.update_project(self.project_name, mutate_fn)
 
     # ---------------------------------------------------------------- plan
 
@@ -439,7 +485,7 @@ class EpisodePlanner:
         分多批、指令不持久化，调用方须在每批 plan 调用都重复带上。
         """
         planning_instructions = (instructions or "").strip() or None
-        project = backfill_episode_ledger(self.project_path, self.pm.load_project(self.project_name))
+        project = backfill_episode_ledger(self.project_path, self._load_project())
         start_ref = self._effective_start(project)
         source_rel, start = start_ref
         text = self._load_normalized_source(source_rel)
@@ -545,7 +591,7 @@ class EpisodePlanner:
                 window_is_final and not text[start + ends[-1] :].strip() and self._next_source_rel(source_rel) is None
             )
 
-        final_project = self.pm.update_project(self.project_name, _commit)
+        final_project = self._update_project(_commit)
         exhausted = bool(committed["exhausted"])
         return PlanResult(
             episodes=summaries,
@@ -575,7 +621,7 @@ class EpisodePlanner:
         确认后这些集号在新布局中标 stale。全局性意见（每集体量）回写项目设置，
         后续批次自动继承。
         """
-        project = backfill_episode_ledger(self.project_path, self.pm.load_project(self.project_name))
+        project = backfill_episode_ledger(self.project_path, self._load_project())
         scope = self._replan_scope(project, from_episode)
         consumed = [num for num, entry in scope.affected if entry.get("ledger_status") == "consumed"]
         if consumed and not confirm_consumed:
@@ -708,7 +754,7 @@ class EpisodePlanner:
             self._reconcile_derived_files(p, texts)
             committed["cursor"] = p.get("planning_cursor")
 
-        final_project = self.pm.update_project(self.project_name, _commit)
+        final_project = self._update_project(_commit)
         return PlanResult(
             episodes=summaries,
             cursor=committed["cursor"],

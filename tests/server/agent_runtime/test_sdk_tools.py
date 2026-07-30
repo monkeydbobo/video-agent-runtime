@@ -1578,10 +1578,21 @@ def _fake_planner_cls(result: Any, captured: dict[str, Any] | None = None):
             pass
 
         @classmethod
-        async def create(cls, project_path, *, user_id):
+        async def create(
+            cls,
+            project_path,
+            *,
+            user_id,
+            project_name=None,
+            project_id=None,
+            project_manager=None,
+        ):
             if captured is not None:
                 captured["project_path"] = project_path
                 captured["user_id"] = user_id
+                captured["project_name"] = project_name
+                captured["project_id"] = project_id
+                captured["project_manager"] = project_manager
             return cls()
 
         async def plan(self, instructions=None):
@@ -1625,6 +1636,9 @@ async def test_plan_episodes_happy(fake_ctx: ToolContext, monkeypatch) -> None:
     assert "古玉藏诀" in text and "剑诀来历成谜" in text and "812" in text
     assert "城门遇袭" in text
     assert captured["project_path"] == fake_ctx.project_path
+    assert captured["project_name"] == fake_ctx.project_name
+    assert captured["project_id"] == fake_ctx.project_id
+    assert captured["project_manager"] is fake_ctx.pm
     assert captured["plan_instructions"] is None  # 不传时透传 None
 
 
