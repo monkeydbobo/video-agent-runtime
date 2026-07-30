@@ -137,6 +137,30 @@ class AgentAccessPolicy:
         "Grep": "path",
     }
     _WRITE_TOOLS: ClassVar[set[str]] = {"Write", "Edit"}
+    # Read 拒读的二进制/媒体扩展名。Read 会把图片按 base64 塞进消息流，单张资产图
+    # （约 150–250KB）膨胀后就有几百 KB，一轮读几张即撑爆 CLI→SDK 的单条消息缓冲，
+    # reader 抛 fatal 打死整个会话 actor。视频/音频/压缩包 Read 本就读不出有效内容。
+    # agent 需要看图时应走 Web 端，而非把字节灌进上下文。
+    _MEDIA_READ_FORBIDDEN_SUFFIXES: ClassVar[set[str]] = {
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".webp",
+        ".gif",
+        ".bmp",
+        ".tiff",
+        ".ico",
+        ".mp4",
+        ".mov",
+        ".webm",
+        ".mkv",
+        ".mp3",
+        ".wav",
+        ".m4a",
+        ".aac",
+        ".flac",
+        ".zip",
+    }
     _CODE_EXTENSIONS_FORBIDDEN: ClassVar[set[str]] = {
         ".py",
         ".js",
@@ -223,8 +247,9 @@ class AgentAccessPolicy:
     ) -> tuple[bool, str | None]:
         """检查 file_path 是否允许给定工具访问，返回 ``(allowed, deny_reason)``。
 
-        三步 dispatch：
+        四步 dispatch：
         - 规则 0：敏感文件（.env / vertex_keys / settings.json 等）一律拒
+        - 规则 1：Read 读二进制/媒体文件一律拒（见 ``_MEDIA_READ_FORBIDDEN_SUFFIXES``）
         - 写工具（Write/Edit）→ ``_check_write_access``
         - 读工具（Read/Glob/Grep）→ ``_check_read_access``
         """
@@ -242,6 +267,14 @@ class AgentAccessPolicy:
         # 规则 0: 敏感文件强制拒绝
         if self.is_sensitive_path(resolved):
             return False, f"访问被拒绝：敏感文件不可访问 ({resolved})"
+
+        # 规则 1: Read 不读二进制/媒体文件
+        if tool_name == "Read" and resolved.suffix.lower() in self._MEDIA_READ_FORBIDDEN_SUFFIXES:
+            return False, (
+                f"访问被拒绝：Read 不能读取二进制/媒体文件 ({resolved.name})。"
+                "图片与视频请让用户在 Web 端查看；需要确认资产是否已生成时，"
+                "改用列目录或读 project.json 里的资产字段。"
+            )
 
         if tool_name in self._WRITE_TOOLS:
             return self._check_write_access(resolved, project_cwd, logical_norm=logical_norm)

@@ -12,6 +12,7 @@ policy，装配天职是开会话时现场读 DB / 扫盘则允许 I/O 归本类
 
 import json
 import logging
+import os
 from collections.abc import Awaitable, Callable, Sequence
 from pathlib import Path
 from typing import Any
@@ -42,6 +43,29 @@ SDK_AVAILABLE = True
 
 class AgentConfigurationError(RuntimeError):
     """Agent 模型凭证未配置或未启用。"""
+
+
+# CLI→SDK 单条 stdout JSON 的缓冲上限。SDK 默认 1MB，而 agent 只要在一轮里读几张
+# 资产图（base64 后每张约 200KB）或拿到一个大 tool result，单条消息就能打满——
+# reader 抛 fatal 直接打死会话 actor（整个会话不可用，非本轮失败）。放宽到 32MB
+# 兜住这类突发大消息；部署侧可用环境变量收紧。
+_DEFAULT_SDK_MAX_BUFFER_BYTES = 32 * 1024 * 1024
+
+
+def sdk_max_buffer_size() -> int:
+    """解析 SDK stdout 缓冲上限；``ARCREEL_SDK_MAX_BUFFER_BYTES`` 非法时回退默认值。"""
+    raw = os.environ.get("ARCREEL_SDK_MAX_BUFFER_BYTES", "").strip()
+    if not raw:
+        return _DEFAULT_SDK_MAX_BUFFER_BYTES
+    try:
+        parsed = int(raw)
+    except ValueError:
+        logger.warning("ARCREEL_SDK_MAX_BUFFER_BYTES 非整数，回退默认值: %r", raw)
+        return _DEFAULT_SDK_MAX_BUFFER_BYTES
+    if parsed <= 0:
+        logger.warning("ARCREEL_SDK_MAX_BUFFER_BYTES 必须为正，回退默认值: %r", raw)
+        return _DEFAULT_SDK_MAX_BUFFER_BYTES
+    return parsed
 
 
 async def load_provider_env_overrides(*, user_id: str) -> dict[str, str]:
@@ -77,6 +101,7 @@ _PERSONA_PROMPT = """\
 - 遇到不确定的创作决策时，向用户提出选项并给出建议，而不是自行决定
 - 涉及多步骤任务时，使用 TodoWrite 跟踪进度并向用户汇报
 - Write/Edit 不要写入代码文件（扩展名 .py/.js/.ts/.tsx/.sh/.yaml/.yml/.toml）；数据文件（.json/.md/.txt/.html/.csv 等）可以正常写入。代码逻辑应通过现有 skill 脚本完成
+- 不要用 Read 打开图片/视频等二进制文件（读不出有效内容，且会撑爆消息缓冲导致会话中断）。确认资产是否已生成请列目录或读 project.json 的资产字段；画面效果交由用户在 Web 端判断
 - 你是用户的视频制作搭档，专业、友善、高效"""
 
 
@@ -356,6 +381,7 @@ class OptionsAssembler:
                 append=self._build_append_prompt(project_name, locale=locale),
             ),
             include_partial_messages=True,
+            max_buffer_size=sdk_max_buffer_size(),
             resume=resume_id,
             can_use_tool=can_use_tool,
             hooks=hooks,  # type: ignore[arg-type]
