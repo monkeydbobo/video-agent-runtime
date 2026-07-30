@@ -10,11 +10,13 @@ from typing import Any
 from claude_agent_sdk import tool
 
 from server.agent_runtime.sdk_tools._context import ToolContext, tool_error, validate_script_filename
+from server.public_media import build_public_project_file_url
 
 _COMPOSE_SCRIPT = (
     Path(__file__).resolve().parents[3] / "agent_runtime_profile/.claude/skills/compose-video/scripts/compose_video.py"
 )
 _PROCESS_TIMEOUT_SECONDS = 30 * 60
+_OUTPUT_MARKER = "ARCREEL_COMPOSE_OUTPUT="
 
 
 def _validate_relative_file(value: Any, *, field: str) -> str:
@@ -24,6 +26,18 @@ def _validate_relative_file(value: Any, *, field: str) -> str:
     if path.is_absolute() or any(part == ".." for part in path.parts):
         raise ValueError(f"{field} 必须位于当前项目目录内")
     return value
+
+
+def _extract_output_path(log: str, *, project_path: Path) -> Path:
+    """从合成脚本的机器可读标记中取回项目内相对输出路径。"""
+    output_lines = [line.removeprefix(_OUTPUT_MARKER) for line in log.splitlines() if line.startswith(_OUTPUT_MARKER)]
+    if len(output_lines) != 1:
+        raise RuntimeError("合成完成但未收到成片输出路径")
+    relative_output = _validate_relative_file(output_lines[0], field="合成输出")
+    output_path = (project_path / relative_output).resolve()
+    if not output_path.is_relative_to(project_path.resolve()) or not output_path.is_file():
+        raise RuntimeError("合成输出文件无效或不在当前项目内")
+    return output_path
 
 
 def compose_video_tool(ctx: ToolContext):
@@ -89,9 +103,21 @@ def compose_video_tool(ctx: ToolContext):
             log = stdout.decode("utf-8", errors="replace").strip()
             if process.returncode != 0:
                 raise RuntimeError(f"FFmpeg 合成失败（退出码 {process.returncode}）")
-            if len(log) > 20_000:
-                log = log[-20_000:]
-            return {"content": [{"type": "text", "text": f"✅ 视频已在 Railway 容器中合成。\n{log}".strip()}]}
+            output_path = _extract_output_path(log, project_path=project_path)
+            download_url = build_public_project_file_url(
+                output_path,
+                project_path=project_path,
+                project_name=ctx.project_name,
+                user_id=ctx.user_id,
+            )
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"✅ 视频合成完成。\n下载链接（5 分钟内有效）：{download_url}",
+                    }
+                ]
+            }
         except Exception as exc:  # noqa: BLE001
             return tool_error("compose_video", exc)
 

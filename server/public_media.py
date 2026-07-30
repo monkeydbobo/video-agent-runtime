@@ -19,18 +19,18 @@ def _public_media_base_url() -> str:
     return value
 
 
-def build_streamlake_first_frame_url(
-    image_path: Path,
+def build_public_project_file_url(
+    file_path: Path,
     *,
     project_path: Path,
     project_name: str,
     user_id: str,
 ) -> str:
-    """返回仅允许读取一张项目内首帧的外部可访问 URL。"""
+    """返回仅允许读取一个项目文件的短时 CDN URL。"""
     try:
-        relative_path = image_path.resolve().relative_to(project_path.resolve()).as_posix()
+        relative_path = file_path.resolve().relative_to(project_path.resolve()).as_posix()
     except ValueError as exc:
-        raise ValueError("溪流湖首帧必须位于项目目录内，无法生成公开静态 URL") from exc
+        raise ValueError("文件必须位于项目目录内，无法生成公开静态 URL") from exc
 
     token = create_media_token(
         user_id,
@@ -41,4 +41,20 @@ def build_streamlake_first_frame_url(
     encoded_path = quote(relative_path, safe="/")
     return (
         f"{_public_media_base_url()}/api/v1/files/{encoded_project}/{encoded_path}?{urlencode({'media_token': token})}"
+    )
+
+
+def build_streamlake_first_frame_url(
+    image_path: Path,
+    *,
+    project_path: Path,
+    project_name: str,
+    user_id: str,
+) -> str:
+    """兼容溪流湖首帧调用的项目文件短时 URL 构造器。"""
+    return build_public_project_file_url(
+        image_path,
+        project_path=project_path,
+        project_name=project_name,
+        user_id=user_id,
     )
