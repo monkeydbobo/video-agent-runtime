@@ -265,6 +265,7 @@ class TestMediaTokenMatrix:
 
         assert first.status_code == 200
         assert first.content == b"first"
+        assert first.headers["cache-control"] == "public, max-age=240"
         assert other.status_code == 401
 
 
