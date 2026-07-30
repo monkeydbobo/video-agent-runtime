@@ -167,12 +167,17 @@ async def test_compose_video_runs_in_railway_project_dir(
 ) -> None:
     """合成工具必须在 Railway 项目目录执行，而不是把命令交给 E2B。"""
     captured: dict[str, Any] = {}
+    output = fake_ctx.project_path / "output" / "episode_1_final.mp4"
+    output.parent.mkdir()
+    output.write_bytes(b"mp4")
+    monkeypatch.setenv("AUTH_TOKEN_SECRET", "test-secret-for-media-token-32b!")
+    monkeypatch.setenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", "https://media.example.com")
 
     class _FakeProcess:
         returncode = 0
 
         async def communicate(self) -> tuple[bytes, bytes]:
-            return "合成完成\n".encode(), b""
+            return "合成完成\nARCREEL_COMPOSE_OUTPUT=output/episode_1_final.mp4\n".encode(), b""
 
     async def _create_process(*command: str, **kwargs: Any) -> _FakeProcess:
         captured["command"] = command
@@ -188,6 +193,9 @@ async def test_compose_video_runs_in_railway_project_dir(
     assert captured["command"][0]  # sys.executable
     assert captured["command"][-1] == "episode_1.json"
     assert "agent_runtime_profile" in str(captured["command"][1])
+    text = out["content"][0]["text"]
+    assert "https://media.example.com/api/v1/files/demo/output/episode_1_final.mp4?media_token=" in text
+    assert str(fake_ctx.project_path) not in text
 
 
 async def test_compose_video_rejects_script_path(fake_ctx: ToolContext) -> None:

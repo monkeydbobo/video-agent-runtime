@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 
 from server.auth import verify_media_token
-from server.public_media import build_streamlake_first_frame_url
+from server.public_media import build_public_project_file_url, build_streamlake_first_frame_url
 
 
 def test_build_streamlake_first_frame_url_uses_public_domain_and_file_scoped_token(tmp_path, monkeypatch):
@@ -37,6 +37,31 @@ def test_build_streamlake_first_frame_url_uses_public_domain_and_file_scoped_tok
         user_id="alice-id",
         project_name="我的项目",
         asset_path="storyboards/首帧 图.png",
+    )
+
+
+def test_build_public_project_file_url_uses_same_file_scoped_contract(tmp_path, monkeypatch):
+    monkeypatch.setenv("AUTH_TOKEN_SECRET", "test-secret-for-media-token-32b!")
+    monkeypatch.setenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", "https://media.example.com")
+    video = tmp_path / "output" / "episode_1_final.mp4"
+    video.parent.mkdir()
+    video.write_bytes(b"mp4")
+
+    url = build_public_project_file_url(
+        video,
+        project_path=tmp_path,
+        project_name="demo",
+        user_id="alice-id",
+    )
+
+    parsed = urlsplit(url)
+    assert parsed.netloc == "media.example.com"
+    assert parsed.path == "/api/v1/files/demo/output/episode_1_final.mp4"
+    verify_media_token(
+        parse_qs(parsed.query)["media_token"][0],
+        user_id="alice-id",
+        project_name="demo",
+        asset_path="output/episode_1_final.mp4",
     )
 
 

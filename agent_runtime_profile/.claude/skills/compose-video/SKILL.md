@@ -17,6 +17,8 @@ description: 把已生成的视频片段按剧本顺序拼接为单集成片，�
 
 必须调用 `mcp__arcreel__compose_video`，不要在 E2B Bash 中直接运行 Python 合成脚本。该工具在
 Railway 主容器的当前项目目录执行，视频/音频文件无需上传到 E2B，FFmpeg 也由 Railway 镜像提供。
+成功后工具会返回 `media.oioi.bio` 上的成片下载链接（仅限该文件、5 分钟有效），不要向用户展示
+Railway 容器内的绝对文件路径。
 
 最简调用：`script: "episode_1.json"`。
 

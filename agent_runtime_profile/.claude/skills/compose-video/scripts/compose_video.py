@@ -685,7 +685,7 @@ def compose_video(
     else:
         concatenate_simple(video_paths, output_path)
 
-    print(f"✅ 视频合成完成: {output_path}")
+    print(f"✅ 视频合成完成: {output_path.relative_to(project_dir)}")
 
     # 添加背景音乐（存在性已在前置校验保证）
     if music_file is not None:
@@ -693,7 +693,7 @@ def compose_video(
         final_output = output_path.with_stem(output_path.stem + "_with_music")
         add_background_music(output_path, music_file, final_output)
         output_path = final_output
-        print(f"✅ 背景音乐添加完成: {output_path}")
+        print(f"✅ 背景音乐添加完成: {output_path.relative_to(project_dir)}")
 
     return output_path
 
@@ -717,7 +717,8 @@ def main():
     try:
         output_path = compose_video(args.script, args.output, args.music, use_transitions=not args.no_transitions)
 
-        print(f"\n🎉 最终视频: {output_path}")
+        print("\n🎉 最终视频已生成")
+        print(f"ARCREEL_COMPOSE_OUTPUT={output_path.relative_to(Path.cwd()).as_posix()}")
         print("   单独片段保留在: videos/")
 
     except Exception as e:
