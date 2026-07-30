@@ -18,6 +18,7 @@ from lib.db.base import DEFAULT_USER_ID
 from lib.project_paths import ProjectLocation
 from server.agent_runtime.sdk_tools import build_arcreel_mcp_server
 from server.agent_runtime.sdk_tools._context import ToolContext
+from server.agent_runtime.sdk_tools.compose_video import compose_video_tool
 from server.agent_runtime.sdk_tools.enqueue_assets import (
     generate_assets_tool,
     list_pending_assets_tool,
@@ -159,6 +160,40 @@ def test_generate_narration_audio_registered() -> None:
     from server.agent_runtime.sdk_tools import ARCREEL_MCP_TOOL_IDS
 
     assert "generate_narration_audio" in ARCREEL_MCP_TOOL_IDS
+
+
+async def test_compose_video_runs_in_railway_project_dir(
+    fake_ctx: ToolContext, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """合成工具必须在 Railway 项目目录执行，而不是把命令交给 E2B。"""
+    captured: dict[str, Any] = {}
+
+    class _FakeProcess:
+        returncode = 0
+
+        async def communicate(self) -> tuple[bytes, bytes]:
+            return "合成完成\n".encode(), b""
+
+    async def _create_process(*command: str, **kwargs: Any) -> _FakeProcess:
+        captured["command"] = command
+        captured.update(kwargs)
+        return _FakeProcess()
+
+    monkeypatch.setattr("server.agent_runtime.sdk_tools.compose_video.asyncio.create_subprocess_exec", _create_process)
+
+    out = await _call(compose_video_tool(fake_ctx), {"script": "episode_1.json"})
+
+    assert out.get("is_error") is not True
+    assert captured["cwd"] == fake_ctx.project_path
+    assert captured["command"][0]  # sys.executable
+    assert captured["command"][-1] == "episode_1.json"
+    assert "agent_runtime_profile" in str(captured["command"][1])
+
+
+async def test_compose_video_rejects_script_path(fake_ctx: ToolContext) -> None:
+    out = await _call(compose_video_tool(fake_ctx), {"script": "scripts/episode_1.json"})
+    assert out.get("is_error") is True
+    assert "路径分隔符" in out["content"][0]["text"]
 
 
 # ---------------------------------------------------------------------------
