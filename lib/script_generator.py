@@ -8,6 +8,7 @@ import json
 import logging
 import re
 from collections import Counter
+from contextlib import nullcontext
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Optional
@@ -27,6 +28,7 @@ from lib.episode_paths import (
     episode_script_filename,
 )
 from lib.project_manager import ProjectManager, effective_mode
+from lib.project_paths import project_user_scope
 from lib.prompt_builders_ad import build_ad_prompt
 from lib.prompt_builders_reference import build_reference_video_prompt
 from lib.prompt_builders_script import (
@@ -106,7 +108,16 @@ class ScriptGenerator:
     读取 Step 1/2 的 Markdown 中间文件，调用 TextBackend 生成最终 JSON 剧本
     """
 
-    def __init__(self, project_path: str | Path, generator: Optional["TextGenerator"] = None, *, user_id: str):
+    def __init__(
+        self,
+        project_path: str | Path,
+        generator: Optional["TextGenerator"] = None,
+        *,
+        user_id: str,
+        project_name: str | None = None,
+        project_manager: ProjectManager | None = None,
+        project_id: str | None = None,
+    ):
         """
         初始化生成器
 
@@ -116,14 +127,34 @@ class ScriptGenerator:
             user_id: 项目所有者。视频能力解析按此身份读供应商配置，必传且不设默认——
                 供应商配置按用户分片后，落到非所有者的分片会按别人的模型上限派生
                 片段时长枚举。
+            project_name: 逻辑项目名（API/账本侧）；用户隔离布局下目录名是 UUID，不能用 path.name。
+            project_manager: 全局 ProjectManager（projects_root 正确）；缺省时用 path.parent 回退。
+            project_id: 用户隔离布局下的不可变项目 ID，用于绑定 project_user_scope。
         """
         self.project_path = Path(project_path)
+        self.project_name = project_name or self.project_path.name
         self.generator = generator
         self._user_id = user_id
+        self.project_id = project_id
+        self.pm = project_manager or ProjectManager(str(self.project_path.parent))
 
         # 加载 project.json
         self.project_json = self._load_project_json()
         self.content_mode = self.project_json.get("content_mode", "narration")
+
+    def _project_scope(self):
+        if self.project_id is not None:
+            return project_user_scope(
+                self._user_id,
+                project_name=self.project_name,
+                project_id=self.project_id,
+            )
+        return nullcontext()
+
+    def _save_script(self, script_data: dict, filename: str) -> Path:
+        """经 ProjectManager 写盘；用户隔离布局下绑定逻辑名 → project_id。"""
+        with self._project_scope():
+            return self.pm.save_script(self.project_name, script_data, filename, validate=True)
 
     def _episode_entry(self, episode: int) -> dict:
         """按集号取 project.json episodes 条目；缺失返回空 dict。"""
@@ -147,11 +178,36 @@ class ScriptGenerator:
         return raw_outline if isinstance(raw_outline, dict) else {}
 
     @classmethod
-    async def create(cls, project_path: str | Path, *, user_id: str) -> "ScriptGenerator":
-        """异步工厂方法，自动从 DB 加载供应商配置创建 TextGenerator。"""
-        project_name = Path(project_path).name
-        generator = await TextGenerator.create(TextTaskType.SCRIPT, project_name, user_id=user_id)
-        return cls(project_path, generator, user_id=user_id)
+    async def create(
+        cls,
+        project_path: str | Path,
+        *,
+        user_id: str,
+        project_name: str | None = None,
+        project_id: str | None = None,
+        project_manager: ProjectManager | None = None,
+    ) -> "ScriptGenerator":
+        """异步工厂方法，自动从 DB 加载供应商配置创建 TextGenerator。
+
+        用户隔离布局下目录名是 UUID；必须传逻辑 ``project_name``（及可选 ``project_id``），
+        否则 ConfigResolver 会按 path.name 做 ``load_project`` 报「项目不存在」。
+        """
+        resolved_name = project_name or Path(project_path).name
+        scope = (
+            project_user_scope(user_id, project_name=resolved_name, project_id=project_id)
+            if project_id is not None
+            else nullcontext()
+        )
+        with scope:
+            generator = await TextGenerator.create(TextTaskType.SCRIPT, resolved_name, user_id=user_id)
+        return cls(
+            project_path,
+            generator,
+            user_id=user_id,
+            project_name=resolved_name,
+            project_manager=project_manager,
+            project_id=project_id,
+        )
 
     async def generate(
         self,
@@ -278,7 +334,7 @@ class ScriptGenerator:
                 response_schema=DramaVisualScript,
                 max_output_tokens=DEFAULT_MAX_OUTPUT_TOKENS,
             ),
-            project_name=self.project_path.name,
+            project_name=self.project_name,
         )
 
         visual_scenes = self._parse_drama_visual(result.text)
@@ -288,8 +344,7 @@ class ScriptGenerator:
         script_data = self._add_metadata(script_data, episode)
 
         filename = output_filename or episode_script_filename(episode)
-        pm = ProjectManager(str(self.project_path.parent))
-        output_path = pm.save_script(self.project_path.name, script_data, filename, validate=True)
+        output_path = self._save_script(script_data, filename)
 
         self._quality_probe(script_data, episode)
         logger.info("剧本已保存至 %s", output_path)
@@ -352,14 +407,13 @@ class ScriptGenerator:
         assert self.generator is not None  # generate() 入口已检查
         # 调用 TextBackend
         logger.info("正在生成第 %d 集剧本...", episode)
-        project_name = self.project_path.name
         result = await self.generator.generate(
             TextGenerationRequest(
                 prompt=prompt,
                 response_schema=schema,
                 max_output_tokens=DEFAULT_MAX_OUTPUT_TOKENS,
             ),
-            project_name=project_name,
+            project_name=self.project_name,
         )
         response_text = result.text
 
@@ -377,8 +431,7 @@ class ScriptGenerator:
         # Pydantic 校验），并继承 metadata 重算、加锁、filename↔episode 一致性与 project.json
         # 同步——消除「裸 json.dump 旁路」，使 _write_script_unlocked 成为剧本唯一写入点。
         filename = output_filename or episode_script_filename(episode)
-        pm = ProjectManager(str(self.project_path.parent))
-        output_path = pm.save_script(self.project_path.name, script_data, filename, validate=True)
+        output_path = self._save_script(script_data, filename)
 
         self._quality_probe(script_data, episode)
 

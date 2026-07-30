@@ -4,8 +4,10 @@ from pathlib import Path
 import pytest
 
 from lib.db.base import DEFAULT_USER_ID
+from lib.project_manager import ProjectManager
 from lib.script_generator import ScriptGenerator
 from lib.script_structure_validator import ScriptStructureValidationError
+from lib.text_backends.base import TextTaskType
 
 
 def _write(path: Path, text: str):
@@ -140,6 +142,54 @@ class _FakeTextGenerator:
 
 
 class TestScriptGenerator:
+    async def test_create_uses_logical_name_for_user_scoped_project(self, tmp_path, monkeypatch):
+        """用户隔离目录以 UUID 落盘时，create 须按逻辑项目名解析文本后端，不能用 path.name。"""
+        data_root = tmp_path / "data"
+        user_id = "user-1"
+        project_id = "3c8a62e0-139e-484e-b669-b142578388be"
+        project_name = "proj-2284e596"
+        project_path = data_root / "users" / user_id / "projects" / project_id
+        _write_json(
+            project_path / "project.json",
+            {
+                "title": "重生之我是马斯克",
+                "content_mode": "drama",
+                "overview": {},
+                "characters": {},
+                "scenes": {},
+                "props": {},
+                "style": "",
+                "style_description": "",
+            },
+        )
+
+        captured: dict[str, object] = {}
+
+        class _FakeTextGenerator:
+            @classmethod
+            async def create(cls, task_type, name, *, user_id):
+                captured["task_type"] = task_type
+                captured["project_name"] = name
+                captured["user_id"] = user_id
+                return cls()
+
+        monkeypatch.setattr("lib.script_generator.TextGenerator", _FakeTextGenerator)
+
+        generator = await ScriptGenerator.create(
+            project_path,
+            user_id=user_id,
+            project_name=project_name,
+            project_id=project_id,
+            project_manager=ProjectManager(data_root),
+        )
+
+        assert captured["task_type"] == TextTaskType.SCRIPT
+        assert captured["project_name"] == project_name
+        assert captured["user_id"] == user_id
+        assert generator.project_name == project_name
+        assert generator.project_id == project_id
+        assert generator.project_path == project_path
+
     async def test_build_prompt_uses_step1_content(self, tmp_path):
         """build_prompt 无需 client 即可使用（dry-run 模式）：narration 渲染结构化 step1。"""
         project_path = tmp_path / "demo"

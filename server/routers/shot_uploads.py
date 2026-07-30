@@ -77,7 +77,7 @@ async def upload_shot_media(
                 target.resolve().relative_to(project_path.resolve())
             except ValueError:
                 raise HTTPException(status_code=400, detail=_t("invalid_resource_id", resource_id=shot_id))
-            return project_path, VersionManager(project_path)
+            return project_path, VersionManager(project_path, project_name=project_name)
 
         project_path, versions = await asyncio.to_thread(_validate_shot)
         target = project_path / relative_path

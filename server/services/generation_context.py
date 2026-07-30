@@ -366,6 +366,9 @@ async def resolve_generation_context(
         image_provider_id=image_result.provider_model.provider_id if image_result else None,
         video_provider_id=video_result.provider_model.provider_id if video_result else None,
         audio_provider_id=audio_result.provider_model.provider_id if audio_result else None,
+        # 用户隔离布局下 project_path.name 是 UUID：不传逻辑名会导致记账归错项目、
+        # 项目级配置解析（如 video_generate_audio）报「项目不存在」。
+        project_name=project_name,
     )
     return GenerationContext(
         generator=generator,

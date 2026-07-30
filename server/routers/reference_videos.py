@@ -481,7 +481,7 @@ async def upload_unit_video(
                 target.resolve().relative_to(project_path.resolve())
             except ValueError:
                 raise HTTPException(status_code=400, detail=_t("invalid_resource_id", resource_id=unit_id))
-            return project_path, VersionManager(project_path), script_file
+            return project_path, VersionManager(project_path, project_name=project_name), script_file
 
         project_path, versions, script_file = await asyncio.to_thread(_validate_unit)
         target = project_path / relative_path

@@ -82,6 +82,7 @@ class MediaGenerator:
         image_provider_id: str | None = None,
         video_provider_id: str | None = None,
         audio_provider_id: str | None = None,
+        project_name: str | None = None,
     ):
         """
         初始化 MediaGenerator
@@ -99,13 +100,18 @@ class MediaGenerator:
                 非 backend.name；与 image_backend 成对提供，缺一即抛
             video_provider_id: 视频 registry provider_id（同上，I2V/R2V 与视频记账用）
             audio_provider_id: 音频 registry provider_id（旁白 TTS 记账用），与 audio_backend 成对
+            project_name: 逻辑项目名（API/账本侧）；用户隔离布局下目录名是 UUID，不传时回退目录名
+                仅兼容旧扁平布局。
         """
         require_provider_pair("image", image_backend, image_provider_id)
         require_provider_pair("video", video_backend, video_provider_id)
         require_provider_pair("audio", audio_backend, audio_provider_id)
 
         self.project_path = Path(project_path)
-        self.project_name = self.project_path.name
+        # 逻辑项目名：用于记账（ApiCall.project_name）与 ConfigResolver 项目级配置解析。
+        # 用户隔离布局下目录名是 UUID，直接取 path.name 会导致用量归错项目、
+        # video_generate_audio 等项目级解析报「项目不存在」；回退仅兼容旧扁平布局。
+        self.project_name = project_name or self.project_path.name
         self._rate_limiter = rate_limiter
         self._image_backend = image_backend
         self._video_backend = video_backend
@@ -115,7 +121,7 @@ class MediaGenerator:
         self._image_provider_id = image_provider_id
         self._video_provider_id = video_provider_id
         self._audio_provider_id = audio_provider_id
-        self.versions = VersionManager(project_path)
+        self.versions = VersionManager(project_path, project_name=self.project_name)
 
         # 初始化记账账本（使用全局 async session factory）
         self.ledger = Ledger()

@@ -36,14 +36,17 @@ class VersionManager:
     RESOURCE_TYPES = _RESOURCE_TYPES
     EXTENSIONS = {rt: resource_extension(rt) for rt in _RESOURCE_TYPES}
 
-    def __init__(self, project_path: Path):
+    def __init__(self, project_path: Path, *, project_name: str | None = None):
         """
         初始化版本管理器
 
         Args:
             project_path: 项目根目录路径
+            project_name: 逻辑项目名（用于拼 file_url）。用户隔离布局下目录名是 UUID，
+                不传时回退目录名仅兼容旧扁平布局。
         """
         self.project_path = Path(project_path)
+        self.project_name = project_name or self.project_path.name
         self.versions_dir = self.project_path / "versions"
         self.versions_file = self.versions_dir / "versions.json"
         self._lock = _get_versions_file_lock(self.versions_file)
@@ -104,7 +107,7 @@ class VersionManager:
             for v in resource_data.get("versions", []):
                 version_info = v.copy()
                 version_info["is_current"] = v["version"] == resource_data["current_version"]
-                version_info["file_url"] = f"/api/v1/files/{self.project_path.name}/{v['file']}"
+                version_info["file_url"] = f"/api/v1/files/{self.project_name}/{v['file']}"
                 versions.append(version_info)
 
             return {"current_version": resource_data.get("current_version", 0), "versions": versions}

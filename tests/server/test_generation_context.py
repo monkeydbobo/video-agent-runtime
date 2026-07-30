@@ -169,6 +169,17 @@ class TestLaneDeclaration:
         with pytest.raises(RuntimeError, match="image lane 未声明"):
             _ = ctx.image
 
+    async def test_generator_uses_logical_project_name(self, session_factory, project_env, fake_assemble, monkeypatch):
+        """用户隔离目录以 UUID 落盘时，MediaGenerator 的记账/配置解析名须为逻辑项目名，不能用目录名。"""
+        uuid_dir = project_env.projects_root / "3c8a62e0-139e-484e-b669-b142578388be"
+        uuid_dir.mkdir()
+        monkeypatch.setattr(project_env, "get_project_path", lambda name, **_kw: uuid_dir)
+
+        ctx = await resolve_generation_context("proj-2284e596", None, project={})
+
+        assert ctx.generator.project_name == "proj-2284e596"
+        assert ctx.generator.versions.project_name == "proj-2284e596"
+
     async def test_i2i_capability_selects_i2i_slot(self, session_factory, project_env, fake_assemble):
         project = {
             "image_provider_t2i": "ark/img-t2i",

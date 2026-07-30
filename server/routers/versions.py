@@ -35,7 +35,7 @@ _RESTORABLE_RESOURCE_TYPES = frozenset(
 def get_version_manager(project_name: str) -> VersionManager:
     """获取项目的版本管理器"""
     project_path = get_project_manager().get_project_path(project_name)
-    return VersionManager(project_path)
+    return VersionManager(project_path, project_name=project_name)
 
 
 def _resolve_resource_path(
