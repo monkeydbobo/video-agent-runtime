@@ -18,7 +18,7 @@ from typing import Annotated
 
 import jwt
 from fastapi import APIRouter, Body, Depends, File, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 
 from lib.asset_types import GLOBAL_LIBRARY_ASSET_TYPES
 from lib.config.resolver import VisionCapabilityError
@@ -32,6 +32,7 @@ from lib.episode_paths import (
 )
 from lib.i18n import Translator
 from lib.image_utils import normalize_uploaded_image, validate_image_bytes
+from lib.object_storage import get_project_object_storage
 from lib.project_change_hints import emit_project_change_batch, project_change_source
 from lib.project_manager import effective_mode, get_project_manager
 from lib.source_loader import (
@@ -54,6 +55,7 @@ from server.auth import (
     verify_media_token,
 )
 from server.project_access import bind_owned_project_scope, ensure_project_access, require_project_access
+from server.public_media import build_public_project_file_url
 
 router = APIRouter()
 
@@ -120,9 +122,6 @@ async def serve_project_file(
             project_dir = get_project_manager().get_project_path(project_name, user_id=path_user_id)
             file_path = project_dir / path
 
-            if not file_path.exists():
-                raise HTTPException(status_code=404, detail=_t("file_not_found", path=path))
-
             # 安全检查：确保路径在项目目录内
             try:
                 file_path.resolve().relative_to(project_dir.resolve())
@@ -132,6 +131,28 @@ async def serve_project_file(
             return file_path
 
         file_path = await asyncio.to_thread(_sync)
+        if not file_path.is_file():
+            store = get_project_object_storage()
+            exists_remotely = bool(
+                store
+                and await asyncio.to_thread(
+                    store.project_file_exists,
+                    project_name=project_name,
+                    user_id=path_user_id,
+                    relative_path=path,
+                )
+            )
+            if not exists_remotely or store is None:
+                raise HTTPException(status_code=404, detail=_t("file_not_found", path=path))
+            return RedirectResponse(
+                store.presign_project_file(
+                    project_name=project_name,
+                    user_id=path_user_id,
+                    relative_path=path,
+                ),
+                status_code=307,
+                headers={"Cache-Control": "private, no-store"},
+            )
 
         # 内容寻址缓存：带 ?v= 参数或 versions/ 路径时设 immutable；始终 private 防跨用户缓存
         headers = {"Cache-Control": "private, no-store"}
@@ -217,6 +238,46 @@ async def issue_media_token(
         asset_path=asset_path,
     )
     return {"media_token": token, "expires_in": MEDIA_TOKEN_EXPIRY_SECONDS}
+
+
+@router.get("/projects/{project_name}/download-url", dependencies=[Depends(require_project_access)])
+async def issue_project_file_download_url(
+    project_name: str,
+    path: str,
+    _user: CurrentUser,
+    _t: Translator,
+):
+    """为现有项目文件按需签发短时 CDN URL，无需重新生成或重新合成。"""
+    project_path = get_project_manager().get_project_path(project_name, user_id=_user.id)
+    file_path = project_path / path
+    try:
+        file_path.resolve().relative_to(project_path.resolve())
+    except ValueError:
+        raise HTTPException(status_code=403, detail=_t("forbidden_access"))
+
+    local_exists = await asyncio.to_thread(file_path.is_file)
+    store = get_project_object_storage()
+    remote_exists = bool(
+        store
+        and await asyncio.to_thread(
+            store.project_file_exists,
+            project_name=project_name,
+            user_id=_user.id,
+            relative_path=path,
+        )
+    )
+    if not local_exists and not remote_exists:
+        raise HTTPException(status_code=404, detail=_t("file_not_found", path=path))
+
+    return {
+        "url": build_public_project_file_url(
+            file_path,
+            project_path=project_path,
+            project_name=project_name,
+            user_id=_user.id,
+        ),
+        "expires_in": MEDIA_TOKEN_EXPIRY_SECONDS,
+    }
 
 
 @router.post("/projects/{project_name}/upload/{upload_type}", dependencies=[Depends(require_project_access)])
@@ -593,7 +654,33 @@ async def list_project_files(project_name: str, _user: CurrentUser, _t: Translat
 
             return {"files": files}
 
-        return await asyncio.to_thread(_sync)
+        result = await asyncio.to_thread(_sync)
+        store = get_project_object_storage()
+        if store is not None:
+            try:
+                for subdir in ("videos", "output"):
+                    remote = await asyncio.to_thread(
+                        store.list_project_files,
+                        project_name=project_name,
+                        user_id=_user.id,
+                        subdir=subdir,
+                    )
+                    existing = {entry["name"] for entry in result["files"][subdir]}
+                    for item in remote:
+                        name = Path(item.relative_path).name
+                        if name in existing:
+                            continue
+                        result["files"][subdir].append(
+                            {
+                                "name": name,
+                                "size": item.size,
+                                "url": f"/api/v1/files/{project_name}/{item.relative_path}",
+                            }
+                        )
+            except Exception:
+                # Bucket 短时不可用不能遮蔽 Volume 中仍可用的文件列表。
+                logger.exception("列出对象存储项目文件失败 project=%s", project_name)
+        return result
 
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=_t("project_not_found", name=project_name))

@@ -533,6 +533,7 @@ export default {
   'source_files_drop_inline_hint': '可继续拖拽文件加入',
   'source_open': '打开',
   'output_open': '打开视频',
+  'output_open_failed': '无法生成成片下载链接：{{message}}',
 
   // TaskHud / Notifications / Usage v3
   'task_hud_title': '任务雷达',

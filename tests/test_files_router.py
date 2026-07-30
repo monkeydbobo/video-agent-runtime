@@ -1,5 +1,6 @@
 import json
 from io import BytesIO
+from urllib.parse import parse_qs, urlsplit
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -7,7 +8,7 @@ from PIL import Image
 
 from lib.db.base import DEFAULT_USER_ID
 from lib.project_manager import ProjectManager
-from server.auth import CurrentUserInfo, get_current_user
+from server.auth import CurrentUserInfo, get_current_user, verify_media_token
 from server.project_access import require_project_access
 from server.routers import files
 
@@ -112,6 +113,53 @@ class TestFilesRouter:
 
             missing = client.get("/api/v1/projects/demo/source/missing.txt")
             assert missing.status_code == 404
+
+    def test_existing_output_gets_fresh_file_scoped_cdn_url(self, tmp_path, monkeypatch):
+        client, pm = _client(monkeypatch, tmp_path)
+        monkeypatch.setenv("AUTH_TOKEN_SECRET", "test-secret-for-media-token-32b!")
+        monkeypatch.setenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", "https://media.example.com")
+        output = pm.get_project_path("demo") / "output" / "第1集_final.mp4"
+        output.parent.mkdir(exist_ok=True)
+        output.write_bytes(b"video")
+
+        with client:
+            response = client.get(
+                "/api/v1/projects/demo/download-url",
+                params={"path": "output/第1集_final.mp4"},
+            )
+
+        assert response.status_code == 200
+        parsed = urlsplit(response.json()["url"])
+        assert parsed.netloc == "media.example.com"
+        assert parsed.path.endswith("/output/%E7%AC%AC1%E9%9B%86_final.mp4")
+        verify_media_token(
+            parse_qs(parsed.query)["media_token"][0],
+            user_id=DEFAULT_USER_ID,
+            project_name="demo",
+            asset_path="output/第1集_final.mp4",
+        )
+
+    def test_missing_local_file_redirects_to_object_storage(self, tmp_path, monkeypatch):
+        client, _ = _client(monkeypatch, tmp_path)
+
+        class _FakeStore:
+            def project_file_exists(self, **_kwargs):
+                return True
+
+            def presign_project_file(self, **_kwargs):
+                return "https://storage.example/signed-video"
+
+        monkeypatch.setattr(files, "get_project_object_storage", lambda: _FakeStore())
+
+        with client:
+            response = client.get(
+                "/api/v1/files/demo/output/remote.mp4",
+                headers=_AUTH_HEADERS,
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 307
+        assert response.headers["location"] == "https://storage.example/signed-video"
 
     def test_upload_assets_and_drafts(self, tmp_path, monkeypatch):
         client, pm = _client(monkeypatch, tmp_path)

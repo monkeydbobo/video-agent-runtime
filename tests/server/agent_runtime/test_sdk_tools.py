@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -172,6 +173,8 @@ async def test_compose_video_runs_in_railway_project_dir(
     output.write_bytes(b"mp4")
     monkeypatch.setenv("AUTH_TOKEN_SECRET", "test-secret-for-media-token-32b!")
     monkeypatch.setenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", "https://media.example.com")
+    publish = AsyncMock(return_value=None)
+    monkeypatch.setattr("server.agent_runtime.sdk_tools.compose_video.publish_project_file", publish)
 
     class _FakeProcess:
         returncode = 0
@@ -196,6 +199,13 @@ async def test_compose_video_runs_in_railway_project_dir(
     text = out["content"][0]["text"]
     assert "https://media.example.com/api/v1/files/demo/output/episode_1_final.mp4?media_token=" in text
     assert str(fake_ctx.project_path) not in text
+    publish.assert_awaited_once_with(
+        output,
+        project_path=fake_ctx.project_path,
+        project_name="demo",
+        user_id=DEFAULT_USER_ID,
+        required=True,
+    )
 
 
 async def test_compose_video_rejects_script_path(fake_ctx: ToolContext) -> None:

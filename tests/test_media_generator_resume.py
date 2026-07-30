@@ -147,9 +147,32 @@ def _build_generator(tmp_path: Path, *, initial_version: int = 0) -> MediaGenera
     gen._video_backend = _FakeVideoBackend()
     gen._user_id = "default"
     gen._config = _FakeConfigResolver()
+    gen._project_file_publisher = None
     gen.versions = _FakeVersions(initial_version=initial_version)
     gen.ledger = _FakeLedger()
     return gen
+
+
+@pytest.mark.asyncio
+async def test_resume_publishes_canonical_video_after_versioning(tmp_path):
+    published: list[Path] = []
+
+    async def _publish(path: Path) -> None:
+        published.append(path)
+
+    gen = _build_generator(tmp_path)
+    gen._project_file_publisher = _publish
+
+    output_path, _, _, _ = await gen.resume_video_async(
+        job_id="provider-job-1",
+        resource_type="videos",
+        resource_id="E1S01",
+        task_id="T-1",
+        api_call_id=42,
+    )
+
+    assert published == [output_path]
+    assert output_path.read_bytes() == b"fake-resume-video"
 
 
 @pytest.mark.asyncio

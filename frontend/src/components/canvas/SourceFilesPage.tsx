@@ -40,6 +40,7 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
   const [loading, setLoading] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [openingOutput, setOpeningOutput] = useState<string | null>(null);
   const [conflictPrompt, setConflictPrompt] = useState<{
     existing: string;
     suggestedName: string;
@@ -50,6 +51,35 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
   const projectNameRef = useRef(projectName);
   projectNameRef.current = projectName;
   const sourceFilesVersion = useAppStore((s) => s.sourceFilesVersion);
+
+  const handleOpenOutput = useCallback(
+    async (filename: string) => {
+      // 必须在用户点击的同步栈里先创建窗口，否则 Safari/Chrome 可能把异步后的 window.open
+      // 判为弹窗。签名失败时关闭空窗口并明确提示。
+      const target = window.open("about:blank", "_blank");
+      if (target) target.opener = null;
+      setOpeningOutput(filename);
+      try {
+        const result = await API.getProjectFileDownloadUrl(projectName, `output/${filename}`);
+        if (target) {
+          target.location.replace(result.url);
+        } else {
+          window.location.assign(result.url);
+        }
+      } catch (err) {
+        target?.close();
+        useAppStore
+          .getState()
+          .pushToast(
+            tRef.current("dashboard:output_open_failed", { message: errMsg(err) }),
+            "error",
+          );
+      } finally {
+        setOpeningOutput(null);
+      }
+    },
+    [projectName],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -603,10 +633,10 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
                       {formatFileSize(file.size)}
                     </div>
                   </div>
-                  <a
-                    href={file.url}
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    type="button"
+                    onClick={voidPromise(() => handleOpenOutput(file.name))}
+                    disabled={openingOutput === file.name}
                     className="focus-ring inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-colors"
                     style={{
                       color: "var(--color-text-3)",
@@ -616,7 +646,7 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
                   >
                     {t("dashboard:output_open")}
                     <ArrowRight className="h-3 w-3" />
-                  </a>
+                  </button>
                 </li>
               ))}
             </ul>

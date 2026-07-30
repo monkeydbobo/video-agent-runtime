@@ -533,6 +533,7 @@ export default {
   'source_files_drop_inline_hint': 'Drop more files to add',
   'source_open': 'Open',
   'output_open': 'Open video',
+  'output_open_failed': 'Could not create the final video download link: {{message}}',
 
   // TaskHud / Notifications / Usage v3
   'task_hud_title': 'Task Radar',
