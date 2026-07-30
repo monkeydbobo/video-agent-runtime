@@ -98,6 +98,35 @@ def test_read_lib_passes(policy: AgentAccessPolicy) -> None:
     assert allowed
 
 
+@pytest.mark.parametrize(
+    "relative",
+    ["characters/主角.png", "scenes/卧室.PNG", "videos/scene_E1S01.mp4", "audio/narration.mp3", "export.zip"],
+)
+def test_read_media_file_denied(policy: AgentAccessPolicy, relative: str) -> None:
+    """Read 不得读项目内的二进制/媒体文件：图片 base64 进消息流会撑爆 CLI→SDK
+    单条消息缓冲，reader fatal 会打死整个会话 actor（不只是本轮失败）。"""
+    cwd = _cwd(policy)
+    allowed, reason = policy.check_path_access(str(cwd / relative), "Read", cwd)
+    assert not allowed, f"Read {relative} 应被拒"
+    assert reason and "二进制" in reason
+
+
+@pytest.mark.parametrize("tool", ["Glob", "Grep"])
+def test_glob_grep_media_path_still_allowed(policy: AgentAccessPolicy, tool: str) -> None:
+    """闸门只针对 Read（会加载文件内容）；Glob/Grep 不把字节读进消息流，
+    agent 仍要能靠它们确认资产图是否已生成。"""
+    cwd = _cwd(policy)
+    allowed, _ = policy.check_path_access(str(cwd / "characters"), tool, cwd)
+    assert allowed
+
+
+def test_read_text_file_with_media_like_name_allowed(policy: AgentAccessPolicy) -> None:
+    """闸门按扩展名判定，不影响正常文本读取。"""
+    cwd = _cwd(policy)
+    allowed, _ = policy.check_path_access(str(cwd / "drafts" / "png_notes.md"), "Read", cwd)
+    assert allowed
+
+
 def test_write_cwd_external_denied(policy: AgentAccessPolicy) -> None:
     cwd = _cwd(policy)
     allowed, reason = policy.check_path_access(str(policy.project_root / "lib" / "foo.json"), "Write", cwd)

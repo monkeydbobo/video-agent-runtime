@@ -16,6 +16,7 @@ from server.agent_runtime.agent_access_policy import AgentAccessPolicy
 from server.agent_runtime.options_assembler import (
     OptionsAssembler,
     load_provider_env_overrides,
+    sdk_max_buffer_size,
 )
 
 _ALLOWED_TOOLS = ["Skill", "Task", "Bash", "BashOutput", "KillBash", "Read", "Write", "Edit"]
@@ -116,6 +117,33 @@ async def test_build_threads_injected_deps_into_options(tmp_path: Path) -> None:
     assert "PreToolUse" in options.hooks
     # sandbox 启用 → sandbox settings 编译进 options
     assert options.sandbox.get("enabled") is True
+
+
+@pytest.mark.asyncio
+async def test_build_raises_sdk_stdout_buffer_above_default(tmp_path: Path) -> None:
+    """必须显式放宽 stdout 缓冲：SDK 默认 1MB，agent 一轮读几张资产图就能打满，
+    reader fatal 会打死整个会话 actor 而非仅失败本轮。"""
+
+    async def fake_loader():
+        return {}
+
+    assembler = _make_assembler(tmp_path, provider_env_loader=fake_loader)
+    options = await assembler.build("demo")
+
+    assert options.max_buffer_size == sdk_max_buffer_size()
+    assert options.max_buffer_size > 1024 * 1024
+
+
+@pytest.mark.parametrize("raw", ["", "  ", "abc", "0", "-1"])
+def test_sdk_max_buffer_size_falls_back_on_invalid_env(monkeypatch: pytest.MonkeyPatch, raw: str) -> None:
+    """环境变量缺失或非法（非整数 / 非正）时回退默认值，不让装配因配置手误崩掉。"""
+    monkeypatch.setenv("ARCREEL_SDK_MAX_BUFFER_BYTES", raw)
+    assert sdk_max_buffer_size() > 1024 * 1024
+
+
+def test_sdk_max_buffer_size_honors_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ARCREEL_SDK_MAX_BUFFER_BYTES", str(8 * 1024 * 1024))
+    assert sdk_max_buffer_size() == 8 * 1024 * 1024
 
 
 @pytest.mark.asyncio

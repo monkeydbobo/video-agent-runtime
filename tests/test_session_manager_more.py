@@ -177,6 +177,34 @@ class TestSessionManagerMore:
         assert await session_manager._options_assembler._keep_stream_open_hook({}, None, None) == {"continue_": True}
 
     @pytest.mark.asyncio
+    async def test_get_or_connect_rebuilds_after_actor_died(self, session_manager, meta_store, tmp_path, monkeypatch):
+        """actor 崩溃（如 SDK 传输层 fatal）后驻留实例必须被驱逐重建。
+
+        沿用崩掉的实例会让每次 send 都被 actor 存下来的 fatal 原样打回，会话永久 500；
+        驱逐后按 resume 重建，用户下一条消息即可继续对话。
+        """
+        (tmp_path / "projects" / "demo").mkdir(parents=True)
+        meta = await meta_store.create("demo", "sdk-actor-crash")
+
+        async with _cold_revival_clients(session_manager, monkeypatch) as created_clients:
+            first = await session_manager.get_or_connect(meta.id)
+            await asyncio.sleep(0)
+            assert len(created_clients) == 1
+
+            # 模拟 actor task 意外终止：实例仍驻留在 sessions 表里
+            await first.actor.cancel_and_wait()
+            assert first.actor_exited()
+            assert session_manager.sessions.get(meta.id) is first
+
+            second = await session_manager.get_or_connect(meta.id)
+            await asyncio.sleep(0)
+            assert second is not first
+            assert len(created_clients) == 2
+            assert not second.actor_exited()
+
+            await session_manager.close_session(meta.id)
+
+    @pytest.mark.asyncio
     async def test_get_or_connect_threads_locale_into_system_prompt(
         self, session_manager, meta_store, tmp_path, monkeypatch
     ):

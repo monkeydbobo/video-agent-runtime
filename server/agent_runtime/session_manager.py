@@ -178,6 +178,16 @@ class ManagedSession:
     # 原始 assistant/result 仍是关键类型：同步 agent 对话端点直接消费它们收集回复。
     _CRITICAL_MESSAGE_TYPES = {"result", "runtime_status", "assistant", "log_entry", "log_turn_complete"}
 
+    def actor_exited(self) -> bool:
+        """actor task 是否已退出（正常收尾或 fatal 崩溃）。
+
+        actor 退出后它的命令队列只会用存下来的 fatal 打回后续命令
+        （``SessionActor.enqueue`` → ``complete(self._fatal)``），此实例已不可用于
+        再发消息，调用方须驱逐重建而不是继续复用。
+        """
+        task = self.actor.task
+        return task is not None and task.done()
+
     def _on_actor_message(self, msg: dict[str, Any]) -> None:
         """SessionActor 的 on_message 回调。同步，内存操作，不 await。
 
@@ -809,6 +819,26 @@ class SessionManager:
                 logger.debug("_mark_session_terminal cleanup failed", exc_info=True)
             raise
 
+    def _live_cached_session(self, session_id: str) -> ManagedSession | None:
+        """返回可继续使用的常驻会话；actor 已退出的驻留实例就地驱逐并返回 None。
+
+        actor 崩溃（如 SDK 传输层 fatal）后实例仍留在 ``self.sessions`` 里，继续复用
+        会让每次 send 都被那条存下来的 fatal 原样打回、会话永久 500。驱逐后由调用方
+        走 resume 重建，用户下一条消息即可继续对话。
+        """
+        managed = self.sessions.get(session_id)
+        if managed is None or session_id in self._disconnecting:
+            return None
+        if not managed.actor_exited():
+            return managed
+        logger.info("actor 已退出，驱逐驻留会话并按 resume 重建 session_id=%s", session_id)
+        if self.sessions.get(session_id) is managed:
+            del self.sessions[session_id]
+        if managed._cleanup_task is not None and not managed._cleanup_task.done():
+            managed._cleanup_task.cancel()
+            managed._cleanup_task = None
+        return None
+
     async def get_or_connect(
         self, session_id: str, *, meta: SessionMeta | None = None, locale: str = DEFAULT_LOCALE
     ) -> ManagedSession:
@@ -820,8 +850,9 @@ class SessionManager:
         already-resident session returns from cache and ``locale`` is ignored —
         the session-fixed system prompt stays unchanged.
         """
-        if session_id in self.sessions and session_id not in self._disconnecting:
-            return self.sessions[session_id]
+        cached = self._live_cached_session(session_id)
+        if cached is not None:
+            return cached
 
         # Per-session lock prevents concurrent connect() for the same session_id.
         if session_id not in self._connect_locks:
@@ -830,8 +861,9 @@ class SessionManager:
 
         async with lock:
             # Re-check after acquiring lock
-            if session_id in self.sessions and session_id not in self._disconnecting:
-                return self.sessions[session_id]
+            cached = self._live_cached_session(session_id)
+            if cached is not None:
+                return cached
 
             if meta is None:
                 meta = await self.meta_store.get(session_id)
