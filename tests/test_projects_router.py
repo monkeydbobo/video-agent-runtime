@@ -1246,6 +1246,28 @@ class TestProjectsRouter:
         assert fake_calc.last_preloaded_scripts is not None
         assert "scripts/episode_1.json" in fake_calc.last_preloaded_scripts
 
+    def test_list_projects_thumbnail_carries_media_token(self, tmp_path, monkeypatch):
+        """封面挂在 <img> 上带不了 Authorization 头，URL 必须自带可校验的 media_token。"""
+        from urllib.parse import parse_qs, urlparse
+
+        from server.auth import verify_media_token
+
+        fake_pm = _FakePM(tmp_path)
+        fake_pm.project_data["ready"]["scenes"] = {"卧室": {"scene_sheet": "scenes/卧室.png"}}
+
+        client = _client(monkeypatch, fake_pm, _FakeCalc())
+        with client:
+            resp = client.get("/api/v1/projects")
+            assert resp.status_code == 200
+            ready = [p for p in resp.json()["projects"] if p["name"] == "ready"][0]
+
+        parsed = urlparse(ready["thumbnail"])
+        assert parsed.path == "/api/v1/files/ready/scenes/卧室.png"
+        token = parse_qs(parsed.query)["media_token"][0]
+        # 与 files 路由的校验同口径：token 只对签发它的项目有效。
+        payload = verify_media_token(token, project_name="ready")
+        assert payload["uid"] == "default"
+
     def test_list_projects_returns_style_image_field(self, tmp_path, monkeypatch):
         """列表端点需返回 style_image：否则前端无法区分"自定义风格"与"未设置"。"""
         fake_pm = _FakePM(tmp_path)

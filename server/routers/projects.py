@@ -17,6 +17,7 @@ import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal
+from urllib.parse import quote
 
 if TYPE_CHECKING:
     from server.services.jianying_draft_service import JianyingDraftService
@@ -41,7 +42,7 @@ from lib.project_change_hints import project_change_source
 from lib.project_manager import EmptySourceError, EpisodeScriptReboundError, SourceKind, get_project_manager
 from lib.status_calculator import StatusCalculator
 from lib.style_templates import is_known_template, resolve_template_prompt
-from server.auth import CurrentUser, create_download_token, verify_download_token
+from server.auth import CurrentUser, create_download_token, create_media_token, verify_download_token
 from server.project_access import (
     accessible_project_names,
     bind_owned_project_scope,
@@ -428,6 +429,7 @@ async def export_jianying_draft(
 async def list_projects(_user: CurrentUser):
     """列出当前用户可见的项目（admin 可见全部）"""
     visible_names = await accessible_project_names(get_project_manager().list_projects(), _user)
+    user_id = _user.id
 
     def _sync():
         manager = get_project_manager()
@@ -464,6 +466,11 @@ async def list_projects(_user: CurrentUser):
                     # video_thumbnail → storyboard_image → scene_sheet → character_sheet
                     # —— 兼顾 reference / grid / storyboard 三种生成模式。
                     thumbnail = resolve_project_cover(manager, name, project, preloaded_scripts=preloaded_scripts)
+                    # 封面走 <img>，带不了 Authorization 头，必须自带短时 media_token，
+                    # 否则 /files 路由一律 401。列表页无项目详情页那套 token 预取，故在此直接附上。
+                    if thumbnail:
+                        token = create_media_token(user_id, project_name=name)
+                        thumbnail = f"{thumbnail}?media_token={quote(token, safe='')}"
 
                     # 使用 StatusCalculator 计算进度（读时计算）
                     status = calculator.calculate_project_status(name, project, preloaded_scripts=preloaded_scripts)

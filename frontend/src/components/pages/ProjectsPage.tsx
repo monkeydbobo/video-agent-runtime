@@ -32,6 +32,7 @@ import { CurrentUserBadge } from "@/components/auth/CurrentUserBadge";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { GlassModal } from "@/components/ui/GlassModal";
+import { PrivateMediaImg } from "@/components/ui/PrivateMedia";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { SecondaryButton } from "@/components/ui/SecondaryButton";
 import { Typewriter, type TypewriterSegment } from "@/components/ui/Typewriter";
@@ -189,7 +190,7 @@ function Poster({ project, styleLabel, large = false }: PosterProps) {
       }}
     >
       {project.thumbnail ? (
-        <img
+        <PrivateMediaImg
           src={project.thumbnail}
           alt=""
           loading="lazy"
