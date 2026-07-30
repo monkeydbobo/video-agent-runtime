@@ -101,7 +101,13 @@ def plan_episodes_tool(ctx: ToolContext):
             return {"content": [{"type": "text", "text": text}], "is_error": True}
         instructions = raw_instructions.strip() if isinstance(raw_instructions, str) else ""
         try:
-            planner = await EpisodePlanner.create(ctx.project_path, user_id=ctx.user_id)
+            planner = await EpisodePlanner.create(
+                ctx.project_path,
+                user_id=ctx.user_id,
+                project_name=ctx.project_name,
+                project_id=ctx.project_id,
+                project_manager=ctx.pm,
+            )
             result = await planner.plan(instructions=instructions or None)
             if not result.episodes and result.source_exhausted:
                 lines = ["源文已全部规划完毕，没有可规划的新内容。"]
@@ -172,7 +178,13 @@ def replan_episodes_tool(ctx: ToolContext):
             return {"content": [{"type": "text", "text": f"❌ 参数错误：{exc}"}], "is_error": True}
 
         try:
-            planner = await EpisodePlanner.create(ctx.project_path, user_id=ctx.user_id)
+            planner = await EpisodePlanner.create(
+                ctx.project_path,
+                user_id=ctx.user_id,
+                project_name=ctx.project_name,
+                project_id=ctx.project_id,
+                project_manager=ctx.pm,
+            )
             result = await planner.replan(from_episode, instructions, confirm_consumed=confirm_consumed)
             if isinstance(result, ReplanConfirmationRequired):
                 episodes = "、".join(str(num) for num in result.consumed_episodes)

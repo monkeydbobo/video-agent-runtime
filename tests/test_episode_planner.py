@@ -19,6 +19,7 @@ from lib.episode_planner import (
     ReplanConfirmationRequired,
     _find_all_overlapping,
 )
+from lib.project_manager import ProjectManager
 from lib.text_backends.base import TextGenerationResult
 from lib.text_metrics import count_reading_units
 
@@ -58,13 +59,14 @@ class _FakeTextGenerator:
 def _write_project(
     tmp_path: Path,
     *,
+    directory_name: str = "demo-proj",
     content_mode: str = "narration",
     episodes: list | None = None,
     planning_cursor: dict | None = None,
     extra: dict | None = None,
     source_text: str = SOURCE,
 ) -> Path:
-    project_dir = tmp_path / "demo-proj"
+    project_dir = tmp_path / directory_name
     (project_dir / "source").mkdir(parents=True)
     project = {
         "schema_version": 3,
@@ -103,6 +105,33 @@ class TestFindAllOverlapping:
 
 
 class TestPlan:
+    async def test_plan_uses_logical_name_for_user_scoped_project(self, tmp_path: Path):
+        """用户隔离目录以 UUID 落盘时，规划仍按逻辑项目名读取和更新项目。"""
+        data_root = tmp_path / "data"
+        user_id = "user-1"
+        project_id = "3c8a62e0-139e-484e-b669-b142578388be"
+        project_name = "proj-2284e596"
+        project_dir = _write_project(
+            data_root / "users" / user_id / "projects",
+            directory_name=project_id,
+        )
+        fake = _FakeTextGenerator(
+            [_plan_response([{"title": "古玉藏诀", "hook": "剑诀来历成谜", "end_anchor": ANCHOR_EP1}])]
+        )
+
+        planner = EpisodePlanner(
+            project_dir,
+            generator=fake,
+            project_name=project_name,
+            project_manager=ProjectManager(data_root),
+            user_id=user_id,
+            project_id=project_id,
+        )
+        result = await planner.plan()
+
+        assert [episode.title for episode in result.episodes] == ["古玉藏诀"]
+        assert _load_project(project_dir)["episodes"][0]["title"] == "古玉藏诀"
+
     async def test_plan_writes_ledger_derives_files_and_advances_cursor(self, tmp_path: Path):
         project_dir = _write_project(tmp_path)
         fake = _FakeTextGenerator(
