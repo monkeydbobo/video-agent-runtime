@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 import server.agent_runtime.e2b_workspace as e2b_module
+from lib.project_paths import project_user_scope
 from server.agent_runtime.e2b_workspace import REMOTE_PROJECT_ROOT, E2BWorkspaceManager
 from server.agent_runtime.session_manager import AgentConfigurationError, SessionManager
 from server.agent_runtime.session_store import SessionMetaStore
@@ -120,6 +121,24 @@ async def test_sync_rejects_invalid_json_without_corrupting_project(tmp_path: Pa
         await manager.sync_all(sandbox, "demo")
 
     assert (project / "project.json").read_text(encoding="utf-8") == '{"name":"demo"}'
+
+
+@pytest.mark.asyncio
+async def test_upload_and_sync_use_private_user_project_directory(tmp_path: Path) -> None:
+    projects = tmp_path / "projects"
+    project = projects / "users" / "alice" / "projects" / "project-1"
+    project.mkdir(parents=True)
+    (project / "project.json").write_text('{"name":"demo"}', encoding="utf-8")
+    manager = E2BWorkspaceManager(projects_root=projects)
+    sandbox = FakeSandbox()
+
+    with project_user_scope("alice", project_name="demo", project_id="project-1"):
+        await manager._upload_project(sandbox, "demo")
+        remote = f"{REMOTE_PROJECT_ROOT}/project.json"
+        sandbox.files.values[remote] = b'{"name":"demo","updated":true}'
+        await manager.sync_all(sandbox, "demo")
+
+    assert (project / "project.json").read_text(encoding="utf-8") == '{"name":"demo","updated":true}'
 
 
 @pytest.mark.asyncio

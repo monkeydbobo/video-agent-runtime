@@ -652,6 +652,8 @@ class UsageRepository(BaseRepository):
     async def get_actual_costs_by_segment(
         self,
         project_name: str,
+        *,
+        user_id: str,
     ) -> dict[str, dict[str, dict[str, float]]]:
         """按 segment_id + call_type + currency 汇总实际费用。
 
@@ -667,6 +669,7 @@ class UsageRepository(BaseRepository):
                 func.sum(ApiCall.cost_amount).label("total"),
             )
             .where(
+                ApiCall.user_id == user_id,
                 ApiCall.project_name == project_name,
                 ApiCall.status == "success",
                 ApiCall.cost_amount > 0,
@@ -685,6 +688,8 @@ class UsageRepository(BaseRepository):
     async def get_project_image_costs_by_asset_type(
         self,
         project_name: str,
+        *,
+        user_id: str,
     ) -> dict[str, dict[str, float]]:
         """project-level（segment_id is null）的 image 成本按 output_path 前缀分拆。
 
@@ -698,6 +703,7 @@ class UsageRepository(BaseRepository):
                 func.sum(ApiCall.cost_amount).label("total"),
             )
             .where(
+                ApiCall.user_id == user_id,
                 ApiCall.project_name == project_name,
                 ApiCall.status == "success",
                 ApiCall.cost_amount > 0,

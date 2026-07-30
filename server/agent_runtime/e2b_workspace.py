@@ -16,6 +16,8 @@ from e2b import AsyncSandbox
 from e2b.exceptions import SandboxException, SandboxNotFoundException
 from e2b.sandbox.commands.command_handle import CommandExitException
 
+from lib.project_manager import ProjectManager
+
 logger = logging.getLogger(__name__)
 
 REMOTE_PROJECT_ROOT = PurePosixPath("/home/user/project")
@@ -37,6 +39,7 @@ class E2BWorkspaceManager:
 
     def __init__(self, *, projects_root: Path) -> None:
         self.projects_root = Path(projects_root).resolve(strict=False)
+        self._project_manager = ProjectManager(self.projects_root)
         self.template = os.environ.get("ARCREEL_E2B_TEMPLATE", "base").strip() or "base"
         self.timeout = max(60, int(os.environ.get("ARCREEL_E2B_TIMEOUT_SECONDS", "900")))
         self._sandboxes: dict[str, AsyncSandbox] = {}
@@ -103,8 +106,8 @@ class E2BWorkspaceManager:
         return sandbox_id
 
     def _project_dir(self, project_name: str) -> Path:
-        project = (self.projects_root / project_name).resolve(strict=False)
-        if project.parent != self.projects_root or not project.is_dir():
+        project = self._project_manager.get_project_path(project_name).resolve(strict=False)
+        if not project.is_dir():
             raise FileNotFoundError(f"project not found: {project_name}")
         return project
 

@@ -330,6 +330,13 @@ class TestGetCurrentUser:
                 await auth_module.get_current_user(_t, "invalid-token")
             assert exc_info.value.status_code == 401
 
+    def test_payload_without_uid_is_rejected_instead_of_becoming_admin(self):
+        with pytest.raises(HTTPException) as exc_info:
+            auth_module._payload_to_user({"sub": "legacy", "role": "admin"}, _t)
+
+        assert exc_info.value.status_code == 401
+        assert exc_info.value.detail == "token_identity_incomplete"
+
     async def test_get_current_user_flexible_header(self):
         with patch.dict(os.environ, {"AUTH_TOKEN_SECRET": "test-secret-key-that-is-at-least-32-bytes"}):
             token = auth_module.create_token("admin")

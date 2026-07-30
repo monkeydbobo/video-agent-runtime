@@ -18,6 +18,7 @@ def _row_to_dict(row: AgentSession) -> dict[str, Any]:
         "id": row.id,
         "sdk_session_id": row.sdk_session_id,
         "sandbox_id": row.sandbox_id,
+        "user_id": row.user_id,
         "project_name": row.project_name,
         "title": row.title or "",
         "status": row.status,

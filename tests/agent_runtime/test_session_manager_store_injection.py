@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -69,6 +70,47 @@ def test_store_uses_session_factory_seam(monkeypatch, tmp_path):
     assert isinstance(store, DbSessionStore)
     # Test the user_id seam took effect
     assert store._user_id == "test-user"
+
+
+def test_store_cache_is_partitioned_by_user(monkeypatch, tmp_path):
+    monkeypatch.delenv("ARCREEL_SDK_SESSION_STORE", raising=False)
+    sm = _build_sm(tmp_path)
+
+    alice_store = sm._build_session_store(user_id="alice")
+    bob_store = sm._build_session_store(user_id="bob")
+
+    assert isinstance(alice_store, DbSessionStore)
+    assert isinstance(bob_store, DbSessionStore)
+    assert alice_store is not bob_store
+    assert alice_store._user_id == "alice"
+    assert bob_store._user_id == "bob"
+    assert sm._build_session_store(user_id="alice") is alice_store
+
+
+@pytest.mark.asyncio
+async def test_bind_user_is_task_local(monkeypatch, tmp_path):
+    monkeypatch.delenv("ARCREEL_SDK_SESSION_STORE", raising=False)
+    sm = _build_sm(tmp_path)
+    both_bound = asyncio.Event()
+    bound_count = 0
+    lock = asyncio.Lock()
+
+    async def _bind_and_read(user_id: str) -> tuple[str, str]:
+        nonlocal bound_count
+        sm.bind_user(user_id)
+        async with lock:
+            bound_count += 1
+            if bound_count == 2:
+                both_bound.set()
+        await both_bound.wait()
+        store = sm._build_session_store()
+        assert isinstance(store, DbSessionStore)
+        return sm.current_user_id(), store._user_id
+
+    alice, bob = await asyncio.gather(_bind_and_read("alice"), _bind_and_read("bob"))
+
+    assert alice == ("alice", "alice")
+    assert bob == ("bob", "bob")
 
 
 @pytest.mark.asyncio

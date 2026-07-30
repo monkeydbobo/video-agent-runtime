@@ -48,12 +48,15 @@ async def _validate_session_ownership(
         raise HTTPException(status_code=404, detail=_t("session_not_found", session_id=session_id))
     if session.project_name != project_name:
         raise HTTPException(status_code=404, detail=_t("session_not_found", session_id=session_id))
+    _bind_assistant_user(service, user)
     return session
 
 
 def _bind_assistant_user(service: AssistantService, user: CurrentUserInfo) -> None:
     """将当前请求用户绑定到会话运行时（凭证/用量/MCP 工具 user_id）。"""
-    service.bind_user(user.id)
+    bind_user = getattr(service, "bind_user", None)
+    if bind_user is not None:
+        bind_user(user.id)
 
 
 async def _assistant_service_for_stream(
@@ -140,6 +143,7 @@ async def list_sessions(
 ):
     try:
         service = get_assistant_service()
+        _bind_assistant_user(service, _user)
         sessions = await service.list_sessions(
             project_name=project_name, status=status, limit=limit, offset=offset, user_id=_user.id
         )

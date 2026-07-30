@@ -12,6 +12,7 @@ import asyncio
 import logging
 import random
 import re
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Protocol
 from uuid import uuid4
@@ -486,9 +487,15 @@ def _is_client_key_violation(exc: IntegrityError) -> bool:
 class EventLogStore:
     """事件日志 DB 访问：seq 单调分配（append-only）+ 幂等键查重。"""
 
-    def __init__(self, *, session_factory=None, user_id: str = DEFAULT_USER_ID):
+    def __init__(
+        self,
+        *,
+        session_factory=None,
+        user_id: str = DEFAULT_USER_ID,
+        user_id_provider: Callable[[], str] | None = None,
+    ):
         self._session_factory = session_factory or safe_session_factory
-        self._user_id = user_id
+        self._user_id_provider = user_id_provider or (lambda: user_id)
 
     async def append(
         self,
@@ -554,7 +561,7 @@ class EventLogStore:
                         entry_type=str(entry.get("type") or ""),
                         payload=entry,
                         client_key=client_key if len(entries) == 1 else None,
-                        user_id=self._user_id,
+                        user_id=self._user_id_provider(),
                         created_at=now_dt,
                         updated_at=now_dt,
                     )
@@ -598,7 +605,12 @@ class EventLogStore:
             return None
         return {"seq": int(row.seq), **row.payload}
 
-    async def find_new_session_by_client_key(self, client_key: str) -> tuple[str, dict[str, Any]] | None:
+    async def find_new_session_by_client_key(
+        self,
+        client_key: str,
+        *,
+        user_id: str | None = None,
+    ) -> tuple[str, dict[str, Any]] | None:
         """跨会话按幂等键定位新会话的受理条目（seq 0），返回 (session_id, 权威条目)。
 
         client_key 唯一索引按 (session_id, client_key) 分区，覆盖不到
@@ -606,6 +618,7 @@ class EventLogStore:
         由本查询兜底让重试命中既有会话，而非重复建会话。限定 seq 0 是因为只有
         新会话的首条用户条目落在该位置，常规消息的幂等键不参与匹配。
         """
+        owner_id = user_id or self._user_id_provider()
         async with self._session_factory() as session:
             result = await session.execute(
                 select(
@@ -614,6 +627,7 @@ class EventLogStore:
                     AgentSessionEventLogEntry.payload,
                 )
                 .where(
+                    AgentSessionEventLogEntry.user_id == owner_id,
                     AgentSessionEventLogEntry.client_key == client_key,
                     AgentSessionEventLogEntry.seq == 0,
                 )

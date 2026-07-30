@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -43,8 +44,15 @@ class SdkTranscriptAdapter:
     instance serves many projects.
     """
 
-    def __init__(self, store: Any = None) -> None:
-        self._store = store
+    def __init__(self, store: Any = None, *, store_provider: Callable[[], Any] | None = None) -> None:
+        self._store_value = store
+        self._store_provider = store_provider
+
+    @property
+    def _store(self) -> Any:
+        if self._store_provider is not None:
+            return self._store_provider()
+        return self._store_value
 
     async def read_raw_messages(
         self,

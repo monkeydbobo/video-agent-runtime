@@ -31,6 +31,7 @@ async def _seed_call(
     segment_id: str | None = None,
     output_path: str | None = None,
     usage_tokens: int | None = None,
+    user_id: str = DEFAULT_USER_ID,
 ) -> None:
     """直连 UsageRepository 写入一条已完成调用记录（等价于旧 UsageTracker 的种子写法）。"""
     async with db_factory() as session:
@@ -42,6 +43,7 @@ async def _seed_call(
             provider=provider,
             resolution=resolution,
             segment_id=segment_id,
+            user_id=user_id,
         )
         await repo.finish_call(
             cid,
@@ -170,6 +172,33 @@ class TestCostEstimationService:
         scripts = {"ep1.json": _make_script(1, ["E1S001"], [6])}
 
         result = await service.compute(project_data, scripts, project_name="proj")
+
+        seg = result["episodes"][0]["segments"][0]
+        assert seg["actual"]["image"]["USD"] == pytest.approx(0.067)
+
+    async def test_actual_costs_are_isolated_for_same_named_projects(self, db_factory):
+        resolver = ConfigResolver(db_factory, user_id="alice")
+        service = CostEstimationService(resolver, db_factory, user_id="alice")
+        for user_id in ("alice", "bob"):
+            await _seed_call(
+                db_factory,
+                "same-name",
+                "image",
+                "gemini-3.1-flash-image-preview",
+                resolution="1K",
+                segment_id="E1S001",
+                output_path=f"{user_id}.png",
+                user_id=user_id,
+            )
+
+        project_data = {
+            "title": "Test",
+            "content_mode": "narration",
+            "episodes": [{"episode": 1, "title": "Ep1", "script_file": "ep1.json"}],
+        }
+        scripts = {"ep1.json": _make_script(1, ["E1S001"], [6])}
+
+        result = await service.compute(project_data, scripts, project_name="same-name")
 
         seg = result["episodes"][0]["segments"][0]
         assert seg["actual"]["image"]["USD"] == pytest.approx(0.067)
