@@ -70,7 +70,7 @@ async def test_streamlake_builds_configurable_model_and_polls(tmp_path: Path) ->
     assert client.get.call_args.args[0] == "https://streamlake.test/v1/endpoints/ep-custom/tasks/task-1"
 
 
-def test_streamlake_capabilities_and_base64_first_frame(tmp_path: Path) -> None:
+def test_streamlake_capabilities_and_requires_public_first_frame_url(tmp_path: Path) -> None:
     backend = StreamLakeVideoBackend(api_key="key", model="ep-custom")
     assert VideoCapability.TEXT_TO_VIDEO in backend.capabilities
     assert VideoCapability.IMAGE_TO_VIDEO in backend.capabilities
@@ -78,18 +78,32 @@ def test_streamlake_capabilities_and_base64_first_frame(tmp_path: Path) -> None:
 
     image = tmp_path / "first.png"
     image.write_bytes(b"png-bytes")
+    with pytest.raises(VideoCapabilityError) as exc_info:
+        backend._build_payload(
+            VideoGenerationRequest(
+                prompt="p",
+                output_path=tmp_path / "o.mp4",
+                duration_seconds=3,
+                start_image=image,
+            )
+        )
+    assert exc_info.value.code == "video_start_image_url_required"
+
     payload = backend._build_payload(
         VideoGenerationRequest(
             prompt="p",
             output_path=tmp_path / "o.mp4",
             duration_seconds=3,
             start_image=image,
+            start_image_url="https://media.example.com/api/v1/files/project/storyboards/first.png?media_token=signed",
         )
     )
-    assert payload["first_frame"] == "cG5nLWJ5dGVz"
+    assert payload["first_frame"] == (
+        "https://media.example.com/api/v1/files/project/storyboards/first.png?media_token=signed"
+    )
 
 
-def test_streamlake_rejects_missing_first_frame(tmp_path: Path) -> None:
+def test_streamlake_rejects_local_first_frame(tmp_path: Path) -> None:
     backend = StreamLakeVideoBackend(api_key="key")
 
     with pytest.raises(VideoCapabilityError) as exc_info:
@@ -98,4 +112,4 @@ def test_streamlake_rejects_missing_first_frame(tmp_path: Path) -> None:
                 prompt="p", output_path=tmp_path / "o.mp4", start_image=tmp_path / "missing.png", duration_seconds=3
             )
         )
-    assert exc_info.value.code == "video_start_image_unreadable"
+    assert exc_info.value.code == "video_start_image_url_required"

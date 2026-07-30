@@ -167,6 +167,29 @@ class TestMediaTokenMatrix:
         with pytest.raises(ValueError):
             verify_media_token(token, project_name="bob-proj", user_id="alice-id")
 
+    def test_token_can_be_scoped_to_one_project_file(self, monkeypatch):
+        monkeypatch.setenv("AUTH_TOKEN_SECRET", "test-secret-for-media-token-32b!")
+        token = create_media_token(
+            "alice-id",
+            project_name="alice-proj",
+            asset_path="storyboards/first.png",
+        )
+        claims = verify_media_token(
+            token,
+            project_name="alice-proj",
+            asset_path="storyboards/first.png",
+            user_id="alice-id",
+        )
+        assert claims["asset_path"] == "storyboards/first.png"
+
+        with pytest.raises(ValueError):
+            verify_media_token(
+                token,
+                project_name="alice-proj",
+                asset_path="storyboards/other.png",
+                user_id="alice-id",
+            )
+
     def test_files_route_denies_cross_user(self, tmp_path, monkeypatch, project_ownership_db):
         from server.routers import files as files_router
 
@@ -203,6 +226,46 @@ class TestMediaTokenMatrix:
                 headers={"Authorization": "Bearer bob-token"},
             )
             assert resp.status_code == 404
+
+    def test_files_route_allows_only_media_token_scoped_file(self, tmp_path, monkeypatch, project_ownership_db):
+        from server.routers import files as files_router
+
+        factory = project_ownership_db
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(_seed_project(factory, "alice-proj", "alice-id"))
+
+        async def _pid():
+            async with factory() as session:
+                row = await ProjectRepository(session).get_by_name("alice-id", "alice-proj")
+                assert row is not None
+                return row.id
+
+        project_id = loop.run_until_complete(_pid())
+        pm = ProjectManager(tmp_path)
+        root = pm.create_project("alice-proj", user_id="alice-id", project_id=project_id)
+        storyboards = Path(root) / "storyboards"
+        storyboards.mkdir(parents=True, exist_ok=True)
+        (storyboards / "first.png").write_bytes(b"first")
+        (storyboards / "other.png").write_bytes(b"other")
+        monkeypatch.setattr(files_router, "get_project_manager", lambda: pm)
+        monkeypatch.setenv("AUTH_TOKEN_SECRET", "test-secret-for-media-token-32b!")
+
+        token = create_media_token(
+            "alice-id",
+            project_name="alice-proj",
+            asset_path="storyboards/first.png",
+        )
+        app = FastAPI()
+        app.include_router(files_router.router, prefix="/api/v1")
+        register_error_handlers(app)
+
+        with TestClient(app) as client:
+            first = client.get("/api/v1/files/alice-proj/storyboards/first.png", params={"media_token": token})
+            other = client.get("/api/v1/files/alice-proj/storyboards/other.png", params={"media_token": token})
+
+        assert first.status_code == 200
+        assert first.content == b"first"
+        assert other.status_code == 401
 
 
 class TestAssetsRouterMatrix:

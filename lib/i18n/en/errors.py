@@ -236,6 +236,8 @@ MESSAGES = {
     "video_reference_images_exceeded": "Model {model} supports at most {limit} reference images but received {count}; reduce the number of reference images",
     "video_reference_images_with_frames_unsupported": "Model {model} cannot combine reference images with a first/last frame; use one or the other",
     "video_start_image_unreadable": "The first-frame image for model {model} is unreadable; generation aborted: {name}; check the first-frame image path",
+    "video_start_image_url_required": "Model {model} accepts the first frame only as a public URL; configure a static media domain and try again",
+    "video_public_media_url_unavailable": "A public static URL could not be created for the first frame; configure ARCREEL_PUBLIC_MEDIA_BASE_URL to a publicly accessible media domain",
     "video_end_image_unreadable": "The last-frame image for model {model} is unreadable; generation aborted: {name}; check the last-frame image path",
     "video_end_image_requires_start_image": "Model {model} does not support a standalone last frame; also provide a first frame (first+last keyframes) or remove the last frame",
     # Agent credentials

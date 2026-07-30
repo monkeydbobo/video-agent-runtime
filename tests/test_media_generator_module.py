@@ -152,6 +152,7 @@ def _build_generator(tmp_path: Path) -> MediaGenerator:
     gen._config = _FakeConfigResolver()
     gen._image_provider_id = None
     gen._video_provider_id = None
+    gen._streamlake_first_frame_url_builder = None
     gen.versions = _FakeVersions()
     gen.ledger = _FakeLedger()
     return gen
@@ -216,6 +217,25 @@ class TestMediaGenerator:
         assert video_path2.name == "scene_E1S02.mp4"
         assert version2 == 2
         assert gen.ledger.started[-1]["call_type"] == "video"
+
+    @pytest.mark.asyncio
+    async def test_streamlake_first_frame_uses_static_url_instead_of_local_file(self, tmp_path):
+        gen = _build_generator(tmp_path)
+        start = gen.project_path / "storyboards" / "first.png"
+        start.parent.mkdir()
+        Image.new("RGB", (20, 20)).save(start, format="PNG")
+        gen._streamlake_first_frame_url_builder = lambda path: f"https://media.example.com/{path.name}?signed=1"
+
+        await gen.generate_video_async(
+            prompt="p",
+            resource_type="videos",
+            resource_id="E1S01",
+            start_image=start,
+        )
+
+        request = gen._video_backend.calls[-1]
+        assert request.start_image is None
+        assert request.start_image_url == "https://media.example.com/first.png?signed=1"
 
     @pytest.mark.asyncio
     async def test_video_billed_duration_passed_to_finish_call(self, tmp_path):

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import logging
 from pathlib import Path
 
@@ -116,13 +115,7 @@ class StreamLakeVideoBackend(ProviderJobIdPersistenceMixin):
         if request.start_image_url:
             payload["first_frame"] = request.start_image_url
         elif request.start_image:
-            path = Path(request.start_image)
-            if not path.is_file():
-                raise VideoCapabilityError("video_start_image_unreadable", model=self._model, name=path.name)
-            try:
-                payload["first_frame"] = base64.b64encode(path.read_bytes()).decode("ascii")
-            except OSError as exc:
-                raise VideoCapabilityError("video_start_image_unreadable", model=self._model, name=path.name) from exc
+            raise VideoCapabilityError("video_start_image_url_required", model=self._model)
         if request.seed is not None:
             payload["seed"] = request.seed
         return payload
