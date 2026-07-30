@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterable
+from typing import Any
 
 from openai import AsyncOpenAI, BadRequestError
+from openai.types import CompletionUsage
 
 from lib.config.url_utils import is_official_openai_base_url
 from lib.logging_utils import format_kwargs_for_log
@@ -117,7 +120,7 @@ class OpenAITextBackend:
     async def _generate_native(
         self, request: TextGenerationRequest, messages: list[dict]
     ) -> TextGenerationResult | None:
-        """单次原生调用：构造 kwargs、发请求、解析与截断告警，瞬态错误重试。
+        """单次原生调用：构造 kwargs、发流式请求、聚合与截断告警，瞬态错误重试。
 
         schema 不兼容时返回 ``None``（降级信号）而不抛异常：代理可能把上游 schema 错误
         包装成 429 等状态码，若以异常形式穿过重试装饰器，会被字符串模式误判为瞬态错误
@@ -126,6 +129,15 @@ class OpenAITextBackend:
         kwargs: dict = {"model": self._model, "messages": messages}
         if request.max_output_tokens is not None:
             kwargs[self._max_tokens_param] = request.max_output_tokens
+
+        # 流式是刚性要求而非优化：中转网关（tengine/nginx 类）普遍配 60s 量级的
+        # proxy_read_timeout，该超时按「两次成功读之间的空闲间隔」计而非总时长。非流式下
+        # 整轮生成期间网关无数据可读，长输出（分集规划、剧本生成）会被掐断并返回网关自带的
+        # HTML 错误页；流式让每个 chunk 都重置该计时器，长响应才能走完。
+        kwargs["stream"] = True
+        # 流式默认不回 usage，须显式索取，否则 token 无从记账（CostCalculator 在
+        # input_tokens 为 None 时直接返回 0 成本，会把文本调用静默记成免费）。
+        kwargs["stream_options"] = {"include_usage": True}
 
         if request.response_schema:
             schema = resolve_schema(request.response_schema)
@@ -140,7 +152,10 @@ class OpenAITextBackend:
 
         logger.info("调用 %s 文本 SDK kwargs=%s", self.name, format_kwargs_for_log(kwargs))
         try:
-            response = await self._client.chat.completions.create(**kwargs)
+            stream = await self._client.chat.completions.create(**kwargs)
+            # 流的消费一并纳入本 try：200 后再于流中段抛出的错误同样要过 schema 降级判定，
+            # 且整段都在 @with_retry_async 覆盖内，断流属可重试的连接类错误。
+            text, finish_reason, usage = await _consume_stream(stream)
         except Exception as exc:
             if request.response_schema and _is_schema_error(exc):
                 logger.warning(
@@ -150,13 +165,16 @@ class OpenAITextBackend:
                 return None
             raise
 
-        usage = response.usage
-        choice = response.choices[0]
+        if usage is None:
+            logger.warning(
+                "%s/%s 流式响应未返回 usage（供应商可能不支持 stream_options.include_usage），本次调用 token 无从记账",
+                self._provider_name,
+                self._model,
+            )
         output_tokens = usage.completion_tokens if usage else None
-        text = choice.message.content or ""
 
         check_truncation(
-            getattr(choice, "finish_reason", None),
+            finish_reason,
             provider=self._provider_name,
             model=self._model,
             output_tokens=output_tokens,
@@ -169,6 +187,37 @@ class OpenAITextBackend:
             input_tokens=usage.prompt_tokens if usage else None,
             output_tokens=output_tokens,
         )
+
+
+async def _consume_stream(stream: AsyncIterable[Any]) -> tuple[str, str | None, CompletionUsage | None]:
+    """把 Chat Completions 流聚合成 ``(text, finish_reason, usage)``。
+
+    只收 ``delta.content``，不收推理模型的 ``delta.reasoning_content``——与非流式只读
+    ``message.content`` 的口径一致，思维链不属于可交付输出。
+
+    ``usage`` 的落点各家不一：官方规范放在末尾一个 ``choices`` 为空的独立 chunk，部分中转
+    把它挂在带 ``finish_reason`` 的收尾 chunk 上。故不认位置、见到即取，并对空 ``choices``
+    与缺失 ``delta`` 做防御——中转返回的 chunk 常缺字段，SDK 不会替我们补齐。
+    """
+    parts: list[str] = []
+    finish_reason: str | None = None
+    usage: CompletionUsage | None = None
+
+    async for chunk in stream:
+        if getattr(chunk, "usage", None) is not None:
+            usage = chunk.usage
+        choices = getattr(chunk, "choices", None)
+        if not choices:
+            continue
+        choice = choices[0]
+        delta = getattr(choice, "delta", None)
+        if delta is not None and getattr(delta, "content", None):
+            parts.append(delta.content)
+        # 末 chunk 才带 finish_reason；不 break，后面可能还有独立的 usage chunk。
+        if getattr(choice, "finish_reason", None):
+            finish_reason = choice.finish_reason
+
+    return "".join(parts), finish_reason, usage
 
 
 def _build_messages(request: TextGenerationRequest) -> list[dict]:

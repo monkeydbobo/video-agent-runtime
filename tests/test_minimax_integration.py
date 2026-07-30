@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -12,19 +13,27 @@ from lib.pricing.strategies import PricingParams, calculate_pricing
 from lib.providers import PROVIDER_MINIMAX, PROVIDER_OPENAI
 
 
-def _text_response(content: str = "ok", in_tok: int = 10, out_tok: int = 5) -> MagicMock:
-    usage = MagicMock()
-    usage.prompt_tokens = in_tok
-    usage.completion_tokens = out_tok
-    message = MagicMock()
-    message.content = content
-    choice = MagicMock()
-    choice.message = message
-    choice.finish_reason = "stop"
-    response = MagicMock()
-    response.choices = [choice]
-    response.usage = usage
-    return response
+def _text_response(content: str = "ok", in_tok: int = 10, out_tok: int = 5):
+    """OpenAITextBackend 走流式（见 lib/text_backends/openai.py），故 mock 须是 chunk 流。"""
+    chunks = [
+        SimpleNamespace(
+            choices=[SimpleNamespace(delta=SimpleNamespace(content=content), finish_reason=None)], usage=None
+        ),
+        SimpleNamespace(
+            choices=[SimpleNamespace(delta=SimpleNamespace(content=None), finish_reason="stop")], usage=None
+        ),
+        SimpleNamespace(choices=[], usage=SimpleNamespace(prompt_tokens=in_tok, completion_tokens=out_tok)),
+    ]
+
+    class _FakeStream:
+        def __aiter__(self):
+            return self._gen()
+
+        async def _gen(self):
+            for chunk in chunks:
+                yield chunk
+
+    return _FakeStream()
 
 
 class TestRegistry:
