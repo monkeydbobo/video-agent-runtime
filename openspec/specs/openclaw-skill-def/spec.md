@@ -1,15 +1,19 @@
 ## ADDED Requirements
 
 ### Requirement: Skill 定义文件动态渲染
-系统 SHALL 提供 `GET /skill.md` 端点，读取 `public/skill.md.template` 模板文件，将 `{{BASE_URL}}` 占位符替换为请求者实际访问的 base URL（从 `Host` header 和 scheme 推断），返回渲染后的内容，无需认证。
+系统 SHALL 提供 `GET /skill.md` 端点，读取 `public/skill.md.template` 模板文件，将 `{{BASE_URL}}` 占位符替换为请求者实际访问的 base URL（从 `Host` header 和 scheme 推断），将 `{{BRAND_NAME}}` 替换为环境变量 `BRAND_NAME`（缺省或空白时为 `oioi.bio`），返回渲染后的内容，无需认证。
 
 #### Scenario: 访问 skill.md
 - **WHEN** 任何客户端请求 `GET /skill.md`
-- **THEN** 系统返回渲染后的 Skill 定义文件，其中所有 `{{BASE_URL}}` 已被替换为实际的服务地址（如 `https://my-arcreel.example.com`）
+- **THEN** 系统返回渲染后的 Skill 定义文件，其中所有 `{{BASE_URL}}` 已被替换为实际的服务地址（如 `https://example.com`），且所有 `{{BRAND_NAME}}` 已被替换为当前品牌名
 
 #### Scenario: 不同部署地址
 - **WHEN** 用户自部署在 `http://192.168.1.100:1241` 并访问 `/skill.md`
 - **THEN** 返回的文件中 API URL 为 `http://192.168.1.100:1241/api/v1/...`
+
+#### Scenario: 品牌名覆盖
+- **WHEN** 部署环境设置 `BRAND_NAME=MyBrand` 并访问 `/skill.md`
+- **THEN** 返回内容中的产品名称为 `MyBrand`，且不再出现未替换的 `{{BRAND_NAME}}` 占位符
 
 ### Requirement: Skill 工作流描述
 skill.md SHALL 描述完整的使用工作流：创建项目 → 保存设置 → 多轮 Agent 对话 → 查看成果。
@@ -31,7 +35,7 @@ skill.md SHALL 定义以下核心工具及其 API 端点、请求/响应格式�
 - **THEN** 每个工具 SHALL 包含端点路径、HTTP 方法、请求参数说明、响应格式示例
 
 ### Requirement: 认证说明
-skill.md SHALL 说明认证方式：用户从 ArcReel 设置页面获取 API Key（`arc-` 前缀），通过 `Authorization: Bearer <API_KEY>` 传递。
+skill.md SHALL 说明认证方式：用户从产品设置页面获取 API Key（`arc-` 前缀），通过 `Authorization: Bearer <API_KEY>` 传递；产品名称使用 `{{BRAND_NAME}}` 占位符，不得硬编码上游仓库名。
 
 #### Scenario: 用户按说明配置认证
 - **WHEN** 用户按 skill.md 中的认证说明操作
