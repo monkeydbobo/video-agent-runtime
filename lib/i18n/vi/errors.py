@@ -236,6 +236,8 @@ MESSAGES = {
     "video_reference_images_exceeded": "Mô hình {model} hỗ trợ tối đa {limit} ảnh tham chiếu nhưng nhận được {count}; hãy giảm số lượng ảnh tham chiếu",
     "video_reference_images_with_frames_unsupported": "Mô hình {model} không thể dùng ảnh tham chiếu cùng với khung hình đầu/cuối; hãy chọn một trong hai",
     "video_start_image_unreadable": "Ảnh khung hình đầu của mô hình {model} không đọc được; đã hủy tạo: {name}; hãy kiểm tra đường dẫn ảnh khung hình đầu",
+    "video_start_image_url_required": "Mô hình {model} chỉ nhận khung hình đầu qua URL công khai; hãy cấu hình tên miền media tĩnh rồi thử lại",
+    "video_public_media_url_unavailable": "Không thể tạo URL tĩnh công khai cho khung hình đầu; hãy cấu hình ARCREEL_PUBLIC_MEDIA_BASE_URL thành tên miền media có thể truy cập công khai",
     "video_end_image_unreadable": "Ảnh khung hình cuối của mô hình {model} không đọc được; đã hủy tạo: {name}; hãy kiểm tra đường dẫn ảnh khung hình cuối",
     "video_end_image_requires_start_image": "Mô hình {model} không hỗ trợ khung hình cuối độc lập; hãy cung cấp thêm khung hình đầu (chế độ khung đầu+cuối) hoặc bỏ khung hình cuối",
     # Agent credentials

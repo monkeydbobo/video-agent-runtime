@@ -83,6 +83,7 @@ class MediaGenerator:
         video_provider_id: str | None = None,
         audio_provider_id: str | None = None,
         project_name: str | None = None,
+        streamlake_first_frame_url_builder: Callable[[Path], str] | None = None,
     ):
         """
         初始化 MediaGenerator
@@ -102,6 +103,8 @@ class MediaGenerator:
             audio_provider_id: 音频 registry provider_id（旁白 TTS 记账用），与 audio_backend 成对
             project_name: 逻辑项目名（API/账本侧）；用户隔离布局下目录名是 UUID，不传时回退目录名
                 仅兼容旧扁平布局。
+            streamlake_first_frame_url_builder: 仅溪流湖图生视频使用；把项目内首帧转换为
+                外部可访问的短时静态 URL。
         """
         require_provider_pair("image", image_backend, image_provider_id)
         require_provider_pair("video", video_backend, video_provider_id)
@@ -121,6 +124,7 @@ class MediaGenerator:
         self._image_provider_id = image_provider_id
         self._video_provider_id = video_provider_id
         self._audio_provider_id = audio_provider_id
+        self._streamlake_first_frame_url_builder = streamlake_first_frame_url_builder
         self.versions = VersionManager(project_path, project_name=self.project_name)
 
         # 初始化记账账本（使用全局 async session factory）
@@ -643,7 +647,16 @@ class MediaGenerator:
             end_spec_idx: int | None = None
             ref_start_idx: int | None = None
 
-            if isinstance(start_image, (str, Path)):
+            start_image_url: str | None = None
+            if isinstance(start_image, (str, Path)) and self._streamlake_first_frame_url_builder is not None:
+                try:
+                    start_image_url = self._streamlake_first_frame_url_builder(Path(start_image))
+                except ValueError as exc:
+                    from lib.video_backends.base import VideoCapabilityError
+
+                    raise VideoCapabilityError("video_public_media_url_unavailable") from exc
+
+            if isinstance(start_image, (str, Path)) and start_image_url is None:
                 start_spec_idx = len(specs)
                 specs.append(ReferenceSpec(source=Path(start_image), label="", role=RefRole.FRAME))
             if actual_end_image is not None:
@@ -673,6 +686,7 @@ class MediaGenerator:
                         duration_seconds=duration_int,
                         resolution=resolution,
                         start_image=start_arg,
+                        start_image_url=start_image_url,
                         end_image=end_arg,
                         reference_images=ref_arg,
                         generate_audio=effective_generate_audio,

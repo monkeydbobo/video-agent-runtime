@@ -233,6 +233,8 @@ MESSAGES = {
     "video_reference_images_exceeded": "模型 {model} 最多支持 {limit} 张参考图，收到 {count} 张；请减少参考图数量",
     "video_reference_images_with_frames_unsupported": "模型 {model} 的参考图不能与首帧/尾帧叠加使用；请二选一",
     "video_start_image_unreadable": "模型 {model} 的首帧图无法读取，已中止生成：{name}；请检查首帧图路径",
+    "video_start_image_url_required": "模型 {model} 仅支持公开 URL 形式的首帧图；请配置静态媒体域名后重试",
+    "video_public_media_url_unavailable": "无法为首帧图生成公开静态 URL；请配置 ARCREEL_PUBLIC_MEDIA_BASE_URL 为可公网访问的媒体域名",
     "video_end_image_unreadable": "模型 {model} 的尾帧图无法读取，已中止生成：{name}；请检查尾帧图路径",
     "video_end_image_requires_start_image": "模型 {model} 不支持单独的尾帧；请同时提供首帧（首尾帧模式），或移除尾帧",
     # Agent credentials

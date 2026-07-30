@@ -416,7 +416,7 @@ class VideoGenerationRequest:
     resolution: str | None = None
     start_image: Path | None = None
     # Optional provider-specific public URL for a first frame. Backends that accept only URLs
-    # can prefer this value; providers such as StreamLake can otherwise encode local bytes.
+    # (currently StreamLake) require this value rather than local image bytes.
     start_image_url: str | None = None
     end_image: Path | None = None  # For first_last mode
     reference_images: list[Path] | None = None  # For multi-reference mode

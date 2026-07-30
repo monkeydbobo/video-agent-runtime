@@ -21,6 +21,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from functools import partial
 from typing import TYPE_CHECKING, Any, Literal
 
 from lib.backend_assembly import assemble_backend
@@ -29,6 +30,7 @@ from lib.db.base import DEFAULT_USER_ID
 from lib.gemini_shared import get_shared_rate_limiter
 from lib.media_generator import MediaGenerator
 from lib.project_manager import get_project_manager
+from lib.providers import PROVIDER_STREAMLAKE
 
 if TYPE_CHECKING:
     from lib.config.resolver import ProviderModel
@@ -355,6 +357,17 @@ async def resolve_generation_context(
                 narration_speed=await r.resolve_narration_speed(project),
             )
 
+    streamlake_first_frame_url_builder = None
+    if video_result and video_result.provider_model.provider_id == PROVIDER_STREAMLAKE:
+        from server.public_media import build_streamlake_first_frame_url
+
+        streamlake_first_frame_url_builder = partial(
+            build_streamlake_first_frame_url,
+            project_path=project_path,
+            project_name=project_name,
+            user_id=user_id,
+        )
+
     generator = MediaGenerator(
         project_path,
         rate_limiter=rate_limiter,
@@ -369,6 +382,7 @@ async def resolve_generation_context(
         # 用户隔离布局下 project_path.name 是 UUID：不传逻辑名会导致记账归错项目、
         # 项目级配置解析（如 video_generate_audio）报「项目不存在」。
         project_name=project_name,
+        streamlake_first_frame_url_builder=streamlake_first_frame_url_builder,
     )
     return GenerationContext(
         generator=generator,

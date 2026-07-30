@@ -89,6 +89,9 @@ async def serve_project_file(
     if media_token:
         try:
             payload = verify_media_token(media_token, project_name=project_name)
+            asset_path = payload.get("asset_path")
+            if asset_path is not None:
+                verify_media_token(media_token, project_name=project_name, asset_path=path)
         except jwt.ExpiredSignatureError:
             raise HTTPException(status_code=401, detail=_t("unauthorized"))
         except (jwt.InvalidTokenError, ValueError):
