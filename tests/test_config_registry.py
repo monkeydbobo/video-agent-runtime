@@ -17,6 +17,7 @@ def test_all_providers_registered():
         "minimax",
         "kling",
         "agnes",
+        "streamlake",
     }
 
 
