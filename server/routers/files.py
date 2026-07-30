@@ -57,6 +57,10 @@ from server.project_access import bind_owned_project_scope, ensure_project_acces
 
 router = APIRouter()
 
+# Railway CDN 命中的是完整签名 URL；缓存时间必须短于 media_token 的 5 分钟有效期，
+# 否则令牌过期后边缘节点仍可能继续返回该图片。
+_SCOPED_MEDIA_CDN_MAX_AGE_SECONDS = MEDIA_TOKEN_EXPIRY_SECONDS - 60
+
 
 def _require_filename(file: UploadFile, _t: Callable[..., str]) -> str:
     if not file.filename:
@@ -86,12 +90,14 @@ async def serve_project_file(
     media_token: str | None = Query(None, alias="media_token"),
 ):
     """服务项目内的静态文件（图片/视频）。支持 Authorization 或短时 ``?media_token=``。"""
+    is_file_scoped_media_token = False
     if media_token:
         try:
             payload = verify_media_token(media_token, project_name=project_name)
             asset_path = payload.get("asset_path")
             if asset_path is not None:
                 verify_media_token(media_token, project_name=project_name, asset_path=path)
+                is_file_scoped_media_token = True
         except jwt.ExpiredSignatureError:
             raise HTTPException(status_code=401, detail=_t("unauthorized"))
         except (jwt.InvalidTokenError, ValueError):
@@ -129,7 +135,9 @@ async def serve_project_file(
 
         # 内容寻址缓存：带 ?v= 参数或 versions/ 路径时设 immutable；始终 private 防跨用户缓存
         headers = {"Cache-Control": "private, no-store"}
-        if request.query_params.get("v") or path.startswith("versions/"):
+        if is_file_scoped_media_token:
+            headers = {"Cache-Control": f"public, max-age={_SCOPED_MEDIA_CDN_MAX_AGE_SECONDS}"}
+        elif request.query_params.get("v") or path.startswith("versions/"):
             headers["Cache-Control"] = "private, max-age=31536000, immutable"
 
         return FileResponse(file_path, headers=headers)
