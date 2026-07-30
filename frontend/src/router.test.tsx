@@ -55,7 +55,14 @@ describe("AppRoutes", () => {
     vi.useRealTimers();
   });
 
-  it("renders the public product landing page at the root path", async () => {
+  it("redirects authenticated users from the root path to the projects list", async () => {
+    const { history } = renderAt("/");
+    expect(await screen.findByTestId("projects-page")).toBeInTheDocument();
+    expect(history.at(-1)).toBe("/app/projects");
+  });
+
+  it("keeps the public product landing page for signed-out users", async () => {
+    useAuthStore.setState({ isAuthenticated: false, isLoading: false });
     const { history } = renderAt("/");
     expect(await screen.findByRole("heading", { name: /会动的画面/ })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "登录" }));

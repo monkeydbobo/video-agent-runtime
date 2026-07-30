@@ -61,21 +61,26 @@ function ConfigStatusLoader() {
 // AuthGuard — redirects to /login when not authenticated
 // ---------------------------------------------------------------------------
 
-function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuthStore();
+function AuthLoading() {
   const { t } = useTranslation("common");
 
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex h-screen items-center justify-center gap-2 bg-bg text-[13px] text-text-4"
+    >
+      <Loader2 aria-hidden className="h-4 w-4 motion-safe:animate-spin" />
+      <span>{t("loading")}</span>
+    </div>
+  );
+}
+
+function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuthStore();
+
   if (isLoading) {
-    return (
-      <div
-        role="status"
-        aria-live="polite"
-        className="flex h-screen items-center justify-center gap-2 bg-bg text-[13px] text-text-4"
-      >
-        <Loader2 aria-hidden className="h-4 w-4 motion-safe:animate-spin" />
-        <span>{t("loading")}</span>
-      </div>
-    );
+    return <AuthLoading />;
   }
 
   if (!isAuthenticated) {
@@ -89,6 +94,14 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   return <>{children}</>;
+}
+
+function RootRoute() {
+  const { isAuthenticated, isLoading } = useAuthStore();
+
+  if (isLoading) return <AuthLoading />;
+  if (isAuthenticated) return <Redirect to="/app/projects" />;
+  return <LandingPage />;
 }
 
 // ---------------------------------------------------------------------------
@@ -159,7 +172,7 @@ export function AppRoutes() {
         {/* Public product landing page */}
         <Route path="/zh/:seoSlug" component={SeoLandingPage} />
         <Route path="/en/:seoSlug" component={SeoLandingPage} />
-        <Route path="/" component={LandingPage} />
+        <Route path="/" component={RootRoute} />
 
         {/* /app and /app/ also redirect to projects list */}
         <Route path="/app">
