@@ -156,6 +156,7 @@ PROVIDER_FALLBACK_RESOLUTION: dict[str, str] = {
     "openai": "720p",
     # MiniMax 海螺缺省 768P：1080P 仅 6s，默认落 768P 避免与 10s 档冲突。
     "minimax": "768p",
+    "streamlake": "768P",
 }
 
 

@@ -322,12 +322,21 @@ def _text_openai_compat_spec(
 # （未登记的 provider × media 抛 ValueError，不「缺席即默认」造静默错误 backend）。只登记今天确有注册 backend
 # 的对：image/video 简单族七家齐全，audio 仅 dashscope，text 八家（六 provider，gemini 两 id）。
 
-_SIMPLE_IMAGE_VIDEO_PROVIDERS = ("ark", "ark-agent-plan", "grok", "openai", "vidu", "dashscope", "minimax")
+_SIMPLE_IMAGE_VIDEO_PROVIDERS = (
+    "ark",
+    "ark-agent-plan",
+    "grok",
+    "openai",
+    "vidu",
+    "dashscope",
+    "minimax",
+)
 _SIMPLE_MEDIA_PAIRS: list[tuple[str, str]] = [
     *((p, "image") for p in _SIMPLE_IMAGE_VIDEO_PROVIDERS),
     *((p, "video") for p in _SIMPLE_IMAGE_VIDEO_PROVIDERS),
     ("atlascloud", "image"),
     ("dashscope", "audio"),
+    ("streamlake", "video"),
 ]
 
 # gemini 两个 provider_id → backend_type，每个 × image/video 登记一行。

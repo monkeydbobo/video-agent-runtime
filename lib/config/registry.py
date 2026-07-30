@@ -21,6 +21,7 @@ from lib.pricing.types import (
     Pricing,
     ViduDelegate,
 )
+from lib.streamlake_shared import STREAMLAKE_BASE_URL
 
 
 @dataclass(frozen=True)
@@ -1096,6 +1097,25 @@ PROVIDER_REGISTRY: dict[str, ProviderMeta] = {
             ),
         },
         default_base_url=DASHSCOPE_BASE_URL,
+    ),
+    "streamlake": ProviderMeta(
+        display_name="StreamLake / 万擎",
+        description="快手万擎 StreamLake 视频生成平台，支持可配置推理点的文生视频与图生视频。",
+        required_keys=["api_key"],
+        optional_keys=["base_url", "video_max_workers"],
+        secret_keys=["api_key"],
+        models={
+            # 推理点 ID 由 StreamLake 控制台创建；新增推理点时在此补一条即可，后端不会写死模型路由。
+            "ep-t29dbm-1784275940772279346": ModelInfo(
+                display_name="StreamLake Wan I2V/T2V",
+                media_type="video",
+                capabilities=["text_to_video", "image_to_video", "seed_control"],
+                default=True,
+                supported_durations=[6, 10],
+                resolutions=["768P", "1080P"],
+            ),
+        },
+        default_base_url=STREAMLAKE_BASE_URL,
     ),
     "minimax": ProviderMeta(
         display_name="MiniMax",
