@@ -22,12 +22,26 @@ describe("LandingPage hero video", () => {
     const { container } = renderLandingPage();
 
     const restoreButton = screen.getByRole("button", { name: "退出首屏视频并恢复初始效果" });
+    const soundButton = screen.getByRole("button", { name: "打开声音" });
     const navigation = screen.getByRole("navigation", { name: "主导航" });
+    const videoBackdrop = container.querySelector(".landing-hero__video-backdrop");
+    const heroVideo = videoBackdrop?.querySelector("video") as HTMLVideoElement;
     expect(container.querySelector(".landing-page")).toHaveClass("landing-page--hero-video");
     expect(navigation).toHaveClass("landing-nav--immersive");
     expect(container.querySelector(".landing-particles")).not.toBeInTheDocument();
     expect(container.querySelector(".hero-atmosphere")).not.toBeInTheDocument();
-    expect(restoreButton.querySelector("video")).toHaveAttribute("loop");
+    expect(heroVideo).toHaveAttribute("loop");
+    expect(heroVideo.muted).toBe(true);
+    expect(soundButton).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(videoBackdrop as HTMLElement);
+
+    expect(container.querySelector(".landing-page")).toHaveClass("landing-page--hero-video");
+
+    fireEvent.click(soundButton);
+
+    expect(heroVideo.muted).toBe(false);
+    expect(screen.getByRole("button", { name: "关闭声音" })).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.click(restoreButton);
 
@@ -41,17 +55,18 @@ describe("LandingPage hero video", () => {
     expect(sources).toHaveLength(2);
     expect(sources[0]).toHaveAttribute(
       "src",
-      "https://s15-sl.cybercut.ai/kos/s101/nlav112623/oioi_demo_web_vp9.webm",
+      "https://s15-sl.cybercut.ai/kos/s101/nlav112623/oioi_demo_web_vp9_audio.webm",
     );
     expect(sources[1]).toHaveAttribute(
       "src",
-      "https://s15-sl.cybercut.ai/kos/s101/nlav112623/oioi_demo_web_h264.mp4",
+      "https://s15-sl.cybercut.ai/kos/s101/nlav112623/oioi_demo_web_h264_audio.mp4",
     );
     fireEvent.click(expandButton);
 
     expect(container.querySelector(".landing-page")).toHaveClass("landing-page--hero-video");
     expect(navigation).toHaveClass("landing-nav--immersive");
     expect(container.querySelector(".landing-particles")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "打开声音" })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("defers the below-fold showreel until it enters the viewport", () => {

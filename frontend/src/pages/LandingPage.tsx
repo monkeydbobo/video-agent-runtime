@@ -9,9 +9,11 @@ import {
   Pause,
   Play,
   Sparkles,
+  Volume2,
+  VolumeX,
   WandSparkles,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type Ref, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import { BRAND } from "@/branding";
@@ -20,13 +22,25 @@ import { ParticleField } from "@/components/landing/ParticleField";
 import "./LandingPage.css";
 
 const FEATURE_ICONS = [FileText, Layers3, WandSparkles] as const;
-const HERO_VIDEO_MP4_SRC = "https://s15-sl.cybercut.ai/kos/s101/nlav112623/oioi_demo_web_h264.mp4";
-const HERO_VIDEO_WEBM_SRC = "https://s15-sl.cybercut.ai/kos/s101/nlav112623/oioi_demo_web_vp9.webm";
+const HERO_VIDEO_MP4_SRC = "https://s15-sl.cybercut.ai/kos/s101/nlav112623/oioi_demo_web_h264_audio.mp4";
+const HERO_VIDEO_WEBM_SRC = "https://s15-sl.cybercut.ai/kos/s101/nlav112623/oioi_demo_web_vp9_audio.webm";
 const HERO_VIDEO_POSTER = "/hero/oioi-demo-poster.jpg";
 
-function HeroVideo() {
+function HeroVideo({ muted = true, videoRef }: { muted?: boolean; videoRef?: Ref<HTMLVideoElement> }) {
   return (
-    <video aria-hidden autoPlay crossOrigin="anonymous" loop muted playsInline poster={HERO_VIDEO_POSTER} preload="auto">
+    // The decorative soundtrack does not carry page content, so captions are not required.
+    // eslint-disable-next-line jsx-a11y/media-has-caption
+    <video
+      aria-hidden
+      ref={videoRef}
+      autoPlay
+      crossOrigin="anonymous"
+      loop
+      muted={muted}
+      playsInline
+      poster={HERO_VIDEO_POSTER}
+      preload="auto"
+    >
       <source src={HERO_VIDEO_WEBM_SRC} type='video/webm; codecs="vp9"' />
       <source src={HERO_VIDEO_MP4_SRC} type="video/mp4" />
     </video>
@@ -40,8 +54,10 @@ export function LandingPage() {
   const [activeClip, setActiveClip] = useState(0);
   const [isPaused, setIsPaused] = useState(true);
   const [isHeroVideoActive, setIsHeroVideoActive] = useState(true);
+  const [isHeroMuted, setIsHeroMuted] = useState(true);
   const [isShowreelReady, setIsShowreelReady] = useState(false);
   const heroRef = useRef<HTMLElement>(null);
+  const heroVideoRef = useRef<HTMLVideoElement>(null);
   const showreelRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -75,6 +91,7 @@ export function LandingPage() {
   };
 
   const activateHeroVideo = () => {
+    setIsHeroMuted(true);
     setIsHeroVideoActive(true);
     requestAnimationFrame(() => {
       const hero = heroRef.current;
@@ -83,6 +100,21 @@ export function LandingPage() {
       hero.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
     });
   };
+
+  const toggleHeroSound = () => {
+    const nextMuted = !isHeroMuted;
+    if (heroVideoRef.current) heroVideoRef.current.muted = nextMuted;
+    setIsHeroMuted(nextMuted);
+  };
+
+  const restoreHeroEffects = () => {
+    setIsHeroMuted(true);
+    setIsHeroVideoActive(false);
+  };
+
+  useEffect(() => {
+    if (heroVideoRef.current) heroVideoRef.current.muted = isHeroMuted;
+  }, [isHeroMuted, isHeroVideoActive]);
 
   useEffect(() => {
     const section = showreelRef.current;
@@ -147,19 +179,33 @@ export function LandingPage() {
         ref={heroRef}
       >
         {isHeroVideoActive ? (
-          <button
-            aria-label={t("hero_video_exit")}
-            className="landing-hero__video-backdrop"
-            onClick={() => setIsHeroVideoActive(false)}
-            type="button"
-          >
-            <HeroVideo />
-            <span aria-hidden className="landing-hero__video-shade" />
-            <span className="landing-hero__video-exit-hint">
-              <Minimize2 aria-hidden size={15} />
-              {t("hero_video_restore")}
-            </span>
-          </button>
+          <>
+            <div className="landing-hero__video-backdrop">
+              <HeroVideo muted={isHeroMuted} videoRef={heroVideoRef} />
+              <span aria-hidden className="landing-hero__video-shade" />
+            </div>
+            <div className="landing-hero__video-controls" aria-label={t("hero_video_controls")} role="group">
+              <button
+                aria-label={isHeroMuted ? t("hero_video_unmute") : t("hero_video_mute")}
+                aria-pressed={!isHeroMuted}
+                className={`landing-hero__video-control${isHeroMuted ? "" : " is-active"}`}
+                onClick={toggleHeroSound}
+                type="button"
+              >
+                {isHeroMuted ? <VolumeX aria-hidden size={15} /> : <Volume2 aria-hidden size={15} />}
+                <span>{isHeroMuted ? t("hero_video_unmute") : t("hero_video_mute")}</span>
+              </button>
+              <button
+                aria-label={t("hero_video_exit")}
+                className="landing-hero__video-control"
+                onClick={restoreHeroEffects}
+                type="button"
+              >
+                <Minimize2 aria-hidden size={15} />
+                <span>{t("hero_video_restore")}</span>
+              </button>
+            </div>
+          </>
         ) : (
           <HeroAtmosphere />
         )}
