@@ -69,11 +69,12 @@ describe("AppRoutes", () => {
     expect(history.at(-1)).toBe("/login");
   });
 
-  it("redirects public SEO guide URLs to the product landing page", async () => {
+  it("renders a public SEO guide with the product visual language", async () => {
     useAuthStore.setState({ isAuthenticated: false, isLoading: false });
-    const { history } = renderAt("/zh/novel-to-video");
-    expect(await screen.findByRole("heading", { name: /会动的画面/ })).toBeInTheDocument();
-    expect(history.at(-1)).toBe("/");
+    renderAt("/zh/novel-to-video");
+    expect(await screen.findByRole("heading", { name: /变成可以逐镜头制作的影像/ })).toBeInTheDocument();
+    expect(document.querySelector(".seo-brand__mark img")).toHaveAttribute("src", "/android-chrome-192x192.png");
+    expect(screen.getByRole("link", { name: "EN" })).toHaveAttribute("href", "/en/novel-to-video");
   });
 
   it("renders 404 for a removed SEO guide", async () => {

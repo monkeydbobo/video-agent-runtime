@@ -13,6 +13,7 @@ import { AssetLibraryPage } from "@/components/pages/AssetLibraryPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { LandingPage } from "@/pages/LandingPage";
+import { SeoLandingPage } from "@/pages/SeoLandingPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { ToastOverlay } from "@/components/layout/ToastOverlay";
 import { API } from "@/api";
@@ -174,19 +175,9 @@ export function AppRoutes() {
         <Route path="/login" component={LoginPage} />
         <Route path="/register" component={RegisterPage} />
 
-        {/* Legacy SEO guide URLs now resolve to the public product landing page */}
-        <Route path="/zh/novel-to-video">
-          <Redirect to="/" />
-        </Route>
-        <Route path="/zh/ai-storyboard-generator">
-          <Redirect to="/" />
-        </Route>
-        <Route path="/en/novel-to-video">
-          <Redirect to="/" />
-        </Route>
-        <Route path="/en/ai-storyboard-generator">
-          <Redirect to="/" />
-        </Route>
+        {/* Public SEO pages share the product visual language while keeping unique search content */}
+        <Route path="/zh/:seoSlug" component={SeoLandingPage} />
+        <Route path="/en/:seoSlug" component={SeoLandingPage} />
         <Route path="/" component={RootRoute} />
 
         {/* /app and /app/ also redirect to projects list */}
