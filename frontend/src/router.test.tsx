@@ -69,11 +69,11 @@ describe("AppRoutes", () => {
     expect(history.at(-1)).toBe("/login");
   });
 
-  it("renders a public SEO guide without authentication", async () => {
+  it("redirects public SEO guide URLs to the product landing page", async () => {
     useAuthStore.setState({ isAuthenticated: false, isLoading: false });
-    renderAt("/zh/novel-to-video");
-    expect(await screen.findByRole("heading", { name: /变成可以逐镜头制作的影像/ })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "EN" })).toHaveAttribute("href", "/en/novel-to-video");
+    const { history } = renderAt("/zh/novel-to-video");
+    expect(await screen.findByRole("heading", { name: /会动的画面/ })).toBeInTheDocument();
+    expect(history.at(-1)).toBe("/");
   });
 
   it("renders 404 for a removed SEO guide", async () => {
