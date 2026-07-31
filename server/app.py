@@ -769,7 +769,7 @@ _CONTENT_SECURITY_POLICY = "; ".join(
         "frame-ancestors 'none'",
         "img-src 'self' data: blob: https:",
         "manifest-src 'self'",
-        "media-src 'self' data: blob:",
+        "media-src 'self' data: blob: https:",
         "object-src 'none'",
         "script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style",
