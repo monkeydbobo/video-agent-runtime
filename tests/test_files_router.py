@@ -2,11 +2,13 @@ import json
 from io import BytesIO
 from urllib.parse import parse_qs, urlsplit
 
+from botocore.exceptions import ClientError
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from PIL import Image
 
 from lib.db.base import DEFAULT_USER_ID
+from lib.object_storage import ObjectStorageConfig, ProjectObjectStorage
 from lib.project_manager import ProjectManager
 from server.auth import CurrentUserInfo, get_current_user, verify_media_token
 from server.project_access import require_project_access
@@ -47,6 +49,39 @@ def _img_bytes(fmt="JPEG"):
     buf = BytesIO()
     image.save(buf, format=fmt)
     return buf.getvalue()
+
+
+_REMOTE_OUTPUT_KEY = "media/users/default/projects/demo/output/remote.mp4"
+
+
+class _RecordingS3Client:
+    """只认精确 key 的最小 S3 桩，用于校验路由传给对象存储的相对路径已规范化。"""
+
+    def __init__(self, keys: set[str]):
+        self.keys = keys
+
+    def head_object(self, *, Bucket: str, Key: str) -> dict:
+        del Bucket
+        if Key not in self.keys:
+            raise ClientError(
+                {"Error": {"Code": "404"}, "ResponseMetadata": {"HTTPStatusCode": 404}},
+                "HeadObject",
+            )
+        return {}
+
+    def generate_presigned_url(self, operation: str, *, Params: dict, ExpiresIn: int) -> str:
+        return f"https://storage.example/{Params['Key']}?op={operation}&expires={ExpiresIn}"
+
+
+def _object_storage_with_remote_output():
+    """构造一个仅在对象存储侧持有 output/remote.mp4 的 store（本地无此文件）。"""
+    config = ObjectStorageConfig(
+        endpoint="https://storage.example",
+        bucket="arcreel-media",
+        access_key_id="key",
+        secret_access_key="secret",
+    )
+    return ProjectObjectStorage(config, client=_RecordingS3Client({_REMOTE_OUTPUT_KEY}))
 
 
 def _client(monkeypatch, tmp_path):
@@ -202,6 +237,37 @@ class TestFilesRouter:
 
         assert response.status_code == 200
         assert [item["name"] for item in response.json()["files"]["videos"]] == ["scene_E1S01.mp4"]
+
+    def test_serving_non_canonical_path_finds_canonical_remote_object(self, tmp_path, monkeypatch):
+        client, _ = _client(monkeypatch, tmp_path)
+        store = _object_storage_with_remote_output()
+        monkeypatch.setattr(files, "get_project_object_storage", lambda: store)
+
+        with client:
+            response = client.get(
+                "/api/v1/files/demo/output/sub/%2E%2E/remote.mp4",
+                headers=_AUTH_HEADERS,
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 307
+        assert response.headers["location"].startswith(f"https://storage.example/{_REMOTE_OUTPUT_KEY}?")
+
+    def test_download_url_for_non_canonical_path_finds_canonical_remote_object(self, tmp_path, monkeypatch):
+        client, _ = _client(monkeypatch, tmp_path)
+        monkeypatch.setenv("AUTH_TOKEN_SECRET", "test-secret-for-media-token-32b!")
+        monkeypatch.setenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", "https://media.example.com")
+        store = _object_storage_with_remote_output()
+        monkeypatch.setattr(files, "get_project_object_storage", lambda: store)
+
+        with client:
+            response = client.get(
+                "/api/v1/projects/demo/download-url",
+                params={"path": "output/sub/../remote.mp4"},
+            )
+
+        assert response.status_code == 200
+        assert urlsplit(response.json()["url"]).path.endswith("/output/remote.mp4")
 
     def test_upload_assets_and_drafts(self, tmp_path, monkeypatch):
         client, pm = _client(monkeypatch, tmp_path)

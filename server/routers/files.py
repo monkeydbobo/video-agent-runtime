@@ -70,6 +70,21 @@ def _require_filename(file: UploadFile, _t: Callable[..., str]) -> str:
     return file.filename
 
 
+def _resolve_project_file(project_dir: Path, path: str) -> tuple[Path, str] | None:
+    """把请求路径解析为 (本地文件路径, 项目内规范相对路径)；越界时返回 None。
+
+    对象存储 key 由上传时解析过的相对路径生成，远端查询必须用同一口径规范化：
+    直接透传含 `.` / `..` 段的原始请求路径会让 key 校验抛错或错过已存在的对象。
+    路径指向项目根本身时相对路径为 "."，调用方据此跳过远端查询。
+    """
+    file_path = project_dir / path
+    try:
+        relative = file_path.resolve().relative_to(project_dir.resolve()).as_posix()
+    except ValueError:
+        return None
+    return file_path, relative
+
+
 # 允许的文件类型
 ALLOWED_EXTENSIONS = {
     "source": [".txt", ".md", ".docx", ".epub", ".pdf"],
@@ -120,26 +135,25 @@ async def serve_project_file(
 
         def _sync():
             project_dir = get_project_manager().get_project_path(project_name, user_id=path_user_id)
-            file_path = project_dir / path
 
             # 安全检查：确保路径在项目目录内
-            try:
-                file_path.resolve().relative_to(project_dir.resolve())
-            except ValueError:
+            resolved = _resolve_project_file(project_dir, path)
+            if resolved is None:
                 raise HTTPException(status_code=403, detail=_t("forbidden_access"))
 
-            return file_path
+            return resolved
 
-        file_path = await asyncio.to_thread(_sync)
+        file_path, relative_path = await asyncio.to_thread(_sync)
         if not file_path.is_file():
             store = get_project_object_storage()
             exists_remotely = bool(
                 store
+                and relative_path != "."
                 and await asyncio.to_thread(
                     store.project_file_exists,
                     project_name=project_name,
                     user_id=path_user_id,
-                    relative_path=path,
+                    relative_path=relative_path,
                 )
             )
             if not exists_remotely or store is None:
@@ -148,7 +162,7 @@ async def serve_project_file(
                 store.presign_project_file(
                     project_name=project_name,
                     user_id=path_user_id,
-                    relative_path=path,
+                    relative_path=relative_path,
                 ),
                 status_code=307,
                 headers={"Cache-Control": "private, no-store"},
@@ -158,7 +172,7 @@ async def serve_project_file(
         headers = {"Cache-Control": "private, no-store"}
         if is_file_scoped_media_token:
             headers = {"Cache-Control": f"public, max-age={_SCOPED_MEDIA_CDN_MAX_AGE_SECONDS}"}
-        elif request.query_params.get("v") or path.startswith("versions/"):
+        elif request.query_params.get("v") or relative_path.startswith("versions/"):
             headers["Cache-Control"] = "private, max-age=31536000, immutable"
 
         return FileResponse(file_path, headers=headers)
@@ -249,11 +263,10 @@ async def issue_project_file_download_url(
 ):
     """为现有项目文件按需签发短时 CDN URL，无需重新生成或重新合成。"""
     project_path = get_project_manager().get_project_path(project_name, user_id=_user.id)
-    file_path = project_path / path
-    try:
-        file_path.resolve().relative_to(project_path.resolve())
-    except ValueError:
+    resolved = _resolve_project_file(project_path, path)
+    if resolved is None:
         raise HTTPException(status_code=403, detail=_t("forbidden_access"))
+    file_path, relative_path = resolved
 
     # 签发的 URL 只依赖 media token，与对象存储无关：本地副本在时不探测远端，
     # 免得配置不全或 S3 故障把本可服务的请求一起打挂。
@@ -261,11 +274,12 @@ async def issue_project_file_download_url(
         store = get_project_object_storage()
         remote_exists = bool(
             store
+            and relative_path != "."
             and await asyncio.to_thread(
                 store.project_file_exists,
                 project_name=project_name,
                 user_id=_user.id,
-                relative_path=path,
+                relative_path=relative_path,
             )
         )
         if not remote_exists:
