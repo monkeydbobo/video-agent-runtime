@@ -46,7 +46,8 @@
         "question": "生成失败后需要重新开始吗？",
         "answer": "不需要。oioi.bio 以镜头和资产为单位管理生成任务与版本，可以只重做需要调整的部分。"
       }
-    ]
+    ],
+    "dateModified": "2026-07-28"
   },
   {
     "path": "/zh/ai-storyboard-generator",
@@ -95,7 +96,8 @@
         "question": "分镜可以直接用于视频生成吗？",
         "answer": "可以。分镜图、首尾帧、宫格图或参考视频可以进入不同的视频生成路径，具体能力取决于所配置的模型供应商。"
       }
-    ]
+    ],
+    "dateModified": "2026-07-28"
   },
   {
     "path": "/en/novel-to-video",
@@ -144,7 +146,8 @@
         "question": "Do I have to restart when one generation fails?",
         "answer": "No. Tasks and versions are managed per asset and shot, so you can redo one result without discarding approved work."
       }
-    ]
+    ],
+    "dateModified": "2026-07-28"
   },
   {
     "path": "/en/ai-storyboard-generator",
@@ -193,6 +196,7 @@
         "question": "Can a storyboard feed directly into video generation?",
         "answer": "Yes. Storyboard images, start and end frames, grids, or reference video can feed different generation paths depending on the configured provider."
       }
-    ]
+    ],
+    "dateModified": "2026-07-28"
   }
 ]

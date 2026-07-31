@@ -24,7 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from starlette.datastructures import Headers, MutableHeaders
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse, RedirectResponse, Response
 from starlette.types import Message, Receive, Scope, Send
 
 from lib import PROJECT_ROOT
@@ -778,15 +778,31 @@ _CONTENT_SECURITY_POLICY = "; ".join(
 )
 
 
-class BrowserSecurityMiddleware:
-    """为浏览器响应补齐安全策略，并禁止缓存 SPA HTML 外壳。
+def _normalize_browser_path(path: str) -> str:
+    """去掉尾斜杠后的路径形态；根路径保持为 `/`。"""
+    if not path or path == "/":
+        return "/"
+    return path.rstrip("/") or "/"
 
-    覆盖 spa_deep_link 与 app.frontend 原生 fallback 两条路径共用的响应特征
-    （text/html），否则重新部署后浏览器可能沿用旧壳加载已被删除的旧哈希资源，
-    导致白屏——按 content-type 而非按路由判定，才能同时管住 "/"、"/login" 等
-    落在原生 fallback 上的入口。纯 ASGI 实现而非 BaseHTTPMiddleware：这是个作用于
-    全部请求的全局中间件，BaseHTTPMiddleware 的 anyio TaskGroup + contextvars
-    复制机制会给每个请求引入额外开销。
+
+def _is_private_frontend_path(path: str) -> bool:
+    """认证页与工作台路径（含尾斜杠变体）一律视为私有。"""
+    normalized = _normalize_browser_path(path)
+    return normalized in {"/login", "/register", "/app"} or normalized.startswith("/app/")
+
+
+def _is_hashed_frontend_asset(path: str) -> bool:
+    """Vite 产出的带内容哈希静态资源，可长期 immutable 缓存。"""
+    return path.startswith("/assets/") and bool(Path(path).suffix)
+
+
+class BrowserSecurityMiddleware:
+    """浏览器安全头、公开页尾斜杠规范化，以及分层 Cache-Control。
+
+    - 尾斜杠：公开 GET/HEAD 永久 308 到无尾斜杠 canonical，Location 使用相对路径，
+      避免反向代理未转发 proto 时 HTTPS→HTTP 降级。
+    - 私有页：`/login`、`/register`、`/app/*`（含尾斜杠）带 X-Robots-Tag noindex。
+    - 缓存：应用 HTML shell 继续 no-store；公开营销 HTML 短 TTL；哈希 JS/CSS immutable。
     """
 
     def __init__(self, app):
@@ -800,8 +816,22 @@ class BrowserSecurityMiddleware:
         request_headers = Headers(scope=scope)
         forwarded_proto = request_headers.get("x-forwarded-proto", "").split(",", maxsplit=1)[0].strip().lower()
         is_https = scope.get("scheme") == "https" or forwarded_proto == "https"
-        path = scope.get("path", "")
-        is_private_page = path in {"/login", "/register", "/app"} or path.startswith("/app/")
+        path = scope.get("path", "") or "/"
+        method = scope.get("method", "GET")
+        is_private_page = _is_private_frontend_path(path)
+
+        # API 与根路径不剥尾斜杠；其余浏览器文档路径统一到无尾斜杠 canonical。
+        if method in {"GET", "HEAD"} and path != "/" and path.endswith("/") and not path.startswith("/api/"):
+            location = _normalize_browser_path(path)
+            redirect_headers: dict[str, str] = {}
+            if is_private_page:
+                # 尾斜杠变体本身也必须带 noindex，不能只靠跟随后的目标页。
+                redirect_headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
+            if is_https:
+                redirect_headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+            redirect = RedirectResponse(url=location, status_code=308, headers=redirect_headers)
+            await redirect(scope, receive, send)
+            return
 
         async def send_wrapper(message: Message) -> None:
             if message["type"] == "http.response.start":
@@ -815,9 +845,18 @@ class BrowserSecurityMiddleware:
                     headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
                 if is_private_page:
                     headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
-                if headers.get("content-type", "").lower().startswith("text/html"):
-                    headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+
+                content_type = headers.get("content-type", "").lower()
+                status = int(message.get("status", 200))
+                if status == 200 and _is_hashed_frontend_asset(path):
+                    headers["Cache-Control"] = "public, max-age=31536000, immutable"
+                elif content_type.startswith("text/html"):
                     headers["Content-Security-Policy"] = _CONTENT_SECURITY_POLICY
+                    if is_private_page:
+                        headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+                    else:
+                        # 公开营销 HTML：短 TTL，并保留协商缓存空间（FileResponse ETag/Last-Modified）。
+                        headers["Cache-Control"] = "public, max-age=300, must-revalidate"
             await send(message)
 
         await self.app(scope, receive, send_wrapper)
@@ -826,14 +865,19 @@ class BrowserSecurityMiddleware:
 app.add_middleware(BrowserSecurityMiddleware)
 
 
-# 前端构建产物：SPA 静态文件服务。fallback 仅对 GET/HEAD 生效，写请求误入页面路径不再返回页面。
-# 挂载条件必须检查 index.html 而非目录：app.frontend 在启动期校验 fallback 文件，
-# 构建产物不完整时会抛 RuntimeError 拖垮整个应用（含全部 API）
+# 前端构建产物：静态文件服务。fallback=None —— 未知路径返回真实 404，不再软 404 到 SPA shell。
+# 挂载条件必须检查 index.html 而非目录：营销首页是构建主产物；缺省时跳过挂载以免拖垮 API。
 frontend_dist_dir = PROJECT_ROOT / "frontend" / "dist"
 
 if (frontend_dist_dir / "index.html").is_file():
+    # 工作台 / 认证页使用独立 app shell，避免先露出营销首页。
+    spa_shell_path = frontend_dist_dir / "app.html"
+    if not spa_shell_path.is_file():
+        spa_shell_path = frontend_dist_dir / "index.html"
+
     # 构建期预渲染的营销落地页（vite generateSeoPages 插件产出）：启动时扫描
     # dist/{zh,en}/*/index.html 自动注册路由，新增落地页无需改后端。
+    # 注意：dist/zh/index.html 是中文首页，不是专题页，不在此 glob 内。
     seo_page_files = {
         f"/{locale}/{index_file.parent.name}": index_file
         for locale in ("zh", "en")
@@ -841,23 +885,53 @@ if (frontend_dist_dir / "index.html").is_file():
     }
 
     async def static_seo_page(request: Request) -> FileResponse:
-        """Serve build-time rendered marketing pages before the SPA fallback."""
+        """Serve build-time rendered marketing pages before the static file mount."""
         return FileResponse(seo_page_files[request.url.path])
 
     for _seo_route_path in seo_page_files:
-        app.get(_seo_route_path, include_in_schema=False)(static_seo_page)
+        app.add_api_route(
+            _seo_route_path,
+            static_seo_page,
+            methods=["GET", "HEAD"],
+            include_in_schema=False,
+        )
+
+    zh_home_file = frontend_dist_dir / "zh" / "index.html"
+    if zh_home_file.is_file():
+
+        async def zh_home_page() -> FileResponse:
+            return FileResponse(zh_home_file)
+
+        app.add_api_route("/zh", zh_home_page, methods=["GET", "HEAD"], include_in_schema=False)
+
+    async def en_home_redirect() -> RedirectResponse:
+        """英文站根 canonical 为 `/`；`/en` 永久归并。"""
+        return RedirectResponse(url="/", status_code=308)
+
+    app.add_api_route("/en", en_home_redirect, methods=["GET", "HEAD"], include_in_schema=False)
 
     async def missing_seo_page() -> Response:
         """Unknown localized marketing slugs are real 404s, not the SPA shell."""
         return Response(status_code=404)
 
     for _seo_locale in ("zh", "en"):
-        app.get(f"/{_seo_locale}/{{_seo_slug}}", include_in_schema=False)(missing_seo_page)
+        app.add_api_route(
+            f"/{_seo_locale}/{{_seo_slug}}",
+            missing_seo_page,
+            methods=["GET", "HEAD"],
+            include_in_schema=False,
+        )
 
-    @app.get("/app/{_rest:path}", include_in_schema=False)
+    async def spa_auth_shell() -> FileResponse:
+        return FileResponse(spa_shell_path)
+
+    for _auth_path in ("/login", "/register"):
+        app.add_api_route(_auth_path, spa_auth_shell, methods=["GET", "HEAD"], include_in_schema=False)
+
+    @app.api_route("/app/{_rest:path}", methods=["GET", "HEAD"], include_in_schema=False)
     async def spa_deep_link(_rest: str) -> FileResponse:
         # SPA 深链末段可能带扩展名（如 /app/projects/x/source/chapter1.txt），
-        # app.frontend 的 fallback 会将其判为静态资源请求返回 404，此处显式兜底回 SPA 外壳。
+        # app.frontend 在 fallback=None 时会将其判为缺失静态资源返回 404，此处显式兜底回 app shell。
         # 本路由注册在 app.frontend 之前，/app/ 下任何请求都会先到这里——若构建产物中
         # 恰好存在 dist/app/... 下的真实静态文件（URL 路径与 app.frontend 的映射规则一致，
         # 即相对 dist 根目录同路径），须优先返回该文件，避免被无条件遮蔽。
@@ -868,9 +942,14 @@ if (frontend_dist_dir / "index.html").is_file():
         candidate = os.path.normpath(os.path.join(app_static_root, _rest))
         if candidate.startswith(app_static_root + os.sep) and os.path.isfile(candidate):
             return FileResponse(candidate)
-        return FileResponse(frontend_dist_dir / "index.html")
+        return FileResponse(spa_shell_path)
 
-    app.frontend("/", directory=frontend_dist_dir, fallback="index.html")
+    @app.api_route("/app", methods=["GET", "HEAD"], include_in_schema=False)
+    async def spa_app_root() -> FileResponse:
+        return FileResponse(spa_shell_path)
+
+    # 未知公开路径 → 真实 404；真实存在的静态文件（assets、favicon 等）仍由 frontend 挂载提供。
+    app.frontend("/", directory=frontend_dist_dir, fallback=None)
 else:
     logger.warning("frontend/dist/index.html 不存在，跳过前端页面挂载（API 不受影响）")
 
