@@ -32,6 +32,11 @@ ArcReel 启动会进行严格的安全检查 — sandbox 工具缺失即拒绝�
 - `ARCREEL_PUBLIC_MEDIA_BASE_URL` 指向独立媒体域名（例如 `https://media.example.com`）；
 - Web 端按需申请文件级短时链接，本地副本不存在时服务会 307 跳转至 Bucket 预签名地址。
 
+无需防盗链的公共静态素材可由运维工具直接上传到 Bucket 的
+`<ARCREEL_OBJECT_STORAGE_PREFIX>/assets/` 目录。应用通过
+`/api/v1/static-media/{path}` 提供稳定公开地址，并在内部短时签名后回源 Bucket；该路由不要求登录，
+因此不要把私有素材放入此目录。可调用 `/api/v1/static-media/public-url?path={path}` 查询并校验完整地址。
+
 Bucket 服务变量映射如下：
 
 ```env

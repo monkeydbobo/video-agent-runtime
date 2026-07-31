@@ -86,6 +86,12 @@ class StoredProjectFile:
     size: int
 
 
+@dataclass(frozen=True)
+class ResolvedStaticAsset:
+    relative_path: str
+    url: str
+
+
 class ProjectObjectStorage:
     """把项目相对路径映射到私有 S3 object 的深 module。"""
 
@@ -151,6 +157,9 @@ class ProjectObjectStorage:
 
     def project_file_exists(self, *, project_name: str, user_id: str, relative_path: str) -> bool:
         key = self.object_key(user_id=user_id, project_name=project_name, relative_path=relative_path)
+        return self._object_exists(key)
+
+    def _object_exists(self, key: str) -> bool:
         try:
             self._client.head_object(Bucket=self.config.bucket, Key=key)
         except ClientError as exc:
@@ -181,6 +190,21 @@ class ProjectObjectStorage:
                 ExpiresIn=self.config.presign_seconds,
             )
         )
+
+    def resolve_static_asset(self, relative_path: str) -> ResolvedStaticAsset | None:
+        """解析 ``<prefix>/assets/`` 下的公开静态素材并签发 Bucket 回源地址。"""
+        relative = _validate_relative_path(relative_path)
+        key = f"{self.config.prefix}/assets/{relative}"
+        if not self._object_exists(key):
+            return None
+        url = str(
+            self._client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": self.config.bucket, "Key": key},
+                ExpiresIn=self.config.presign_seconds,
+            )
+        )
+        return ResolvedStaticAsset(relative_path=relative, url=url)
 
     def list_project_files(
         self,

@@ -53,6 +53,7 @@ def _img_bytes(fmt="JPEG"):
 
 
 _REMOTE_OUTPUT_KEY = "media/users/default/projects/demo/output/remote.mp4"
+_STATIC_ASSET_KEY = "media/assets/oioi_demo_oioi_bio.mp4"
 
 
 class _RecordingS3Client:
@@ -85,6 +86,16 @@ def _object_storage_with_remote_output():
     return ProjectObjectStorage(config, client=_RecordingS3Client({_REMOTE_OUTPUT_KEY}))
 
 
+def _object_storage_with_static_asset():
+    config = ObjectStorageConfig(
+        endpoint="https://storage.example",
+        bucket="arcreel-media",
+        access_key_id="key",
+        secret_access_key="secret",
+    )
+    return ProjectObjectStorage(config, client=_RecordingS3Client({_STATIC_ASSET_KEY}))
+
+
 def _client(monkeypatch, tmp_path):
     pm = ProjectManager(tmp_path / "projects")
     pm.create_project("demo")
@@ -113,6 +124,42 @@ def _client(monkeypatch, tmp_path):
 
 
 class TestFilesRouter:
+    @pytest.mark.integration
+    def test_public_static_media_url_redirects_to_private_object_without_token(self, tmp_path, monkeypatch):
+        client, _ = _client(monkeypatch, tmp_path)
+        monkeypatch.setenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", "https://media.example.com")
+        monkeypatch.setattr(files, "get_project_object_storage", _object_storage_with_static_asset)
+
+        with client:
+            response = client.get(
+                "/api/v1/static-media/public-url",
+                params={"path": "oioi_demo_oioi_bio.mp4"},
+            )
+
+            assert response.status_code == 200
+            parsed = urlsplit(response.json()["url"])
+            assert parsed.netloc == "media.example.com"
+            assert parsed.path == "/api/v1/static-media/oioi_demo_oioi_bio.mp4"
+            assert parsed.query == ""
+
+            served = client.get(response.json()["url"], follow_redirects=False)
+
+        assert served.status_code == 307
+        assert served.headers["cache-control"] == "public, max-age=240"
+        assert served.headers["location"].startswith("https://storage.example/media/assets/oioi_demo_oioi_bio.mp4?")
+
+    @pytest.mark.integration
+    def test_static_media_download_url_rejects_unknown_or_unsafe_object(self, tmp_path, monkeypatch):
+        client, _ = _client(monkeypatch, tmp_path)
+        monkeypatch.setattr(files, "get_project_object_storage", _object_storage_with_static_asset)
+
+        with client:
+            missing = client.get("/api/v1/static-media/public-url", params={"path": "missing.mp4"})
+            unsafe = client.get("/api/v1/static-media/public-url", params={"path": "../secret.mp4"})
+
+        assert missing.status_code == 404
+        assert unsafe.status_code == 400
+
     def test_source_and_file_endpoints(self, tmp_path, monkeypatch):
         client, _ = _client(monkeypatch, tmp_path)
 

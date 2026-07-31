@@ -440,6 +440,19 @@ describe("API", () => {
       );
     });
 
+    it("requests a fresh CDN URL for a static media object", async () => {
+      const requestSpy = vi.spyOn(API, "request").mockResolvedValue({
+        url: "https://media.example.com/static",
+        expires_in: 300,
+      } as never);
+
+      await API.getStaticMediaUrl("clips/oioi demo.mp4");
+
+      expect(requestSpy).toHaveBeenCalledWith(
+        "/static-media/public-url?path=clips%2Foioi%20demo.mp4",
+      );
+    });
+
     it("createProject sends object body with style_template_id and model fields", async () => {
       const requestSpy = vi.spyOn(API, "request").mockResolvedValue({ success: true } as never);
       await API.createProject({

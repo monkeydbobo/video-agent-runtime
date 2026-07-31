@@ -75,6 +75,8 @@ MESSAGES = {
     # Files
     "file_not_found": "Tệp không tồn tại: {path}",
     "forbidden_access": "Cấm truy cập tệp ngoài thư mục dự án",
+    "invalid_static_media_path": "Đường dẫn phương tiện tĩnh không hợp lệ",
+    "object_storage_unavailable": "Kho lưu trữ đối tượng không khả dụng",
     "invalid_upload_type": "Loại tải lên không hợp lệ: {upload_type}",
     "missing_filename": "Tệp tải lên thiếu tên tệp",
     "unsupported_image_type": "Định dạng tệp không hỗ trợ {ext}. Các loại cho phép: {allowed}",

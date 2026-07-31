@@ -10,6 +10,7 @@ from server.auth import verify_media_token
 from server.public_media import (
     build_project_file_url,
     build_public_project_file_url,
+    build_static_media_url,
     build_streamlake_first_frame_url,
 )
 
@@ -133,6 +134,16 @@ def test_build_project_file_url_rejects_invalid_configured_media_domain(tmp_path
 
     with pytest.raises(ValueError, match="ARCREEL_PUBLIC_MEDIA_BASE_URL"):
         build_project_file_url(video, project_path=tmp_path, project_name="demo", user_id="alice-id")
+
+
+@pytest.mark.unit
+def test_build_static_media_url_is_stable_and_has_no_token(monkeypatch):
+    monkeypatch.setenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", "https://media.example.com")
+
+    url = build_static_media_url("clips/oioi demo.mp4")
+
+    assert url == "https://media.example.com/api/v1/static-media/clips/oioi%20demo.mp4"
+    assert "media_token" not in url
 
 
 def test_build_streamlake_first_frame_url_requires_configured_public_domain(tmp_path, monkeypatch):

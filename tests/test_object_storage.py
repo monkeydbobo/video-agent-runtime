@@ -95,6 +95,28 @@ def test_exists_and_presign_use_same_deterministic_key(storage, tmp_path: Path) 
     assert [(item.relative_path, item.size) for item in listed] == [("videos/scene_E1S01.mp4", 5)]
 
 
+@pytest.mark.unit
+def test_resolve_static_asset_hides_bucket_key_and_signing_details(storage) -> None:
+    store, client = storage
+    client.objects.add("media/assets/oioi_demo_oioi_bio.mp4")
+
+    result = store.resolve_static_asset("oioi_demo_oioi_bio.mp4")
+
+    assert result is not None
+    assert result.relative_path == "oioi_demo_oioi_bio.mp4"
+    assert result.url == ("https://storage.example/media/assets/oioi_demo_oioi_bio.mp4?op=get_object&expires=300")
+    assert store.resolve_static_asset("missing.mp4") is None
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("relative", ["", "/etc/passwd", "../outside.mp4", "clips/../outside.mp4"])
+def test_resolve_static_asset_rejects_paths_outside_assets_prefix(storage, relative: str) -> None:
+    store, _ = storage
+
+    with pytest.raises(ValueError, match="相对路径"):
+        store.resolve_static_asset(relative)
+
+
 @pytest.mark.parametrize("relative", ["", "/etc/passwd", "../outside.mp4", "output/../outside.mp4"])
 def test_rejects_paths_outside_project(storage, relative: str) -> None:
     store, _ = storage
