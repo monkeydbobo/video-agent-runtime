@@ -61,10 +61,13 @@ export function SourceFilesPage({ projectName }: SourceFilesPageProps) {
       setOpeningOutput(filename);
       try {
         const result = await API.getProjectFileDownloadUrl(projectName, `output/${filename}`);
+        // 未配置独立媒体域名时后端返回同源相对地址，about:blank 窗口没有可靠的相对解析基准，
+        // 这里统一补全为绝对地址。
+        const url = new URL(result.url, window.location.href).toString();
         if (target) {
-          target.location.replace(result.url);
+          target.location.replace(url);
         } else {
-          window.location.assign(result.url);
+          window.location.assign(url);
         }
       } catch (err) {
         target?.close();

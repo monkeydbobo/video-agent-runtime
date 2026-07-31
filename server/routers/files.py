@@ -55,7 +55,7 @@ from server.auth import (
     verify_media_token,
 )
 from server.project_access import bind_owned_project_scope, ensure_project_access, require_project_access
-from server.public_media import build_public_project_file_url
+from server.public_media import build_project_file_url
 
 router = APIRouter()
 
@@ -270,7 +270,7 @@ async def issue_project_file_download_url(
         raise HTTPException(status_code=404, detail=_t("file_not_found", path=path))
 
     return {
-        "url": build_public_project_file_url(
+        "url": build_project_file_url(
             file_path,
             project_path=project_path,
             project_name=project_name,
