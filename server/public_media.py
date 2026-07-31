@@ -19,14 +19,14 @@ def _public_media_base_url() -> str:
     return value
 
 
-def build_public_project_file_url(
+def _file_scoped_path(
     file_path: Path,
     *,
     project_path: Path,
     project_name: str,
     user_id: str,
 ) -> str:
-    """返回仅允许读取一个项目文件的短时 CDN URL。"""
+    """构造带文件级 media token 的 ``/api/v1/files/...`` 根相对路径。"""
     try:
         relative_path = file_path.resolve().relative_to(project_path.resolve()).as_posix()
     except ValueError as exc:
@@ -39,9 +39,53 @@ def build_public_project_file_url(
     )
     encoded_project = quote(project_name, safe="")
     encoded_path = quote(relative_path, safe="/")
-    return (
-        f"{_public_media_base_url()}/api/v1/files/{encoded_project}/{encoded_path}?{urlencode({'media_token': token})}"
+    return f"/api/v1/files/{encoded_project}/{encoded_path}?{urlencode({'media_token': token})}"
+
+
+def build_public_project_file_url(
+    file_path: Path,
+    *,
+    project_path: Path,
+    project_name: str,
+    user_id: str,
+) -> str:
+    """返回仅允许读取一个项目文件的短时 CDN URL。
+
+    外部供应商回源必须拿到可公网访问的绝对地址，故未配置媒体域名时直接报错。
+    自家浏览器打开文件请改用 :func:`build_project_file_url`。
+    """
+    suffix = _file_scoped_path(
+        file_path,
+        project_path=project_path,
+        project_name=project_name,
+        user_id=user_id,
     )
+    return f"{_public_media_base_url()}{suffix}"
+
+
+def build_project_file_url(
+    file_path: Path,
+    *,
+    project_path: Path,
+    project_name: str,
+    user_id: str,
+) -> str:
+    """返回供自家客户端打开项目文件的短时 URL；未配置媒体域名时回落同源根相对路径。
+
+    媒体域名只有外部供应商回源才是硬需求。单域名部署里让它缺失就把「打开成片」打挂，
+    等于用外部依赖卡住了本可同源直服的路径，故此处降级而非报错。
+    """
+    suffix = _file_scoped_path(
+        file_path,
+        project_path=project_path,
+        project_name=project_name,
+        user_id=user_id,
+    )
+    try:
+        base_url = _public_media_base_url()
+    except ValueError:
+        return suffix
+    return f"{base_url}{suffix}"
 
 
 def build_streamlake_first_frame_url(

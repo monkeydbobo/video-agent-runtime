@@ -201,6 +201,31 @@ class TestFilesRouter:
             asset_path="output/第1集_final.mp4",
         )
 
+    def test_download_url_without_media_domain_falls_back_to_same_origin(self, tmp_path, monkeypatch):
+        client, pm = _client(monkeypatch, tmp_path)
+        monkeypatch.setenv("AUTH_TOKEN_SECRET", "test-secret-for-media-token-32b!")
+        monkeypatch.delenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", raising=False)
+        output = pm.get_project_path("demo") / "output" / "第1集_final.mp4"
+        output.parent.mkdir(exist_ok=True)
+        output.write_bytes(b"video")
+
+        with client:
+            response = client.get(
+                "/api/v1/projects/demo/download-url",
+                params={"path": "output/第1集_final.mp4"},
+            )
+
+        assert response.status_code == 200
+        parsed = urlsplit(response.json()["url"])
+        assert parsed.netloc == ""
+        assert parsed.path == "/api/v1/files/demo/output/%E7%AC%AC1%E9%9B%86_final.mp4"
+        verify_media_token(
+            parse_qs(parsed.query)["media_token"][0],
+            user_id=DEFAULT_USER_ID,
+            project_name="demo",
+            asset_path="output/第1集_final.mp4",
+        )
+
     def test_missing_local_file_redirects_to_object_storage(self, tmp_path, monkeypatch):
         client, _ = _client(monkeypatch, tmp_path)
 
