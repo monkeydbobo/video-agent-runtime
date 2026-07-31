@@ -43,11 +43,11 @@ function stripModuleScripts(html: string): string {
     return html.replace(/<script type="module"[^>]*>[\s\S]*?<\/script>/g, "");
 }
 
-function injectFontStylesheet(html: string, locale: string): string {
+function injectFontStylesheet(html: string, _locale: string): string {
+    // 与改造前公开页一致：保留 Instrument Serif / JetBrains Mono / Noto Sans SC。
+    // 用 media=print + onload 异步应用，避免同步阻塞首屏，但不删字族以免视觉漂移。
     const families =
-        locale === "zh"
-            ? "family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700"
-            : "family=Inter:wght@400;500;600;700";
+        "family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&family=Instrument+Serif:ital@0;1";
     const tags = `
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

@@ -18,43 +18,41 @@ describe("LandingPage hero video", () => {
     vi.unstubAllGlobals();
   });
 
-  it("keeps the poster-first hero until the user expands the decorative video", () => {
+  it("starts as the hero background, restores the original effects, and expands again", () => {
     const { container } = renderLandingPage();
 
+    const restoreButton = screen.getByRole("button", { name: "退出首屏视频并恢复初始效果" });
+    const soundButton = screen.getByRole("button", { name: "打开声音" });
+    const navigation = screen.getByRole("navigation", { name: "主导航" });
+    const videoBackdrop = container.querySelector(".landing-hero__video-backdrop");
+    const heroVideo = videoBackdrop?.querySelector("video") as HTMLVideoElement;
+    expect(container.querySelector(".landing-page")).toHaveClass("landing-page--hero-video");
+    expect(navigation).toHaveClass("landing-nav--immersive");
+    expect(container.querySelector(".landing-particles")).not.toBeInTheDocument();
+    expect(container.querySelector(".hero-atmosphere")).not.toBeInTheDocument();
+    expect(heroVideo).toHaveAttribute("loop");
+    expect(heroVideo.muted).toBe(true);
+    expect(soundButton).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(soundButton);
+
+    expect(heroVideo.muted).toBe(false);
+    expect(screen.getByRole("button", { name: "关闭声音" })).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(restoreButton);
+
     expect(container.querySelector(".landing-page")).not.toHaveClass("landing-page--hero-video");
+    expect(navigation).not.toHaveClass("landing-nav--immersive");
     expect(container.querySelector(".landing-particles")).toBeInTheDocument();
     expect(container.querySelector(".hero-atmosphere")).toBeInTheDocument();
 
     const expandButton = screen.getByRole("button", { name: "将演示视频铺满首屏播放" });
-    // 首屏默认不挂 source；交互或空闲后才注入，避免抢 LCP。
-    expect(expandButton.querySelectorAll("source")).toHaveLength(0);
-
     fireEvent.click(expandButton);
 
     expect(container.querySelector(".landing-page")).toHaveClass("landing-page--hero-video");
-    const navigation = screen.getByRole("navigation", { name: "主导航" });
     expect(navigation).toHaveClass("landing-nav--immersive");
     expect(container.querySelector(".landing-particles")).not.toBeInTheDocument();
-
-    const videoBackdrop = container.querySelector(".landing-hero__video-backdrop");
-    const heroVideo = videoBackdrop?.querySelector("video") as HTMLVideoElement;
-    expect(heroVideo).toHaveAttribute("loop");
-    expect(heroVideo.muted).toBe(true);
-
-    const sources = heroVideo.querySelectorAll("source");
-    expect(sources).toHaveLength(2);
-    expect(sources[0]).toHaveAttribute(
-      "src",
-      "https://s15-sl.cybercut.ai/kos/s101/nlav112623/oioi_demo_web_vp9_audio.webm",
-    );
-
-    const soundButton = screen.getByRole("button", { name: "打开声音" });
-    fireEvent.click(soundButton);
-    expect(heroVideo.muted).toBe(false);
-
-    fireEvent.click(screen.getByRole("button", { name: "退出首屏视频并恢复初始效果" }));
-    expect(container.querySelector(".landing-page")).not.toHaveClass("landing-page--hero-video");
-    expect(container.querySelector(".landing-particles")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "打开声音" })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("exposes crawlable language links instead of in-place locale toggles", () => {

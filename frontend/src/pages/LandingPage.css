@@ -110,13 +110,16 @@
 .landing-language { display: flex; padding: 2px; border-radius: 999px; background: var(--lp-bg-soft); border: 1px solid var(--lp-line-soft); }
 .landing-language a { padding: 5px 10px; border-radius: 999px; color: var(--lp-muted); font: 600 11px "Inter", sans-serif; transition: color .2s, background .2s, box-shadow .2s; }
 .landing-language a.is-active { color: var(--lp-ink); background: #fff; box-shadow: var(--lp-shadow-sm); }
-.landing-login {
+/* login 已改为 <a>，选择器需压过 `.landing-nav__right > a`，否则字色被导航链接规则盖掉。 */
+.landing-nav__right > a.landing-login {
   display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;
   color: #fff; background: var(--lp-ink); border-radius: 999px;
   font-size: 13px; font-weight: 600; letter-spacing: -.01em;
-  transition: background .2s, transform .2s, box-shadow .2s;
+  transition: background .2s, transform .2s, box-shadow .2s, color .2s;
 }
-.landing-login:hover { background: var(--lp-iris); transform: translateY(-1px); box-shadow: var(--lp-shadow-md); }
+.landing-nav__right > a.landing-login:hover {
+  color: #fff; background: var(--lp-iris); transform: translateY(-1px); box-shadow: var(--lp-shadow-md);
+}
 .landing-nav--immersive {
   position: absolute;
   isolation: isolate;
@@ -152,12 +155,15 @@
   background: rgb(255 255 255 / .94);
   box-shadow: 0 5px 18px rgb(0 0 0 / .18);
 }
-.landing-nav--immersive .landing-login {
+.landing-nav--immersive .landing-nav__right > a.landing-login {
   color: var(--lp-ink);
   background: rgb(255 255 255 / .94);
   box-shadow: 0 8px 28px rgb(0 0 0 / .18);
 }
-.landing-nav--immersive .landing-login:hover { color: #fff; background: var(--lp-iris); }
+.landing-nav--immersive .landing-nav__right > a.landing-login:hover {
+  color: #fff;
+  background: var(--lp-iris);
+}
 
 /* ---------- hero ---------- */
 .landing-hero {
