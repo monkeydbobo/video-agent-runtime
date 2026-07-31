@@ -2,6 +2,7 @@ import { ArrowLeft, ArrowRight, Check, Clapperboard } from "lucide-react";
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { BRAND } from "@/branding";
+import { NotFoundPage } from "@/pages/NotFoundPage";
 import seoPages from "@/seo/seo-pages.json";
 import "./SeoLandingPage.css";
 
@@ -34,7 +35,7 @@ export function SeoLandingPage() {
     if (canonical) canonical.href = `https://oioi.bio${page.path}`;
   }, [page]);
 
-  if (!page) return null;
+  if (!page) return <NotFoundPage />;
 
   const isZh = page.locale === "zh";
   const related = seoPages.filter((candidate) => candidate.locale === page.locale && candidate.path !== page.path);

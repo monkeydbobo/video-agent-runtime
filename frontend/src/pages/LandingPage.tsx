@@ -11,7 +11,7 @@ import {
   Sparkles,
   WandSparkles,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 import { BRAND } from "@/branding";
@@ -20,8 +20,18 @@ import { ParticleField } from "@/components/landing/ParticleField";
 import "./LandingPage.css";
 
 const FEATURE_ICONS = [FileText, Layers3, WandSparkles] as const;
-const HERO_VIDEO_SRC = "https://media.oioi.bio/api/v1/static-media/oioi_demo_oioi_bio.mp4";
+const HERO_VIDEO_MP4_SRC = "https://s15-sl.cybercut.ai/kos/s101/nlav112623/oioi_demo_web_h264.mp4";
+const HERO_VIDEO_WEBM_SRC = "https://s15-sl.cybercut.ai/kos/s101/nlav112623/oioi_demo_web_vp9.webm";
 const HERO_VIDEO_POSTER = "/hero/oioi-demo-poster.jpg";
+
+function HeroVideo() {
+  return (
+    <video aria-hidden autoPlay crossOrigin="anonymous" loop muted playsInline poster={HERO_VIDEO_POSTER} preload="auto">
+      <source src={HERO_VIDEO_WEBM_SRC} type='video/webm; codecs="vp9"' />
+      <source src={HERO_VIDEO_MP4_SRC} type="video/mp4" />
+    </video>
+  );
+}
 
 export function LandingPage() {
   const { t, i18n } = useTranslation("landing");
@@ -30,7 +40,9 @@ export function LandingPage() {
   const [activeClip, setActiveClip] = useState(0);
   const [isPaused, setIsPaused] = useState(true);
   const [isHeroVideoActive, setIsHeroVideoActive] = useState(true);
+  const [isShowreelReady, setIsShowreelReady] = useState(false);
   const heroRef = useRef<HTMLElement>(null);
+  const showreelRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const clips = [
@@ -41,11 +53,17 @@ export function LandingPage() {
   const selectedClip = clips[activeClip];
 
   const selectClip = (index: number) => {
+    setIsShowreelReady(true);
     setActiveClip(index);
     setIsPaused(false);
   };
 
   const togglePlayback = () => {
+    if (!isShowreelReady) {
+      setIsShowreelReady(true);
+      setIsPaused(false);
+      return;
+    }
     const player = videoRef.current;
     if (!player) return;
     if (player.paused) {
@@ -66,6 +84,24 @@ export function LandingPage() {
     });
   };
 
+  useEffect(() => {
+    const section = showreelRef.current;
+    if (!section || typeof IntersectionObserver === "undefined") {
+      setIsShowreelReady(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting) return;
+        setIsShowreelReady(true);
+        observer.disconnect();
+      },
+      { threshold: 0.25 },
+    );
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
+
   const features = [
     { title: t("feature_script_title"), body: t("feature_script_body") },
     { title: t("feature_assets_title"), body: t("feature_assets_body") },
@@ -75,7 +111,6 @@ export function LandingPage() {
   const guides = [
     { slug: "novel-to-video", title: t("guide_novel_title"), body: t("guide_novel_body") },
     { slug: "ai-storyboard-generator", title: t("guide_storyboard_title"), body: t("guide_storyboard_body") },
-    { slug: "ai-video-workflow", title: t("guide_workflow_title"), body: t("guide_workflow_body") },
   ];
 
   return (
@@ -84,7 +119,10 @@ export function LandingPage() {
       <div aria-hidden className="landing-mesh" />
       <div aria-hidden className="landing-mesh landing-mesh--alt" />
 
-      <nav className="landing-nav" aria-label={t("navigation")}>
+      <nav
+        className={`landing-nav${isHeroVideoActive ? " landing-nav--immersive" : ""}`}
+        aria-label={t("navigation")}
+      >
         <button className="landing-brand" onClick={() => setLocation("/")} type="button">
           <span className="landing-brand__mark"><img alt="" height="26" src="/android-chrome-192x192.png" width="26" /></span>
           <span>{BRAND.name}</span>
@@ -115,16 +153,7 @@ export function LandingPage() {
             onClick={() => setIsHeroVideoActive(false)}
             type="button"
           >
-            <video
-              aria-hidden
-              autoPlay
-              loop
-              muted
-              playsInline
-              poster={HERO_VIDEO_POSTER}
-              preload="auto"
-              src={HERO_VIDEO_SRC}
-            />
+            <HeroVideo />
             <span aria-hidden className="landing-hero__video-shade" />
             <span className="landing-hero__video-exit-hint">
               <Minimize2 aria-hidden size={15} />
@@ -157,16 +186,7 @@ export function LandingPage() {
           >
             <span className="landing-reel__code">A-01 / 24 FPS</span>
             <span className="landing-reel__scene">
-              <video
-                aria-hidden
-                autoPlay
-                loop
-                muted
-                playsInline
-                poster={HERO_VIDEO_POSTER}
-                preload="auto"
-                src={HERO_VIDEO_SRC}
-              />
+              <HeroVideo />
             </span>
             <span className="landing-reel__caption">
               <span>{t("reel_project")}</span>
@@ -180,7 +200,7 @@ export function LandingPage() {
         )}
       </section>
 
-      <section className="landing-showreel" aria-labelledby="showreel-title">
+      <section className="landing-showreel" aria-labelledby="showreel-title" ref={showreelRef}>
         <div className="landing-showreel__heading">
           <p className="landing-kicker">{t("showreel_kicker")}</p>
           <h2 id="showreel-title">{t("showreel_title")}</h2>
@@ -190,13 +210,13 @@ export function LandingPage() {
           <video
             key={selectedClip.src}
             ref={videoRef}
-            autoPlay
+            autoPlay={isShowreelReady}
             loop
             muted
             playsInline
             poster={selectedClip.poster}
-            preload="auto"
-            src={selectedClip.src}
+            preload={isShowreelReady ? "auto" : "none"}
+            src={isShowreelReady ? selectedClip.src : undefined}
             onCanPlay={(event) => {
               void event.currentTarget.play().then(() => setIsPaused(false), () => setIsPaused(true));
             }}

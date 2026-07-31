@@ -121,6 +121,23 @@ async def test_new_seo_page_is_auto_discovered_without_backend_change(
         assert "shell" not in res.text
 
 
+async def test_missing_seo_page_returns_404_instead_of_spa_shell(
+    reload_app_cleanup: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    """下线后的双语专题页不能回退到 200 SPA 外壳，否则搜索引擎仍会视为软 404。"""
+    dist_dir = tmp_path / "frontend" / "dist"
+    dist_dir.mkdir(parents=True)
+    (dist_dir / "index.html").write_text("<html>shell</html>", encoding="utf-8")
+    monkeypatch.setattr(lib, "PROJECT_ROOT", tmp_path)
+    importlib.reload(app_module)
+
+    transport = ASGITransport(app=app_module.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get("/en/ai-video-workflow")
+        assert res.status_code == 404
+        assert "shell" not in res.text
+
+
 async def test_deep_link_path_traversal_falls_back_to_shell(
     reload_app_cleanup: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ):

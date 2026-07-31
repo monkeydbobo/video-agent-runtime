@@ -50,8 +50,6 @@ export default {
   guide_novel_body: "Quy trình chuyển thể hoàn chỉnh từ văn bản, kịch bản đến tài sản và từng cảnh quay.",
   guide_storyboard_title: "Cách tạo storyboard bằng AI",
   guide_storyboard_body: "Giúp mỗi khung storyboard có mục đích kể chuyện và thông tin sản xuất rõ ràng.",
-  guide_workflow_title: "Cách tổ chức quy trình video AI",
-  guide_workflow_body: "Kết nối mô hình, hàng đợi, phiên bản và chi phí thay vì di chuyển tệp thủ công.",
   contact_eyebrow: "Trao đổi cùng người tạo",
   contact_title: "Cùng tạo nên câu chuyện tiếp theo.",
   contact_body: "Tham gia Discord để trao đổi ý tưởng, nhận cập nhật sản phẩm và cùng sáng tạo.",

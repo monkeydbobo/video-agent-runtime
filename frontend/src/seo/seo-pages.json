@@ -98,55 +98,6 @@
     ]
   },
   {
-    "path": "/zh/ai-video-workflow",
-    "locale": "zh",
-    "alternatePath": "/en/ai-video-workflow",
-    "title": "AI 视频创作工作流：剧本、资产、分镜与生成一体化 | oioi.bio",
-    "description": "oioi.bio 将 AI 视频制作中的剧本、角色、场景、道具、分镜、生成任务、版本和成本放在同一个项目工作流中。",
-    "eyebrow": "AI 视频工作流",
-    "headline": "少一点工具搬运，多一点真正的创作判断。",
-    "lede": "AI 视频制作往往不是缺少模型，而是缺少连接模型的工作流。oioi.bio 保存项目上下文、排队生成任务、追踪版本与费用，让创作者专注于故事和画面。",
-    "problemTitle": "模型越来越多，制作过程却不该越来越碎。",
-    "problemBody": "提示词散落在聊天记录、图片堆在下载目录、视频任务分散在不同平台时，任何修改都会变得昂贵。项目化工作流把创作意图、资产和生成结果重新连在一起。",
-    "steps": [
-      {
-        "title": "定义项目与内容模式",
-        "body": "确定作品是说书、剧情动画或参考视频路径，让后续结构与制作方式保持一致。"
-      },
-      {
-        "title": "配置需要的模型",
-        "body": "为文本、图片和视频选择合适的供应商与模型，按项目需求组合，而不是被单一平台锁定。"
-      },
-      {
-        "title": "排队执行生成任务",
-        "body": "镜头、图片和视频任务进入统一队列，持续显示占用状态、进度与结果。"
-      },
-      {
-        "title": "审阅版本与成本",
-        "body": "保留每次生成版本，按项目、剧集或镜头查看费用，再决定哪里值得继续迭代。"
-      }
-    ],
-    "highlights": [
-      "多种文本、图片和视频模型可组合使用",
-      "生成队列、版本历史和费用估算集中管理",
-      "项目上下文不会随一次生成请求结束而丢失"
-    ],
-    "faq": [
-      {
-        "question": "oioi.bio 自带生成模型吗？",
-        "answer": "它是连接创作流程与多种模型供应商的工作台。你可以在系统配置中接入所需的文本、图片和视频服务。"
-      },
-      {
-        "question": "如何控制生成成本？",
-        "answer": "可以按项目、剧集和镜头查看费用预估与实际用量，把预算集中在最重要的画面上。"
-      },
-      {
-        "question": "适合一个人使用还是团队使用？",
-        "answer": "当前工作流适合独立创作者和小型制作团队，尤其适合需要长期维护角色与世界观一致性的系列内容。"
-      }
-    ]
-  },
-  {
     "path": "/en/novel-to-video",
     "locale": "en",
     "alternatePath": "/zh/novel-to-video",
@@ -241,55 +192,6 @@
       {
         "question": "Can a storyboard feed directly into video generation?",
         "answer": "Yes. Storyboard images, start and end frames, grids, or reference video can feed different generation paths depending on the configured provider."
-      }
-    ]
-  },
-  {
-    "path": "/en/ai-video-workflow",
-    "locale": "en",
-    "alternatePath": "/zh/ai-video-workflow",
-    "title": "AI Video Workflow for Scripts, Assets, Storyboards, and Generation | oioi.bio",
-    "description": "oioi.bio brings scripts, characters, locations, props, storyboards, generation tasks, versions, and cost tracking into one AI video production workflow.",
-    "eyebrow": "AI video workflow",
-    "headline": "Spend less time moving files and more time making creative decisions.",
-    "lede": "AI video production rarely lacks models; it lacks the workflow connecting them. oioi.bio preserves project context, queues generation tasks, tracks versions and costs, and keeps the story at the center.",
-    "problemTitle": "More models should not mean a more fragmented production.",
-    "problemBody": "When prompts live in chats, images pile up in downloads, and video jobs are scattered across platforms, every revision becomes expensive. A project workflow reconnects creative intent, assets, and generated results.",
-    "steps": [
-      {
-        "title": "Define the project and content mode",
-        "body": "Choose narrated video, animated drama, or a reference-video path so structure and production stay aligned."
-      },
-      {
-        "title": "Connect the models you need",
-        "body": "Choose suitable text, image, and video providers per project rather than being locked to one platform."
-      },
-      {
-        "title": "Queue generation work",
-        "body": "Shots, images, and video enter a shared task queue with visible busy states, progress, and results."
-      },
-      {
-        "title": "Review versions and cost",
-        "body": "Keep generation history and inspect estimated or actual cost per project, episode, or shot before iterating."
-      }
-    ],
-    "highlights": [
-      "Combine multiple text, image, and video providers",
-      "Manage generation queues, version history, and cost estimates together",
-      "Project context remains available after each generation request"
-    ],
-    "faq": [
-      {
-        "question": "Does oioi.bio include its own generation model?",
-        "answer": "It is a workspace that connects the creative process to multiple model providers. Configure the text, image, and video services that fit your production."
-      },
-      {
-        "question": "How can I control generation cost?",
-        "answer": "Review estimates and actual usage by project, episode, or shot, then focus the budget on the moments that matter most."
-      },
-      {
-        "question": "Is it designed for individuals or teams?",
-        "answer": "The workflow suits independent creators and small production teams, especially for serialized work that needs long-term character and world consistency."
       }
     ]
   }

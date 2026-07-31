@@ -19,8 +19,6 @@ Full guide content in one file: https://oioi.bio/llms-full.txt
 - [Novel to video — English](https://oioi.bio/en/novel-to-video)
 - [AI storyboard generator — 中文](https://oioi.bio/zh/ai-storyboard-generator)
 - [AI storyboard generator — English](https://oioi.bio/en/ai-storyboard-generator)
-- [AI video workflow — 中文](https://oioi.bio/zh/ai-video-workflow)
-- [AI video workflow — English](https://oioi.bio/en/ai-video-workflow)
 
 ## Canonical identity
 
