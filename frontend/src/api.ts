@@ -962,6 +962,16 @@ class API {
     return getProjectFileUrlSync(projectName, path, cacheBust);
   }
 
+  /** 为现有项目文件按需签发短时 CDN 地址。 */
+  static async getProjectFileDownloadUrl(
+    projectName: string,
+    path: string,
+  ): Promise<{ url: string; expires_in: number }> {
+    return this.request(
+      `/projects/${encodeURIComponent(projectName)}/download-url?path=${encodeURIComponent(path)}`,
+    );
+  }
+
   /** 预取项目级 media_token（进入项目时调用）。 */
   static ensureProjectMediaToken(projectName: string): Promise<string | null> {
     return fetchProjectMediaToken(projectName);

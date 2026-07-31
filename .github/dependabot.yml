@@ -70,6 +70,9 @@ updates:
           - "Pillow"
           - "ffmpeg-python"
           - "pyjianyingdraft"
+          - "boto3"
+          - "botocore"
+          - "s3transfer"
         update-types:
           - "minor"
           - "patch"

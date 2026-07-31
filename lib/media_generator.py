@@ -84,6 +84,7 @@ class MediaGenerator:
         audio_provider_id: str | None = None,
         project_name: str | None = None,
         streamlake_first_frame_url_builder: Callable[[Path], str] | None = None,
+        project_file_publisher: Callable[[Path], Awaitable[Any]] | None = None,
     ):
         """
         初始化 MediaGenerator
@@ -105,6 +106,8 @@ class MediaGenerator:
                 仅兼容旧扁平布局。
             streamlake_first_frame_url_builder: 仅溪流湖图生视频使用；把项目内首帧转换为
                 外部可访问的短时静态 URL。
+            project_file_publisher: 视频写入 canonical 路径后调用的对象存储发布器；未配置时
+                保持仅写本地工作盘。
         """
         require_provider_pair("image", image_backend, image_provider_id)
         require_provider_pair("video", video_backend, video_provider_id)
@@ -125,6 +128,7 @@ class MediaGenerator:
         self._video_provider_id = video_provider_id
         self._audio_provider_id = audio_provider_id
         self._streamlake_first_frame_url_builder = streamlake_first_frame_url_builder
+        self._project_file_publisher = project_file_publisher
         self.versions = VersionManager(project_path, project_name=self.project_name)
 
         # 初始化记账账本（使用全局 async session factory）
@@ -714,6 +718,9 @@ class MediaGenerator:
             duration_seconds=duration_int,
             **version_metadata,
         )
+        project_file_publisher = getattr(self, "_project_file_publisher", None)
+        if project_file_publisher is not None:
+            await project_file_publisher(output_path)
 
         return output_path, new_version, video_ref, video_uri
 
@@ -829,5 +836,8 @@ class MediaGenerator:
             duration_seconds=duration_int,
             **version_metadata,
         )
+        project_file_publisher = getattr(self, "_project_file_publisher", None)
+        if project_file_publisher is not None:
+            await project_file_publisher(output_path)
 
         return output_path, new_version, video_ref, video_uri

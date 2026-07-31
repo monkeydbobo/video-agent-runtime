@@ -427,6 +427,19 @@ describe("API", () => {
       );
     });
 
+    it("requests a fresh download URL for an existing project file", async () => {
+      const requestSpy = vi.spyOn(API, "request").mockResolvedValue({
+        url: "https://media.example.com/signed",
+        expires_in: 300,
+      } as never);
+
+      await API.getProjectFileDownloadUrl("my project", "output/第1集_final.mp4");
+
+      expect(requestSpy).toHaveBeenCalledWith(
+        "/projects/my%20project/download-url?path=output%2F%E7%AC%AC1%E9%9B%86_final.mp4",
+      );
+    });
+
     it("createProject sends object body with style_template_id and model fields", async () => {
       const requestSpy = vi.spyOn(API, "request").mockResolvedValue({ success: true } as never);
       await API.createProject({

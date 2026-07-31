@@ -18,7 +18,8 @@ description: 把已生成的视频片段按剧本顺序拼接为单集成片，�
 必须调用 `mcp__arcreel__compose_video`，不要在 E2B Bash 中直接运行 Python 合成脚本。该工具在
 Railway 主容器的当前项目目录执行，视频/音频文件无需上传到 E2B，FFmpeg 也由 Railway 镜像提供。
 成功后工具会返回 `media.oioi.bio` 上的成片下载链接（仅限该文件、5 分钟有效），不要向用户展示
-Railway 容器内的绝对文件路径。
+Railway 容器内的绝对文件路径。生产环境配置对象存储后，工具会先把成片发布到持久存储，再返回链接；
+因此链接过期只需重新签发，不需要重新合成。
 
 最简调用：`script: "episode_1.json"`。
 
@@ -40,6 +41,7 @@ Railway 容器内的绝对文件路径。
 2. **收集片段** — 按 `scenes[i].generated_assets.video_clip` 逐个解析视频文件并校验存在
 3. **拼接** — 默认走 normalize → concat（先把每段规范化为统一 H.264/AAC，再用 concat filter 编码），有 `xfade` 转场需求时按 `transition_to_next` 加滤镜
 4. **混音** — 若指定 `--music`，再做一遍 audio mix；输出文件名追加 `_with_music`
+5. **发布** — 配置对象存储时，把成片上传到私有 Bucket；上传失败则本次合成不报告成功
 
 ## 支持的转场类型
 

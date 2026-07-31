@@ -1341,6 +1341,7 @@ export default {
   'source_files_drop_inline_hint': 'Thả thêm tệp để bổ sung',
   'source_open': 'Mở',
   'output_open': 'Mở video',
+  'output_open_failed': 'Không thể tạo liên kết tải video hoàn chỉnh: {{message}}',
   'source_unsupported_extension': 'Loại tệp không được hỗ trợ: {{filename}}',
   'tab_preprocessing': 'Tiền xử lý',
   'tab_timeline': 'Cảnh quay',

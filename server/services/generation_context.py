@@ -368,6 +368,15 @@ async def resolve_generation_context(
             user_id=user_id,
         )
 
+    from server.media_publishing import publish_project_file
+
+    project_file_publisher = partial(
+        publish_project_file,
+        project_path=project_path,
+        project_name=project_name,
+        user_id=user_id,
+    )
+
     generator = MediaGenerator(
         project_path,
         rate_limiter=rate_limiter,
@@ -383,6 +392,7 @@ async def resolve_generation_context(
         # 项目级配置解析（如 video_generate_audio）报「项目不存在」。
         project_name=project_name,
         streamlake_first_frame_url_builder=streamlake_first_frame_url_builder,
+        project_file_publisher=project_file_publisher,
     )
     return GenerationContext(
         generator=generator,

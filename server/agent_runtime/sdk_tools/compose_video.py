@@ -10,6 +10,7 @@ from typing import Any
 from claude_agent_sdk import tool
 
 from server.agent_runtime.sdk_tools._context import ToolContext, tool_error, validate_script_filename
+from server.media_publishing import publish_project_file
 from server.public_media import build_public_project_file_url
 
 _COMPOSE_SCRIPT = (
@@ -104,6 +105,13 @@ def compose_video_tool(ctx: ToolContext):
             if process.returncode != 0:
                 raise RuntimeError(f"FFmpeg 合成失败（退出码 {process.returncode}）")
             output_path = _extract_output_path(log, project_path=project_path)
+            await publish_project_file(
+                output_path,
+                project_path=project_path,
+                project_name=ctx.project_name,
+                user_id=ctx.user_id,
+                required=True,
+            )
             download_url = build_public_project_file_url(
                 output_path,
                 project_path=project_path,

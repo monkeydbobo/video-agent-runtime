@@ -38,6 +38,7 @@ from lib.generation_worker import GenerationWorker
 from lib.httpx_shared import shutdown_http_client, startup_http_client
 from lib.i18n import _, get_locale
 from lib.logging_config import attach_file_handler, migrate_legacy_log_dir, setup_logging
+from lib.object_storage import object_storage_config_error
 from lib.project_migrations import cleanup_stale_backups, run_project_migrations
 from lib.source_loader.migration import migrate_project_source_encoding
 from server.agent_runtime.backend import agent_runtime_backend
@@ -336,6 +337,11 @@ async def lifespan(app: FastAPI):
     # Windows 回退时跳过，避免无意义的文件系统调用。
     is_docker = detect_docker_environment() if sandbox_enabled else False
     logger.info("Sandbox runtime: enabled=%s docker=%s", sandbox_enabled, is_docker)
+
+    # 对象存储配置只在部署期设置，启动时报一次比等到请求路径降级时才发现更容易定位。
+    object_storage_error = object_storage_config_error()
+    if object_storage_error:
+        logger.error("对象存储配置无效，媒体将只保留在 Volume 上：%s", object_storage_error)
 
     app.state.in_docker = is_docker
     app.state.sandbox_enabled = sandbox_enabled

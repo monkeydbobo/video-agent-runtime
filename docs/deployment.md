@@ -22,3 +22,37 @@ ArcReel 启动会进行严格的安全检查 — sandbox 工具缺失即拒绝�
 - `GOOGLE_APPLICATION_CREDENTIALS`（vertex 凭据继续放 `vertex_keys/` 目录）
 
 启动检测发现这些 key 仍存在于 env 时，server 会拒绝启动并提示需要清理。
+
+## Railway 媒体存储
+
+生产环境建议同时使用 Railway Volume 和私有 S3 兼容 Bucket：
+
+- Volume 挂载到项目目录，作为视频生成与 FFmpeg 的工作盘；
+- Bucket 保存 `videos/` 当前片段和 `output/` 成片的持久副本；
+- `ARCREEL_PUBLIC_MEDIA_BASE_URL` 指向独立媒体域名（例如 `https://media.example.com`）；
+- Web 端按需申请文件级短时链接，本地副本不存在时服务会 307 跳转至 Bucket 预签名地址。
+
+Bucket 服务变量映射如下：
+
+```env
+ARCREEL_OBJECT_STORAGE_ENDPOINT=${{arcreel-media.ENDPOINT}}
+ARCREEL_OBJECT_STORAGE_BUCKET=${{arcreel-media.BUCKET}}
+ARCREEL_OBJECT_STORAGE_ACCESS_KEY_ID=${{arcreel-media.ACCESS_KEY_ID}}
+ARCREEL_OBJECT_STORAGE_SECRET_ACCESS_KEY=${{arcreel-media.SECRET_ACCESS_KEY}}
+ARCREEL_OBJECT_STORAGE_REGION=${{arcreel-media.REGION}}
+ARCREEL_OBJECT_STORAGE_PREFIX=media
+ARCREEL_OBJECT_STORAGE_PRESIGN_SECONDS=300
+```
+
+变量引用中的 `arcreel-media` 是 Bucket 服务名，可按实际名称替换。Bucket 必须保持私有，不要把访问密钥或
+Bucket 预签名地址写进 `project.json`。
+
+升级已有部署后，先执行 dry-run，再幂等回填 Volume 上的既有视频：
+
+```bash
+uv run python scripts/migrate_media_to_object_storage.py --dry-run
+uv run python scripts/migrate_media_to_object_storage.py
+```
+
+迁移不会删除 Volume 文件。完整设计和失败语义见
+[`ADR 0052`](adr/0052-volume-workspace-object-storage-source-of-truth.md)。
