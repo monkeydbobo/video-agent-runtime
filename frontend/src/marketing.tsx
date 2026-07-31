@@ -5,7 +5,6 @@ import { createRoot } from "react-dom/client";
 import { MarketingRoutes } from "./marketing-router";
 import { i18nReady } from "@/i18n";
 import { useAuthStore } from "@/stores/auth-store";
-import { enhanceStaticHome } from "@/seo/enhance-static-home";
 
 import "./index.css";
 import "./css/styles.css";
@@ -24,16 +23,8 @@ async function boot(): Promise<void> {
     return;
   }
 
-  // 生产预渲染首页：保留静态正文供抓取/LCP，只做认证跳转与视频延迟加载。
-  if (root.dataset.staticHome === "true") {
-    await i18nReady.catch((err) => {
-      console.error("i18n initialization failed", err);
-    });
-    enhanceStaticHome(root);
-    return;
-  }
-
-  // 开发态（无预渲染正文）：挂载轻量营销路由。
+  // 首页：静态 HTML 只服务无 JS 抓取/首屏占位；有 JS 时挂载完整 LandingPage，
+  // 恢复粒子、大气层、showreel 与原有视觉，避免停留在精简静态壳上。
   const render = () => createRoot(root).render(<MarketingRoutes />);
   i18nReady.then(render, (err) => {
     console.error("i18n initialization failed", err);

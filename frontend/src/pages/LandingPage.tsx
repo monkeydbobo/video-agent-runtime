@@ -75,7 +75,8 @@ export function LandingPage() {
   const isChinese = i18n.resolvedLanguage?.startsWith("zh") ?? false;
   const [activeClip, setActiveClip] = useState(0);
   const [isPaused, setIsPaused] = useState(true);
-  const [isHeroVideoActive, setIsHeroVideoActive] = useState(false);
+  // 默认沉浸视频背景（与改造前一致）；source 仍延迟挂载以保护 LCP。
+  const [isHeroVideoActive, setIsHeroVideoActive] = useState(() => shouldLoadDecorativeHeroVideo());
   const [isHeroVideoSourceReady, setIsHeroVideoSourceReady] = useState(false);
   const [isHeroMuted, setIsHeroMuted] = useState(true);
   const [isShowreelReady, setIsShowreelReady] = useState(false);
