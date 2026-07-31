@@ -219,3 +219,4 @@ async def test_private_frontend_routes_are_noindex_and_browser_hardened(
         assert "connect-src 'self' https://accounts.google.com/gsi/" in response.headers["content-security-policy"]
         assert "frame-src https://accounts.google.com/gsi/" in response.headers["content-security-policy"]
         assert "https://accounts.google.com/gsi/style" in response.headers["content-security-policy"]
+        assert "media-src 'self' data: blob: https:" in response.headers["content-security-policy"]
