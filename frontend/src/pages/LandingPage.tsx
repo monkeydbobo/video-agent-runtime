@@ -119,7 +119,10 @@ export function LandingPage() {
       <div aria-hidden className="landing-mesh" />
       <div aria-hidden className="landing-mesh landing-mesh--alt" />
 
-      <nav className="landing-nav" aria-label={t("navigation")}>
+      <nav
+        className={`landing-nav${isHeroVideoActive ? " landing-nav--immersive" : ""}`}
+        aria-label={t("navigation")}
+      >
         <button className="landing-brand" onClick={() => setLocation("/")} type="button">
           <span className="landing-brand__mark"><img alt="" height="26" src="/android-chrome-192x192.png" width="26" /></span>
           <span>{BRAND.name}</span>

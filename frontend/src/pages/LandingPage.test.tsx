@@ -22,7 +22,9 @@ describe("LandingPage hero video", () => {
     const { container } = renderLandingPage();
 
     const restoreButton = screen.getByRole("button", { name: "退出首屏视频并恢复初始效果" });
+    const navigation = screen.getByRole("navigation", { name: "主导航" });
     expect(container.querySelector(".landing-page")).toHaveClass("landing-page--hero-video");
+    expect(navigation).toHaveClass("landing-nav--immersive");
     expect(container.querySelector(".landing-particles")).not.toBeInTheDocument();
     expect(container.querySelector(".hero-atmosphere")).not.toBeInTheDocument();
     expect(restoreButton.querySelector("video")).toHaveAttribute("loop");
@@ -30,6 +32,7 @@ describe("LandingPage hero video", () => {
     fireEvent.click(restoreButton);
 
     expect(container.querySelector(".landing-page")).not.toHaveClass("landing-page--hero-video");
+    expect(navigation).not.toHaveClass("landing-nav--immersive");
     expect(container.querySelector(".landing-particles")).toBeInTheDocument();
     expect(container.querySelector(".hero-atmosphere")).toBeInTheDocument();
 
@@ -47,6 +50,7 @@ describe("LandingPage hero video", () => {
     fireEvent.click(expandButton);
 
     expect(container.querySelector(".landing-page")).toHaveClass("landing-page--hero-video");
+    expect(navigation).toHaveClass("landing-nav--immersive");
     expect(container.querySelector(".landing-particles")).not.toBeInTheDocument();
   });
 
