@@ -255,19 +255,21 @@ async def issue_project_file_download_url(
     except ValueError:
         raise HTTPException(status_code=403, detail=_t("forbidden_access"))
 
-    local_exists = await asyncio.to_thread(file_path.is_file)
-    store = get_project_object_storage()
-    remote_exists = bool(
-        store
-        and await asyncio.to_thread(
-            store.project_file_exists,
-            project_name=project_name,
-            user_id=_user.id,
-            relative_path=path,
+    # 签发的 URL 只依赖 media token，与对象存储无关：本地副本在时不探测远端，
+    # 免得配置不全或 S3 故障把本可服务的请求一起打挂。
+    if not await asyncio.to_thread(file_path.is_file):
+        store = get_project_object_storage()
+        remote_exists = bool(
+            store
+            and await asyncio.to_thread(
+                store.project_file_exists,
+                project_name=project_name,
+                user_id=_user.id,
+                relative_path=path,
+            )
         )
-    )
-    if not local_exists and not remote_exists:
-        raise HTTPException(status_code=404, detail=_t("file_not_found", path=path))
+        if not remote_exists:
+            raise HTTPException(status_code=404, detail=_t("file_not_found", path=path))
 
     return {
         "url": build_public_project_file_url(

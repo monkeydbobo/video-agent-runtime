@@ -139,6 +139,33 @@ class TestFilesRouter:
             asset_path="output/第1集_final.mp4",
         )
 
+    def test_local_output_download_url_ignores_object_storage_failure(self, tmp_path, monkeypatch):
+        client, pm = _client(monkeypatch, tmp_path)
+        monkeypatch.setenv("AUTH_TOKEN_SECRET", "test-secret-for-media-token-32b!")
+        monkeypatch.setenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", "https://media.example.com")
+        output = pm.get_project_path("demo") / "output" / "第1集_final.mp4"
+        output.parent.mkdir(exist_ok=True)
+        output.write_bytes(b"video")
+
+        def _broken_store():
+            raise RuntimeError("对象存储配置不完整")
+
+        monkeypatch.setattr(files, "get_project_object_storage", _broken_store)
+
+        with client:
+            response = client.get(
+                "/api/v1/projects/demo/download-url",
+                params={"path": "output/第1集_final.mp4"},
+            )
+
+        assert response.status_code == 200
+        verify_media_token(
+            parse_qs(urlsplit(response.json()["url"]).query)["media_token"][0],
+            user_id=DEFAULT_USER_ID,
+            project_name="demo",
+            asset_path="output/第1集_final.mp4",
+        )
+
     def test_missing_local_file_redirects_to_object_storage(self, tmp_path, monkeypatch):
         client, _ = _client(monkeypatch, tmp_path)
 
