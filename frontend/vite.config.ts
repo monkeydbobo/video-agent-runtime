@@ -7,6 +7,9 @@ import seoPages from "./src/seo/seo-pages.json";
 
 type SeoPage = (typeof seoPages)[number];
 
+const SEO_HERO_VIDEO_WEBM = "https://s15-sl.cybercut.ai/kos/s101/nlav112623/oioi_demo_web_vp9_audio.webm";
+const SEO_HERO_VIDEO_MP4 = "https://s15-sl.cybercut.ai/kos/s101/nlav112623/oioi_demo_web_h264_audio.mp4";
+
 function escapeHtml(value: string): string {
     return value
         .replaceAll("&", "&amp;")
@@ -51,11 +54,17 @@ function renderStaticSeoContent(page: SeoPage): string {
     return `
       <main class="seo-page">
         <nav class="seo-nav" aria-label="${isZh ? "主导航" : "Main navigation"}">
-          <a class="seo-brand" href="/"><span>◫</span>oioi.bio</a>
-          <div><a href="${page.alternatePath}">${isZh ? "EN" : "中文"}</a><a href="/login">${isZh ? "进入工作台" : "Enter studio"}</a></div>
+          <a class="seo-brand" href="/"><span class="seo-brand__mark"><img src="/android-chrome-192x192.png" alt="" width="29" height="29" /></span>oioi.bio</a>
+          <div><a href="${page.alternatePath}">${isZh ? "EN" : "中文"}</a><a class="seo-nav__login" href="/login">${isZh ? "进入工作台" : "Enter studio"} →</a></div>
         </nav>
         <article>
           <header class="seo-hero">
+            <div class="seo-hero__video" aria-hidden="true">
+              <video autoplay loop muted playsinline poster="/hero/oioi-demo-poster.jpg" preload="metadata">
+                <source src="${SEO_HERO_VIDEO_WEBM}" type="video/webm; codecs=vp9" />
+                <source src="${SEO_HERO_VIDEO_MP4}" type="video/mp4" />
+              </video>
+            </div>
             <div class="seo-hero__copy">
               <a class="seo-back" href="/">${isZh ? "返回首页" : "Back home"}</a>
               <p class="seo-eyebrow">${escapeHtml(page.eyebrow)}</p>

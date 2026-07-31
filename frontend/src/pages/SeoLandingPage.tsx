@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, Clapperboard } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Play, Sparkles } from "lucide-react";
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { BRAND } from "@/branding";
@@ -7,6 +7,9 @@ import seoPages from "@/seo/seo-pages.json";
 import "./SeoLandingPage.css";
 
 type SeoPageData = (typeof seoPages)[number];
+
+const SEO_HERO_VIDEO_WEBM = "https://s15-sl.cybercut.ai/kos/s101/nlav112623/oioi_demo_web_vp9_audio.webm";
+const SEO_HERO_VIDEO_MP4 = "https://s15-sl.cybercut.ai/kos/s101/nlav112623/oioi_demo_web_h264_audio.mp4";
 
 function setMeta(selector: string, content: string): void {
   const element = document.querySelector<HTMLMetaElement>(selector);
@@ -45,12 +48,12 @@ export function SeoLandingPage() {
       <div aria-hidden className="seo-page__grain" />
       <nav className="seo-nav" aria-label={isZh ? "主导航" : "Main navigation"}>
         <button type="button" className="seo-brand" onClick={() => setLocation("/")}>
-          <span><Clapperboard aria-hidden size={17} /></span>
+          <span className="seo-brand__mark"><img alt="" height="29" src="/android-chrome-192x192.png" width="29" /></span>
           {BRAND.name}
         </button>
         <div>
           <a href={page.alternatePath}>{isZh ? "EN" : "中文"}</a>
-          <button type="button" onClick={() => setLocation("/login")}>
+          <button className="seo-nav__login" type="button" onClick={() => setLocation("/login")}>
             {isZh ? "进入工作台" : "Enter studio"} <ArrowRight aria-hidden size={14} />
           </button>
         </div>
@@ -58,12 +61,20 @@ export function SeoLandingPage() {
 
       <article>
         <header className="seo-hero">
+          <div className="seo-hero__video" aria-hidden>
+            {/* Decorative background video mirrors the homepage hero and carries no page content. */}
+            <video autoPlay loop muted playsInline poster="/hero/oioi-demo-poster.jpg" preload="metadata">
+              <source src={SEO_HERO_VIDEO_WEBM} type='video/webm; codecs="vp9"' />
+              <source src={SEO_HERO_VIDEO_MP4} type="video/mp4" />
+            </video>
+          </div>
           <div className="seo-hero__copy">
             <a href="/" className="seo-back"><ArrowLeft aria-hidden size={13} /> {isZh ? "返回首页" : "Back home"}</a>
-            <p className="seo-eyebrow">{page.eyebrow}</p>
+            <p className="seo-eyebrow"><Sparkles aria-hidden size={13} /> {page.eyebrow}</p>
             <h1>{page.headline}</h1>
             <p className="seo-lede">{page.lede}</p>
             <button type="button" className="seo-primary" onClick={() => setLocation("/login")}>
+              <Play aria-hidden fill="currentColor" size={13} />
               {isZh ? "开始创作" : "Start creating"} <ArrowRight aria-hidden size={16} />
             </button>
           </div>

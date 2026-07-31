@@ -175,7 +175,7 @@ export function AppRoutes() {
         <Route path="/login" component={LoginPage} />
         <Route path="/register" component={RegisterPage} />
 
-        {/* Public product landing page */}
+        {/* Public SEO pages share the product visual language while keeping unique search content */}
         <Route path="/zh/:seoSlug" component={SeoLandingPage} />
         <Route path="/en/:seoSlug" component={SeoLandingPage} />
         <Route path="/" component={RootRoute} />
