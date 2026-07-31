@@ -1,6 +1,6 @@
-# ArcReel Skill
+# {{BRAND_NAME}} Skill
 
-ArcReel 是一个 AI 视频生成平台，将小说转化为短视频。通过此 Skill，你可以使用自然语言对话来调用 ArcReel 的项目管理和内容创作能力。
+{{BRAND_NAME}} 是 AI 视频创作工作台，统一管理项目、剧本、分镜、视频生成与助手对话。通过此 Skill，你可以使用自然语言对话来调用 {{BRAND_NAME}} 的项目管理和内容创作能力。
 
 ## 认证
 
@@ -10,7 +10,7 @@ ArcReel 是一个 AI 视频生成平台，将小说转化为短视频。通过�
 Authorization: Bearer arc-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-API Key 可从 ArcReel 设置页面的「API Keys」管理区获取。
+API Key 可从 {{BRAND_NAME}} 设置页面的「API Keys」管理区获取。
 
 ## 工作流
 
@@ -18,14 +18,14 @@ API Key 可从 ArcReel 设置页面的「API Keys」管理区获取。
 
 1. **创建项目**：`POST {{BASE_URL}}/api/v1/projects`
 2. **上传小说内容并生成概述**：`POST {{BASE_URL}}/api/v1/projects/{name}/source`
-3. **多轮 Agent 对话**（创作剧本、分镜等）：`POST {{BASE_URL}}/api/v1/agent/chat`
+3. **多轮 Agent 对话**（创作剧本、分镜、视频等）：`POST {{BASE_URL}}/api/v1/agent/chat`
 4. **查看生成结果**：`GET {{BASE_URL}}/api/v1/projects/{name}`
 
 ## 工具定义
 
 ### 1. 项目列表
 
-列出所有现有项目。
+列出当前用户可见的项目。
 
 - **端点**：`GET {{BASE_URL}}/api/v1/projects`
 - **认证**：需要 Bearer Token
@@ -42,8 +42,9 @@ curl {{BASE_URL}}/api/v1/projects \
     {
       "name": "my-novel",
       "title": "我的小说",
-      "scenes_count": 12,
-      "status": "ready"
+      "style": "",
+      "thumbnail": null,
+      "status": {}
     }
   ]
 }
@@ -51,7 +52,7 @@ curl {{BASE_URL}}/api/v1/projects \
 
 ### 2. 创建项目
 
-创建新的视频创作项目。
+创建新的视频创作项目。`name` 与 `title` 至少提供其一；未传 `name` 时会按标题自动生成项目 ID。
 
 - **端点**：`POST {{BASE_URL}}/api/v1/projects`
 - **认证**：需要 Bearer Token
@@ -60,10 +61,26 @@ curl {{BASE_URL}}/api/v1/projects \
 curl -X POST {{BASE_URL}}/api/v1/projects \
   -H "Authorization: Bearer <API_KEY>" \
   -H "Content-Type: application/json" \
-  -d '{"name": "project-id", "title": "项目标题"}'
+  -d '{"name": "project-id", "title": "项目标题", "content_mode": "narration"}'
 ```
 
-- **响应**：201，返回项目详情
+- **常用字段**：
+  - `name`：项目 ID（可选；仅字母、数字、连字符、下划线）
+  - `title`：项目标题（可选；与 `name` 至少其一）
+  - `content_mode`：内容模式，常用 `narration`（说书）/ `drama`（剧集动画）；默认 `narration`
+  - `aspect_ratio`：画幅，默认 `9:16`
+- **响应示例**：
+```json
+{
+  "success": true,
+  "name": "project-id",
+  "project": {
+    "name": "project-id",
+    "title": "项目标题",
+    "content_mode": "narration"
+  }
+}
+```
 
 ### 3. 上传小说内容并生成概述（新项目必须）
 
@@ -133,15 +150,17 @@ curl {{BASE_URL}}/api/v1/projects/my-novel \
   "project": {
     "name": "my-novel",
     "title": "我的小说",
-    "synopsis": "...",
-    "status": "ready"
-  }
+    "content_mode": "narration",
+    "synopsis": "..."
+  },
+  "scripts": {},
+  "asset_fingerprints": {}
 }
 ```
 
 ### 5. 更新项目设置
 
-修改项目配置（标题、风格等）。
+修改项目配置（标题、风格等）。`content_mode` 创建后不可更改。
 
 - **端点**：`PATCH {{BASE_URL}}/api/v1/projects/{name}`
 - **认证**：需要 Bearer Token
@@ -155,7 +174,7 @@ curl -X PATCH {{BASE_URL}}/api/v1/projects/my-novel \
 
 ### 6. Agent 对话（剧本与创作）
 
-向 ArcReel AI Agent 发送消息，Agent 可执行剧本生成、分镜创作、视频生成等复杂任务。
+向 {{BRAND_NAME}} AI Agent 发送消息，Agent 可执行剧本生成、分镜创作、视频生成等复杂任务。
 
 - **端点**：`POST {{BASE_URL}}/api/v1/agent/chat`
 - **认证**：需要 Bearer Token
@@ -180,10 +199,12 @@ curl -X POST {{BASE_URL}}/api/v1/agent/chat \
 {
   "session_id": "sess-abc123",
   "reply": "好的，我已经为第一章生成了悬疑风格的剧本...",
-  "status": "completed"
+  "status": "completed",
+  "truncated": false
 }
 ```
-  - `status` 可能为：`completed`（成功）、`timeout`（超时，含部分响应）、`error`（出错）
+  - `status` 可能为：`completed`（成功）、`timeout`（超时，含部分响应）、`error`（出错）、`interrupted`（中断）
+  - `truncated: true` 表示回复可能不完整
 
 ## 使用示例
 
@@ -194,7 +215,7 @@ curl -X POST {{BASE_URL}}/api/v1/agent/chat \
 curl -X POST {{BASE_URL}}/api/v1/projects \
   -H "Authorization: Bearer <API_KEY>" \
   -H "Content-Type: application/json" \
-  -d '{"name": "ghost-story", "title": "鬼屋探险"}'
+  -d '{"name": "ghost-story", "title": "鬼屋探险", "content_mode": "narration"}'
 
 # 2A. 上传小说文本，自动生成概述
 curl -X POST {{BASE_URL}}/api/v1/projects/ghost-story/source \
@@ -224,4 +245,4 @@ curl {{BASE_URL}}/api/v1/projects/ghost-story \
 - `source` 接口最大 200000 字符（约 10 万汉字）；超长小说建议分章节多次传入（后续调用会覆盖同名文件）
 - Agent 对话最长等待 120 秒，复杂任务可能返回 `status: "timeout"` 和部分响应，此时可继续传入同一 `session_id` 查询进度
 - 所有 API 响应均为 JSON 格式
-- 项目名称（`name`）仅支持字母、数字和连字符，建议使用英文或拼音
+- 项目名称（`name`）仅支持字母、数字、连字符和下划线，建议使用英文或拼音

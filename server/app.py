@@ -711,9 +711,23 @@ async def health_check():
     }
 
 
+# 与 frontend/src/branding.ts 默认值对齐；部署可用 BRAND_NAME 覆盖。
+_DEFAULT_BRAND_NAME = "oioi.bio"
+
+
+def _resolve_brand_name() -> str:
+    """解析 skill.md 品牌名：BRAND_NAME 优先，空/空白回落默认。"""
+    raw = os.environ.get("BRAND_NAME")
+    if isinstance(raw, str):
+        trimmed = raw.strip()
+        if trimmed:
+            return trimmed
+    return _DEFAULT_BRAND_NAME
+
+
 @app.get("/skill.md", include_in_schema=False)
 async def serve_skill_md(request: Request) -> Response:
-    """动态渲染 skill.md 模板，将 {{BASE_URL}} 替换为实际服务地址（无需认证）。"""
+    """动态渲染 skill.md 模板，替换 {{BASE_URL}} / {{BRAND_NAME}}（无需认证）。"""
     from starlette.responses import PlainTextResponse
 
     template_path = PROJECT_ROOT / "public" / "skill.md.template"
@@ -734,7 +748,7 @@ async def serve_skill_md(request: Request) -> Response:
     host = request.url.netloc
     base_url = f"{scheme}://{host}"
 
-    content = template.replace("{{BASE_URL}}", base_url)
+    content = template.replace("{{BASE_URL}}", base_url).replace("{{BRAND_NAME}}", _resolve_brand_name())
     return PlainTextResponse(content, media_type="text/markdown; charset=utf-8")
 
 
