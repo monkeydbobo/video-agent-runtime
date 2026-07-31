@@ -2,6 +2,7 @@ import json
 from io import BytesIO
 from urllib.parse import parse_qs, urlsplit
 
+import pytest
 from botocore.exceptions import ClientError
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -173,6 +174,44 @@ class TestFilesRouter:
             project_name="demo",
             asset_path="output/第1集_final.mp4",
         )
+
+    @pytest.mark.integration
+    def test_download_url_falls_back_to_same_origin_without_media_domain(self, tmp_path, monkeypatch):
+        client, pm = _client(monkeypatch, tmp_path)
+
+        async def _return_default_owner(*_args, **_kwargs):
+            return DEFAULT_USER_ID
+
+        monkeypatch.setattr(files, "bind_owned_project_scope", _return_default_owner)
+        monkeypatch.setenv("AUTH_TOKEN_SECRET", "test-secret-for-media-token-32b!")
+        monkeypatch.delenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", raising=False)
+        output = pm.get_project_path("demo") / "output" / "第1集_final.mp4"
+        output.parent.mkdir(exist_ok=True)
+        output.write_bytes(b"video")
+
+        with client:
+            response = client.get(
+                "/api/v1/projects/demo/download-url",
+                params={"path": "output/第1集_final.mp4"},
+            )
+
+        assert response.status_code == 200
+        parsed = urlsplit(response.json()["url"])
+        assert parsed.netloc == ""
+        assert parsed.path == "/api/v1/files/demo/output/%E7%AC%AC1%E9%9B%86_final.mp4"
+        media_token = parse_qs(parsed.query)["media_token"][0]
+        verify_media_token(
+            media_token,
+            user_id=DEFAULT_USER_ID,
+            project_name="demo",
+            asset_path="output/第1集_final.mp4",
+        )
+
+        # 浏览器新窗口不会携带 API Authorization header，必须仅凭签发 URL 中的 media_token 可读取。
+        with client:
+            served = client.get(response.json()["url"])
+        assert served.status_code == 200, (str(served.request.url), served.text)
+        assert served.content == b"video"
 
     def test_local_output_download_url_ignores_object_storage_failure(self, tmp_path, monkeypatch):
         client, pm = _client(monkeypatch, tmp_path)

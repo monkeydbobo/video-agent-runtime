@@ -11,7 +11,7 @@ from claude_agent_sdk import tool
 
 from server.agent_runtime.sdk_tools._context import ToolContext, tool_error, validate_script_filename
 from server.media_publishing import publish_project_file
-from server.public_media import build_public_project_file_url
+from server.public_media import build_project_file_url
 
 _COMPOSE_SCRIPT = (
     Path(__file__).resolve().parents[3] / "agent_runtime_profile/.claude/skills/compose-video/scripts/compose_video.py"
@@ -112,7 +112,7 @@ def compose_video_tool(ctx: ToolContext):
                 user_id=ctx.user_id,
                 required=True,
             )
-            download_url = build_public_project_file_url(
+            download_url = build_project_file_url(
                 output_path,
                 project_path=project_path,
                 project_name=ctx.project_name,

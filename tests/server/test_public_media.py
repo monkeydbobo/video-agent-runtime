@@ -7,7 +7,11 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 
 from server.auth import verify_media_token
-from server.public_media import build_public_project_file_url, build_streamlake_first_frame_url
+from server.public_media import (
+    build_project_file_url,
+    build_public_project_file_url,
+    build_streamlake_first_frame_url,
+)
 
 
 def test_build_streamlake_first_frame_url_uses_public_domain_and_file_scoped_token(tmp_path, monkeypatch):
@@ -63,6 +67,72 @@ def test_build_public_project_file_url_uses_same_file_scoped_contract(tmp_path, 
         project_name="demo",
         asset_path="output/episode_1_final.mp4",
     )
+
+
+@pytest.mark.unit
+def test_build_project_file_url_falls_back_to_same_origin_path(tmp_path, monkeypatch):
+    monkeypatch.setenv("AUTH_TOKEN_SECRET", "test-secret-for-media-token-32b!")
+    monkeypatch.delenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", raising=False)
+    video = tmp_path / "output" / "episode_1_final.mp4"
+    video.parent.mkdir()
+    video.write_bytes(b"mp4")
+
+    url = build_project_file_url(
+        video,
+        project_path=tmp_path,
+        project_name="demo",
+        user_id="alice-id",
+    )
+
+    parsed = urlsplit(url)
+    assert parsed.scheme == ""
+    assert parsed.netloc == ""
+    assert parsed.path == "/api/v1/files/demo/output/episode_1_final.mp4"
+    verify_media_token(
+        parse_qs(parsed.query)["media_token"][0],
+        user_id="alice-id",
+        project_name="demo",
+        asset_path="output/episode_1_final.mp4",
+    )
+
+
+@pytest.mark.unit
+def test_build_project_file_url_prefers_public_domain_when_configured(tmp_path, monkeypatch):
+    monkeypatch.setenv("AUTH_TOKEN_SECRET", "test-secret-for-media-token-32b!")
+    monkeypatch.setenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", "https://media.example.com")
+    video = tmp_path / "output" / "episode_1_final.mp4"
+    video.parent.mkdir()
+    video.write_bytes(b"mp4")
+
+    url = build_project_file_url(
+        video,
+        project_path=tmp_path,
+        project_name="demo",
+        user_id="alice-id",
+    )
+
+    assert urlsplit(url).netloc == "media.example.com"
+
+
+@pytest.mark.unit
+def test_build_project_file_url_rejects_path_outside_project(tmp_path, monkeypatch):
+    monkeypatch.delenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", raising=False)
+    outside = tmp_path.parent / "outside.mp4"
+    outside.write_bytes(b"mp4")
+
+    with pytest.raises(ValueError, match="项目目录"):
+        build_project_file_url(outside, project_path=tmp_path, project_name="demo", user_id="alice-id")
+
+
+@pytest.mark.unit
+def test_build_project_file_url_rejects_invalid_configured_media_domain(tmp_path, monkeypatch):
+    monkeypatch.setenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", "media.example.com")
+    video = tmp_path / "output" / "episode_1_final.mp4"
+    video.parent.mkdir()
+    video.write_bytes(b"mp4")
+
+    with pytest.raises(ValueError, match="ARCREEL_PUBLIC_MEDIA_BASE_URL"):
+        build_project_file_url(video, project_path=tmp_path, project_name="demo", user_id="alice-id")
 
 
 def test_build_streamlake_first_frame_url_requires_configured_public_domain(tmp_path, monkeypatch):

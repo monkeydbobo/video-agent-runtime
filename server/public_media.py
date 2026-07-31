@@ -19,14 +19,14 @@ def _public_media_base_url() -> str:
     return value
 
 
-def build_public_project_file_url(
+def _scoped_media_path(
     file_path: Path,
     *,
     project_path: Path,
     project_name: str,
     user_id: str,
 ) -> str:
-    """返回仅允许读取一个项目文件的短时 CDN URL。"""
+    """返回文件级 media_token 的同源路径（不含域名）。"""
     try:
         relative_path = file_path.resolve().relative_to(project_path.resolve()).as_posix()
     except ValueError as exc:
@@ -39,8 +39,45 @@ def build_public_project_file_url(
     )
     encoded_project = quote(project_name, safe="")
     encoded_path = quote(relative_path, safe="/")
-    return (
-        f"{_public_media_base_url()}/api/v1/files/{encoded_project}/{encoded_path}?{urlencode({'media_token': token})}"
+    return f"/api/v1/files/{encoded_project}/{encoded_path}?{urlencode({'media_token': token})}"
+
+
+def build_public_project_file_url(
+    file_path: Path,
+    *,
+    project_path: Path,
+    project_name: str,
+    user_id: str,
+) -> str:
+    """返回仅允许读取一个项目文件的短时 CDN URL；未配置公开媒体域名时抛错。"""
+    base = _public_media_base_url()
+    return base + _scoped_media_path(
+        file_path,
+        project_path=project_path,
+        project_name=project_name,
+        user_id=user_id,
+    )
+
+
+def build_project_file_url(
+    file_path: Path,
+    *,
+    project_path: Path,
+    project_name: str,
+    user_id: str,
+) -> str:
+    """返回可供浏览器打开的短时链接。
+
+    配置了公开媒体域名时走 CDN 绝对地址；未配置时回退为同源相对地址，
+    避免只用同源 ``/api/v1/files/...`` 的部署无法下载。
+    """
+    configured_base = os.environ.get(PUBLIC_MEDIA_BASE_URL_ENV, "").strip()
+    base = _public_media_base_url() if configured_base else ""
+    return base + _scoped_media_path(
+        file_path,
+        project_path=project_path,
+        project_name=project_name,
+        user_id=user_id,
     )
 
 
