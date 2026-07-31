@@ -77,9 +77,9 @@ export const i18nReady = i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
-    fallbackLng: 'zh',
+    fallbackLng: 'en',
     supportedLngs: SUPPORTED_LANGUAGES,
-    // 新用户未曾手动选择语言时始终使用中文；仅恢复用户主动保存的偏好，
+    // 新用户未曾手动选择语言时始终使用英文；仅恢复用户主动保存的偏好，
     // 不再让浏览器/操作系统语言覆盖产品默认值。
     detection: {
       order: ['localStorage', 'cookie'],

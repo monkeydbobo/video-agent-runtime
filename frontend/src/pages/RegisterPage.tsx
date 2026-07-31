@@ -47,7 +47,7 @@ export function RegisterPage() {
     try {
       const resp = await fetch("/api/v1/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Accept-Language": i18n.language || "zh" },
+        headers: { "Content-Type": "application/json", "Accept-Language": i18n.language || "en" },
         body: JSON.stringify({ username, password }),
       });
       if (!resp.ok) {
