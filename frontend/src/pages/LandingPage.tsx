@@ -1,4 +1,16 @@
-import { ArrowDownRight, ArrowRight, FileText, Layers3, MessageCircle, Pause, Play, Sparkles, WandSparkles } from "lucide-react";
+import {
+  ArrowDownRight,
+  ArrowRight,
+  FileText,
+  Layers3,
+  Maximize2,
+  MessageCircle,
+  Minimize2,
+  Pause,
+  Play,
+  Sparkles,
+  WandSparkles,
+} from "lucide-react";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
@@ -8,12 +20,17 @@ import { ParticleField } from "@/components/landing/ParticleField";
 import "./LandingPage.css";
 
 const FEATURE_ICONS = [FileText, Layers3, WandSparkles] as const;
+const HERO_VIDEO_SRC = "https://media.oioi.bio/api/v1/static-media/oioi_demo_oioi_bio.mp4";
+const HERO_VIDEO_POSTER = "/hero/oioi-demo-poster.jpg";
+
 export function LandingPage() {
   const { t, i18n } = useTranslation("landing");
   const [, setLocation] = useLocation();
   const isChinese = i18n.resolvedLanguage?.startsWith("zh") ?? true;
   const [activeClip, setActiveClip] = useState(0);
   const [isPaused, setIsPaused] = useState(true);
+  const [isHeroVideoActive, setIsHeroVideoActive] = useState(true);
+  const heroRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const clips = [
@@ -39,6 +56,16 @@ export function LandingPage() {
     }
   };
 
+  const activateHeroVideo = () => {
+    setIsHeroVideoActive(true);
+    requestAnimationFrame(() => {
+      const hero = heroRef.current;
+      if (!hero || typeof hero.scrollIntoView !== "function") return;
+      const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+      hero.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+    });
+  };
+
   const features = [
     { title: t("feature_script_title"), body: t("feature_script_body") },
     { title: t("feature_assets_title"), body: t("feature_assets_body") },
@@ -52,8 +79,8 @@ export function LandingPage() {
   ];
 
   return (
-    <main className="landing-page">
-      <ParticleField />
+    <main className={`landing-page${isHeroVideoActive ? " landing-page--hero-video" : ""}`}>
+      {isHeroVideoActive ? null : <ParticleField />}
       <div aria-hidden className="landing-mesh" />
       <div aria-hidden className="landing-mesh landing-mesh--alt" />
 
@@ -76,8 +103,37 @@ export function LandingPage() {
         </div>
       </nav>
 
-      <section className="landing-hero" aria-labelledby="landing-title">
-        <HeroAtmosphere />
+      <section
+        className={`landing-hero${isHeroVideoActive ? " landing-hero--video-active" : ""}`}
+        aria-labelledby="landing-title"
+        ref={heroRef}
+      >
+        {isHeroVideoActive ? (
+          <button
+            aria-label={t("hero_video_exit")}
+            className="landing-hero__video-backdrop"
+            onClick={() => setIsHeroVideoActive(false)}
+            type="button"
+          >
+            <video
+              aria-hidden
+              autoPlay
+              loop
+              muted
+              playsInline
+              poster={HERO_VIDEO_POSTER}
+              preload="auto"
+              src={HERO_VIDEO_SRC}
+            />
+            <span aria-hidden className="landing-hero__video-shade" />
+            <span className="landing-hero__video-exit-hint">
+              <Minimize2 aria-hidden size={15} />
+              {t("hero_video_restore")}
+            </span>
+          </button>
+        ) : (
+          <HeroAtmosphere />
+        )}
         <div className="landing-hero__copy">
           <p className="landing-badge"><Sparkles aria-hidden size={13} /> {t("eyebrow")}</p>
           <h1 id="landing-title"><span>{t("title_before")}</span> <em>{t("title_emphasis")}</em>{t("title_after")}</h1>
@@ -92,24 +148,36 @@ export function LandingPage() {
           </div>
         </div>
 
-        <div className="landing-reel" aria-label={t("reel_label")}>
-          <div className="landing-reel__code">A-01 / 24 FPS</div>
-          <div className="landing-reel__sprockets" />
-          <div className="landing-reel__scene">
-            <img
-              alt=""
-              className="landing-reel__image"
-              src="/exec-552bf0bb-b706-49d8-a843-f26f5f15acc4.png"
-            />
-            <div className="landing-reel__frame">SC. 01</div>
-            <p>{t("reel_scene")}</p>
-          </div>
-          <div className="landing-reel__caption">
-            <span>{t("reel_project")}</span>
-            <strong>00:12:04</strong>
-          </div>
-          <div className="landing-reel__tag"><ArrowDownRight aria-hidden size={15} /> {t("reel_tag")}</div>
-        </div>
+        {isHeroVideoActive ? null : (
+          <button
+            aria-label={t("hero_video_enter")}
+            className="landing-reel"
+            onClick={activateHeroVideo}
+            type="button"
+          >
+            <span className="landing-reel__code">A-01 / 24 FPS</span>
+            <span className="landing-reel__scene">
+              <video
+                aria-hidden
+                autoPlay
+                loop
+                muted
+                playsInline
+                poster={HERO_VIDEO_POSTER}
+                preload="auto"
+                src={HERO_VIDEO_SRC}
+              />
+            </span>
+            <span className="landing-reel__caption">
+              <span>{t("reel_project")}</span>
+              <strong>00:00:10</strong>
+            </span>
+            <span className="landing-reel__tag">
+              <Maximize2 aria-hidden size={15} />
+              {t("hero_video_expand")}
+            </span>
+          </button>
+        )}
       </section>
 
       <section className="landing-showreel" aria-labelledby="showreel-title">
