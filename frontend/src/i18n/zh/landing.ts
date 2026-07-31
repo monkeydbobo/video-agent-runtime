@@ -50,8 +50,6 @@ export default {
   guide_novel_body: "从原始文本、剧本和资产，到逐镜头生成的完整改编路径。",
   guide_storyboard_title: "如何用 AI 设计分镜",
   guide_storyboard_body: "让每一格分镜都带着明确的叙事目的与制作信息。",
-  guide_workflow_title: "如何组织 AI 视频工作流",
-  guide_workflow_body: "连接模型、生成队列、版本和成本，而不是继续搬运文件。",
   contact_eyebrow: "联系创作者",
   contact_title: "一起把下一个故事做出来。",
   contact_body: "加入 Discord，一起交流想法、获取产品动态，也一起做点好玩的东西。",

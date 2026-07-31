@@ -76,6 +76,12 @@ describe("AppRoutes", () => {
     expect(screen.getByRole("link", { name: "EN" })).toHaveAttribute("href", "/en/novel-to-video");
   });
 
+  it("renders 404 for a removed SEO guide", async () => {
+    useAuthStore.setState({ isAuthenticated: false, isLoading: false });
+    renderAt("/en/ai-video-workflow");
+    expect(await screen.findByText("404")).toBeInTheDocument();
+  });
+
   it("redirects /app to /app/projects", async () => {
     renderAt("/app");
     expect(await screen.findByTestId("projects-page")).toBeInTheDocument();

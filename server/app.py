@@ -847,6 +847,13 @@ if (frontend_dist_dir / "index.html").is_file():
     for _seo_route_path in seo_page_files:
         app.get(_seo_route_path, include_in_schema=False)(static_seo_page)
 
+    async def missing_seo_page() -> Response:
+        """Unknown localized marketing slugs are real 404s, not the SPA shell."""
+        return Response(status_code=404)
+
+    for _seo_locale in ("zh", "en"):
+        app.get(f"/{_seo_locale}/{{_seo_slug}}", include_in_schema=False)(missing_seo_page)
+
     @app.get("/app/{_rest:path}", include_in_schema=False)
     async def spa_deep_link(_rest: str) -> FileResponse:
         # SPA 深链末段可能带扩展名（如 /app/projects/x/source/chapter1.txt），

@@ -48,8 +48,6 @@ export default {
   guide_novel_body: "A complete adaptation path from source text and script to reusable assets and generated shots.",
   guide_storyboard_title: "How to storyboard with AI",
   guide_storyboard_body: "Give every storyboard frame a clear narrative purpose and production context.",
-  guide_workflow_title: "How to organize an AI video workflow",
-  guide_workflow_body: "Connect models, task queues, versions, and cost instead of moving files between tools.",
   contact_eyebrow: "Talk to the maker",
   contact_title: "Build the next story together.",
   contact_body: "Join the Discord community for ideas, product updates, and a place to make things together.",
