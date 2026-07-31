@@ -163,8 +163,18 @@ def test_generate_narration_audio_registered() -> None:
     assert "generate_narration_audio" in ARCREEL_MCP_TOOL_IDS
 
 
+@pytest.mark.parametrize(
+    ("media_base_url", "expected_url"),
+    [
+        ("https://media.example.com", "https://media.example.com/api/v1/files/demo/output/episode_1_final.mp4"),
+        (None, "/api/v1/files/demo/output/episode_1_final.mp4"),
+    ],
+)
 async def test_compose_video_runs_in_railway_project_dir(
-    fake_ctx: ToolContext, monkeypatch: pytest.MonkeyPatch
+    fake_ctx: ToolContext,
+    monkeypatch: pytest.MonkeyPatch,
+    media_base_url: str | None,
+    expected_url: str,
 ) -> None:
     """合成工具必须在 Railway 项目目录执行，而不是把命令交给 E2B。"""
     captured: dict[str, Any] = {}
@@ -172,7 +182,10 @@ async def test_compose_video_runs_in_railway_project_dir(
     output.parent.mkdir()
     output.write_bytes(b"mp4")
     monkeypatch.setenv("AUTH_TOKEN_SECRET", "test-secret-for-media-token-32b!")
-    monkeypatch.setenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", "https://media.example.com")
+    if media_base_url is None:
+        monkeypatch.delenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", raising=False)
+    else:
+        monkeypatch.setenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", media_base_url)
     publish = AsyncMock(return_value=None)
     monkeypatch.setattr("server.agent_runtime.sdk_tools.compose_video.publish_project_file", publish)
 
@@ -197,7 +210,7 @@ async def test_compose_video_runs_in_railway_project_dir(
     assert captured["command"][-1] == "episode_1.json"
     assert "agent_runtime_profile" in str(captured["command"][1])
     text = out["content"][0]["text"]
-    assert "https://media.example.com/api/v1/files/demo/output/episode_1_final.mp4?media_token=" in text
+    assert f"{expected_url}?media_token=" in text
     assert str(fake_ctx.project_path) not in text
     publish.assert_awaited_once_with(
         output,

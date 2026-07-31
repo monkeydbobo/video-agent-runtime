@@ -71,10 +71,8 @@ def build_project_file_url(
     配置了公开媒体域名时走 CDN 绝对地址；未配置时回退为同源相对地址，
     避免只用同源 ``/api/v1/files/...`` 的部署无法下载。
     """
-    try:
-        base = _public_media_base_url()
-    except ValueError:
-        base = ""
+    configured_base = os.environ.get(PUBLIC_MEDIA_BASE_URL_ENV, "").strip()
+    base = _public_media_base_url() if configured_base else ""
     return base + _scoped_media_path(
         file_path,
         project_path=project_path,

@@ -69,6 +69,7 @@ def test_build_public_project_file_url_uses_same_file_scoped_contract(tmp_path, 
     )
 
 
+@pytest.mark.unit
 def test_build_project_file_url_falls_back_to_same_origin_path(tmp_path, monkeypatch):
     monkeypatch.setenv("AUTH_TOKEN_SECRET", "test-secret-for-media-token-32b!")
     monkeypatch.delenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", raising=False)
@@ -95,6 +96,7 @@ def test_build_project_file_url_falls_back_to_same_origin_path(tmp_path, monkeyp
     )
 
 
+@pytest.mark.unit
 def test_build_project_file_url_prefers_public_domain_when_configured(tmp_path, monkeypatch):
     monkeypatch.setenv("AUTH_TOKEN_SECRET", "test-secret-for-media-token-32b!")
     monkeypatch.setenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", "https://media.example.com")
@@ -112,6 +114,7 @@ def test_build_project_file_url_prefers_public_domain_when_configured(tmp_path, 
     assert urlsplit(url).netloc == "media.example.com"
 
 
+@pytest.mark.unit
 def test_build_project_file_url_rejects_path_outside_project(tmp_path, monkeypatch):
     monkeypatch.delenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", raising=False)
     outside = tmp_path.parent / "outside.mp4"
@@ -119,6 +122,17 @@ def test_build_project_file_url_rejects_path_outside_project(tmp_path, monkeypat
 
     with pytest.raises(ValueError, match="项目目录"):
         build_project_file_url(outside, project_path=tmp_path, project_name="demo", user_id="alice-id")
+
+
+@pytest.mark.unit
+def test_build_project_file_url_rejects_invalid_configured_media_domain(tmp_path, monkeypatch):
+    monkeypatch.setenv("ARCREEL_PUBLIC_MEDIA_BASE_URL", "media.example.com")
+    video = tmp_path / "output" / "episode_1_final.mp4"
+    video.parent.mkdir()
+    video.write_bytes(b"mp4")
+
+    with pytest.raises(ValueError, match="ARCREEL_PUBLIC_MEDIA_BASE_URL"):
+        build_project_file_url(video, project_path=tmp_path, project_name="demo", user_id="alice-id")
 
 
 def test_build_streamlake_first_frame_url_requires_configured_public_domain(tmp_path, monkeypatch):

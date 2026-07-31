@@ -38,6 +38,7 @@ from lib.generation_worker import GenerationWorker
 from lib.httpx_shared import shutdown_http_client, startup_http_client
 from lib.i18n import _, get_locale
 from lib.logging_config import attach_file_handler, migrate_legacy_log_dir, setup_logging
+from lib.object_storage import object_storage_config_error
 from lib.project_migrations import cleanup_stale_backups, run_project_migrations
 from lib.source_loader.migration import migrate_project_source_encoding
 from server.agent_runtime.backend import agent_runtime_backend
@@ -336,6 +337,11 @@ async def lifespan(app: FastAPI):
     # Windows 回退时跳过，避免无意义的文件系统调用。
     is_docker = detect_docker_environment() if sandbox_enabled else False
     logger.info("Sandbox runtime: enabled=%s docker=%s", sandbox_enabled, is_docker)
+
+    # 对象存储配置只在部署期设置，启动时报一次比等到请求路径降级时才发现更容易定位。
+    object_storage_error = object_storage_config_error()
+    if object_storage_error:
+        logger.error("对象存储配置无效，媒体将只保留在 Volume 上：%s", object_storage_error)
 
     app.state.in_docker = is_docker
     app.state.sandbox_enabled = sandbox_enabled
@@ -711,9 +717,23 @@ async def health_check():
     }
 
 
+# 与 frontend/src/branding.ts 默认值对齐；部署可用 BRAND_NAME 覆盖。
+_DEFAULT_BRAND_NAME = "oioi.bio"
+
+
+def _resolve_brand_name() -> str:
+    """解析 skill.md 品牌名：BRAND_NAME 优先，空/空白回落默认。"""
+    raw = os.environ.get("BRAND_NAME")
+    if isinstance(raw, str):
+        trimmed = raw.strip()
+        if trimmed:
+            return trimmed
+    return _DEFAULT_BRAND_NAME
+
+
 @app.get("/skill.md", include_in_schema=False)
 async def serve_skill_md(request: Request) -> Response:
-    """动态渲染 skill.md 模板，将 {{BASE_URL}} 替换为实际服务地址（无需认证）。"""
+    """动态渲染 skill.md 模板，替换 {{BASE_URL}} / {{BRAND_NAME}}（无需认证）。"""
     from starlette.responses import PlainTextResponse
 
     template_path = PROJECT_ROOT / "public" / "skill.md.template"
@@ -734,7 +754,7 @@ async def serve_skill_md(request: Request) -> Response:
     host = request.url.netloc
     base_url = f"{scheme}://{host}"
 
-    content = template.replace("{{BASE_URL}}", base_url)
+    content = template.replace("{{BASE_URL}}", base_url).replace("{{BRAND_NAME}}", _resolve_brand_name())
     return PlainTextResponse(content, media_type="text/markdown; charset=utf-8")
 
 
