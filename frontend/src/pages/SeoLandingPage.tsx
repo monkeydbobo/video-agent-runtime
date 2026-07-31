@@ -8,9 +8,6 @@ import "./SeoLandingPage.css";
 
 type SeoPageData = (typeof seoPages)[number];
 
-const SEO_HERO_VIDEO_WEBM = "https://s15-sl.cybercut.ai/kos/s101/nlav112623/oioi_demo_web_vp9_audio.webm";
-const SEO_HERO_VIDEO_MP4 = "https://s15-sl.cybercut.ai/kos/s101/nlav112623/oioi_demo_web_h264_audio.mp4";
-
 function setMeta(selector: string, content: string): void {
   const element = document.querySelector<HTMLMetaElement>(selector);
   if (element) element.content = content;
@@ -21,7 +18,7 @@ function findPage(pathname: string): SeoPageData | undefined {
 }
 
 export function SeoLandingPage() {
-  const [location, setLocation] = useLocation();
+  const [location] = useLocation();
   const page = findPage(location);
 
   useEffect(() => {
@@ -41,42 +38,40 @@ export function SeoLandingPage() {
   if (!page) return <NotFoundPage />;
 
   const isZh = page.locale === "zh";
+  const homeHref = isZh ? "/zh" : "/";
   const related = seoPages.filter((candidate) => candidate.locale === page.locale && candidate.path !== page.path);
 
   return (
     <main className="seo-page">
       <div aria-hidden className="seo-page__grain" />
       <nav className="seo-nav" aria-label={isZh ? "主导航" : "Main navigation"}>
-        <button type="button" className="seo-brand" onClick={() => setLocation("/")}>
+        <a className="seo-brand" href={homeHref}>
           <span className="seo-brand__mark"><img alt="" height="29" src="/android-chrome-192x192.png" width="29" /></span>
           {BRAND.name}
-        </button>
+        </a>
         <div>
           <a href={page.alternatePath}>{isZh ? "EN" : "中文"}</a>
-          <button className="seo-nav__login" type="button" onClick={() => setLocation("/login")}>
+          <a className="seo-nav__login" href="/login">
             {isZh ? "进入工作台" : "Enter studio"} <ArrowRight aria-hidden size={14} />
-          </button>
+          </a>
         </div>
       </nav>
 
       <article>
         <header className="seo-hero">
           <div className="seo-hero__video" aria-hidden>
-            {/* Decorative background video mirrors the homepage hero and carries no page content. */}
-            <video autoPlay loop muted playsInline poster="/hero/oioi-demo-poster.jpg" preload="metadata">
-              <source src={SEO_HERO_VIDEO_WEBM} type='video/webm; codecs="vp9"' />
-              <source src={SEO_HERO_VIDEO_MP4} type="video/mp4" />
-            </video>
+            {/* 专题页默认不自动下载装饰视频，仅展示本地 poster。 */}
+            <img alt="" height="1080" src="/hero/oioi-demo-poster.jpg" width="1920" />
           </div>
           <div className="seo-hero__copy">
-            <a href="/" className="seo-back"><ArrowLeft aria-hidden size={13} /> {isZh ? "返回首页" : "Back home"}</a>
+            <a href={homeHref} className="seo-back"><ArrowLeft aria-hidden size={13} /> {isZh ? "返回首页" : "Back home"}</a>
             <p className="seo-eyebrow"><Sparkles aria-hidden size={13} /> {page.eyebrow}</p>
             <h1>{page.headline}</h1>
             <p className="seo-lede">{page.lede}</p>
-            <button type="button" className="seo-primary" onClick={() => setLocation("/login")}>
+            <a className="seo-primary" href="/login">
               <Play aria-hidden fill="currentColor" size={13} />
               {isZh ? "开始创作" : "Start creating"} <ArrowRight aria-hidden size={16} />
-            </button>
+            </a>
           </div>
           <aside className="seo-cut-sheet" aria-label={isZh ? "能力摘要" : "Capability summary"}>
             <p>OIOI / PRODUCTION NOTE</p>
@@ -142,7 +137,7 @@ export function SeoLandingPage() {
 
       <footer className="seo-footer">
         <span>© {new Date().getFullYear()} {BRAND.name}</span>
-        <a href="/">{isZh ? "产品首页" : "Product home"}</a>
+        <a href={homeHref}>{isZh ? "产品首页" : "Product home"}</a>
       </footer>
     </main>
   );

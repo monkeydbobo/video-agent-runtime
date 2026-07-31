@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { type Ref, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useLocation } from "wouter";
 import { BRAND } from "@/branding";
 import { HeroAtmosphere } from "@/components/landing/HeroAtmosphere";
 import { ParticleField } from "@/components/landing/ParticleField";
@@ -26,34 +25,58 @@ const HERO_VIDEO_MP4_SRC = "https://s15-sl.cybercut.ai/kos/s101/nlav112623/oioi_
 const HERO_VIDEO_WEBM_SRC = "https://s15-sl.cybercut.ai/kos/s101/nlav112623/oioi_demo_web_vp9_audio.webm";
 const HERO_VIDEO_POSTER = "/hero/oioi-demo-poster.jpg";
 
-function HeroVideo({ muted = true, videoRef }: { muted?: boolean; videoRef?: Ref<HTMLVideoElement> }) {
+function shouldLoadDecorativeHeroVideo(): boolean {
+  if (typeof navigator !== "undefined") {
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+    if (connection?.saveData) return false;
+  }
+  if (typeof window !== "undefined") {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return false;
+  }
+  return true;
+}
+
+function HeroVideo({
+  muted = true,
+  videoRef,
+  enabled = false,
+}: {
+  muted?: boolean;
+  videoRef?: Ref<HTMLVideoElement>;
+  enabled?: boolean;
+}) {
+  // 首屏先展示 poster；仅在启用后挂载 source，避免 5MB 装饰视频抢 LCP。
   return (
     // The decorative soundtrack does not carry page content, so captions are not required.
     // eslint-disable-next-line jsx-a11y/media-has-caption
     <video
       aria-hidden
       ref={videoRef}
-      autoPlay
+      autoPlay={enabled}
       crossOrigin="anonymous"
       loop
       muted={muted}
       playsInline
       poster={HERO_VIDEO_POSTER}
-      preload="auto"
+      preload={enabled ? "metadata" : "none"}
     >
-      <source src={HERO_VIDEO_WEBM_SRC} type='video/webm; codecs="vp9"' />
-      <source src={HERO_VIDEO_MP4_SRC} type="video/mp4" />
+      {enabled ? (
+        <>
+          <source src={HERO_VIDEO_WEBM_SRC} type='video/webm; codecs="vp9"' />
+          <source src={HERO_VIDEO_MP4_SRC} type="video/mp4" />
+        </>
+      ) : null}
     </video>
   );
 }
 
 export function LandingPage() {
   const { t, i18n } = useTranslation("landing");
-  const [, setLocation] = useLocation();
-  const isChinese = i18n.resolvedLanguage?.startsWith("zh") ?? true;
+  const isChinese = i18n.resolvedLanguage?.startsWith("zh") ?? false;
   const [activeClip, setActiveClip] = useState(0);
   const [isPaused, setIsPaused] = useState(true);
-  const [isHeroVideoActive, setIsHeroVideoActive] = useState(true);
+  const [isHeroVideoActive, setIsHeroVideoActive] = useState(false);
+  const [isHeroVideoSourceReady, setIsHeroVideoSourceReady] = useState(false);
   const [isHeroMuted, setIsHeroMuted] = useState(true);
   const [isShowreelReady, setIsShowreelReady] = useState(false);
   const heroRef = useRef<HTMLElement>(null);
@@ -91,7 +114,9 @@ export function LandingPage() {
   };
 
   const activateHeroVideo = () => {
+    if (!shouldLoadDecorativeHeroVideo()) return;
     setIsHeroMuted(true);
+    setIsHeroVideoSourceReady(true);
     setIsHeroVideoActive(true);
     requestAnimationFrame(() => {
       const hero = heroRef.current;
@@ -115,6 +140,45 @@ export function LandingPage() {
   useEffect(() => {
     if (heroVideoRef.current) heroVideoRef.current.muted = isHeroMuted;
   }, [isHeroMuted, isHeroVideoActive]);
+
+  useEffect(() => {
+    if (!shouldLoadDecorativeHeroVideo()) return;
+
+    let cancelled = false;
+    const enableSources = () => {
+      if (!cancelled) setIsHeroVideoSourceReady(true);
+    };
+
+    const onIntent = () => {
+      enableSources();
+      window.removeEventListener("pointerdown", onIntent);
+      window.removeEventListener("keydown", onIntent);
+    };
+    window.addEventListener("pointerdown", onIntent, { once: true, passive: true });
+    window.addEventListener("keydown", onIntent, { once: true });
+
+    const ric = (
+      window as Window & {
+        requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+        cancelIdleCallback?: (id: number) => void;
+      }
+    ).requestIdleCallback;
+    let idleId: number | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    if (typeof ric === "function") {
+      idleId = ric(enableSources, { timeout: 4000 });
+    } else {
+      timeoutId = window.setTimeout(enableSources, 2500);
+    }
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("pointerdown", onIntent);
+      window.removeEventListener("keydown", onIntent);
+      if (idleId !== undefined) window.cancelIdleCallback?.(idleId);
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    };
+  }, []);
 
   useEffect(() => {
     const section = showreelRef.current;
@@ -155,21 +219,25 @@ export function LandingPage() {
         className={`landing-nav${isHeroVideoActive ? " landing-nav--immersive" : ""}`}
         aria-label={t("navigation")}
       >
-        <button className="landing-brand" onClick={() => setLocation("/")} type="button">
+        <a className="landing-brand" href={isChinese ? "/zh" : "/"}>
           <span className="landing-brand__mark"><img alt="" height="26" src="/android-chrome-192x192.png" width="26" /></span>
           <span>{BRAND.name}</span>
-        </button>
+        </a>
         <div className="landing-nav__right">
           <a href="#capabilities">{t("nav_capabilities")}</a>
           <a href="#workflow">{t("nav_workflow")}</a>
           <div className="landing-language" aria-label={t("language_switcher")}>
-            <button className={isChinese ? "is-active" : ""} type="button" onClick={() => void i18n.changeLanguage("zh")}>中</button>
-            <button className={!isChinese ? "is-active" : ""} type="button" onClick={() => void i18n.changeLanguage("en")}>EN</button>
+            <a aria-current={isChinese ? "page" : undefined} className={isChinese ? "is-active" : ""} href="/zh" hrefLang="zh">
+              中
+            </a>
+            <a aria-current={!isChinese ? "page" : undefined} className={!isChinese ? "is-active" : ""} href="/" hrefLang="en">
+              EN
+            </a>
           </div>
-          <button className="landing-login" type="button" onClick={() => setLocation("/login")}>
+          <a className="landing-login" href="/login">
             {t("login")}
             <ArrowRight aria-hidden size={15} />
-          </button>
+          </a>
         </div>
       </nav>
 
@@ -181,7 +249,7 @@ export function LandingPage() {
         {isHeroVideoActive ? (
           <>
             <div className="landing-hero__video-backdrop">
-              <HeroVideo muted={isHeroMuted} videoRef={heroVideoRef} />
+              <HeroVideo enabled={isHeroVideoSourceReady} muted={isHeroMuted} videoRef={heroVideoRef} />
               <span aria-hidden className="landing-hero__video-shade" />
             </div>
             <div className="landing-hero__video-controls" aria-label={t("hero_video_controls")} role="group">
@@ -214,11 +282,11 @@ export function LandingPage() {
           <h1 id="landing-title"><span>{t("title_before")}</span> <em>{t("title_emphasis")}</em>{t("title_after")}</h1>
           <p className="landing-lede">{t("description")}</p>
           <div className="landing-actions">
-            <button className="landing-cta" type="button" onClick={() => setLocation("/login")}>
+            <a className="landing-cta" href="/login">
               <Play aria-hidden size={14} fill="currentColor" />
               {t("start")}
               <ArrowRight aria-hidden size={17} />
-            </button>
+            </a>
             <a className="landing-text-link" href="#workflow">{t("learn_more")}</a>
           </div>
         </div>
@@ -232,7 +300,7 @@ export function LandingPage() {
           >
             <span className="landing-reel__code">A-01 / 24 FPS</span>
             <span className="landing-reel__scene">
-              <HeroVideo />
+              <HeroVideo enabled={isHeroVideoSourceReady} />
             </span>
             <span className="landing-reel__caption">
               <span>{t("reel_project")}</span>
@@ -367,7 +435,7 @@ export function LandingPage() {
 
       <footer className="landing-footer">
         <p>© {new Date().getFullYear()} {BRAND.name}</p>
-        <button type="button" onClick={() => setLocation("/login")}>{t("footer_login")}</button>
+        <a href="/login">{t("footer_login")}</a>
       </footer>
     </main>
   );

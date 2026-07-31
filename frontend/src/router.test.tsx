@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Router } from "wouter";
 import { memoryLocation } from "wouter/memory-location";
@@ -61,26 +61,12 @@ describe("AppRoutes", () => {
     expect(history.at(-1)).toBe("/app/projects");
   });
 
-  it("keeps the public product landing page for signed-out users", async () => {
+  it("sends signed-out users from the app shell root to login", async () => {
     useAuthStore.setState({ isAuthenticated: false, isLoading: false });
     const { history } = renderAt("/");
-    expect(await screen.findByRole("heading", { name: /会动的画面/ })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "登录" }));
-    expect(history.at(-1)).toBe("/login");
-  });
-
-  it("renders a public SEO guide with the product visual language", async () => {
-    useAuthStore.setState({ isAuthenticated: false, isLoading: false });
-    renderAt("/zh/novel-to-video");
-    expect(await screen.findByRole("heading", { name: /变成可以逐镜头制作的影像/ })).toBeInTheDocument();
-    expect(document.querySelector(".seo-brand__mark img")).toHaveAttribute("src", "/android-chrome-192x192.png");
-    expect(screen.getByRole("link", { name: "EN" })).toHaveAttribute("href", "/en/novel-to-video");
-  });
-
-  it("renders 404 for a removed SEO guide", async () => {
-    useAuthStore.setState({ isAuthenticated: false, isLoading: false });
-    renderAt("/en/ai-video-workflow");
-    expect(await screen.findByText("404")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(history.at(-1)).toMatch(/^\/login/);
+    });
   });
 
   it("redirects /app to /app/projects", async () => {

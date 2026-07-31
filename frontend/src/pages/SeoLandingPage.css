@@ -44,9 +44,11 @@
 }
 
 .seo-brand,
-.seo-nav button {
+.seo-nav a.seo-nav__login,
+.seo-primary {
   appearance: none;
   border: 0;
+  text-decoration: none;
   color: inherit;
   background: transparent;
   cursor: pointer;
@@ -126,7 +128,8 @@
     linear-gradient(0deg, rgb(3 9 18 / .52), transparent 48%);
 }
 
-.seo-hero__video video { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.seo-hero__video video,
+.seo-hero__video img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; }
 
 .seo-hero__copy { position: relative; z-index: 1; }
 .seo-back { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 42px; color: rgb(255 255 255 / .72); font-size: 12px; text-decoration: none; transition: color .2s; }

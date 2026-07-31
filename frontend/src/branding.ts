@@ -2,28 +2,25 @@
 // Override at build time via Vite env vars
 // (VITE_BRAND_NAME / VITE_BRAND_TAGLINE / VITE_BRAND_DESCRIPTION).
 //
-// Source code references BRAND.name (or the [[brand]] placeholder in i18n
-// resources) so the displayed product name is not hardcoded across files.
-// Defaults preserve the upstream brand; downstream distributions can override
-// via frontend/.env without code changes.
+// 公开页 SEO 文案以 frontend/src/seo/home.json 为准；此处仅保留应用内品牌短名与
+// 工作台 fallback，避免再与 index.html / JSON-LD 各写一套冲突中文。
+
+import { HOME_PAGES } from "@/seo/site";
 
 const env = import.meta.env as Record<string, string | undefined>;
 
 function fallback(value: string | undefined, defaultValue: string): string {
-  // Trim + empty check so VITE_BRAND_NAME="" (or whitespace) falls back to the
-  // default, matching the documented "Empty = upstream defaults" contract.
   if (typeof value !== "string") return defaultValue;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : defaultValue;
 }
 
+const defaultHome = HOME_PAGES.en;
+
 export const BRAND = {
   name: fallback(env.VITE_BRAND_NAME, "oioi.bio"),
-  tagline: fallback(env.VITE_BRAND_TAGLINE, "AI 视频创作工作台"),
-  description: fallback(
-    env.VITE_BRAND_DESCRIPTION,
-    "AI 视频创作工作台，统一管理项目、剧本、分镜、视频生成与助手对话。",
-  ),
+  tagline: fallback(env.VITE_BRAND_TAGLINE, defaultHome.eyebrow),
+  description: fallback(env.VITE_BRAND_DESCRIPTION, defaultHome.description),
 } as const;
 
 export const BRAND_DOCUMENT_TITLE = `${BRAND.name} · ${BRAND.tagline}`;

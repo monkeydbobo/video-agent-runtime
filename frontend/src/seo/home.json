@@ -1,0 +1,122 @@
+{
+  "en": {
+    "path": "/",
+    "locale": "en",
+    "alternatePath": "/zh",
+    "dateModified": "2026-07-31",
+    "title": "oioi.bio — AI narrative filmmaking studio",
+    "description": "oioi.bio is an AI narrative filmmaking workspace for turning ideas and novels into scripts, reusable visual assets, storyboards, and generated video.",
+    "eyebrow": "AI narrative filmmaking studio",
+    "titleBefore": "Turn a story into ",
+    "titleEmphasis": "a moving picture",
+    "titleAfter": "",
+    "lede": "oioi.bio is one focused workspace for turning an idea or novel into a visual story — from script and worldbuilding to storyboard and video generation.",
+    "start": "Start creating",
+    "learnMore": "See the workflow",
+    "featuresLabel": "What oioi.bio helps you create",
+    "features": [
+      {
+        "title": "Find the story",
+        "body": "Import a novel or start with an idea, then shape it into a production-ready script with an AI collaborator."
+      },
+      {
+        "title": "Build the world",
+        "body": "Keep characters, scenes, props and visual references coherent in one project library."
+      },
+      {
+        "title": "Make it move",
+        "body": "Transform beats into shot lists, images and generated video — while keeping every version in reach."
+      }
+    ],
+    "workflowEyebrow": "One uninterrupted creative path",
+    "workflowTitle": "From the first line to the final frame.",
+    "workflowSteps": [
+      "Bring in your source material and define the story.",
+      "Create the cast, locations and visual language.",
+      "Turn scenes into structured storyboards and shots.",
+      "Generate, review and iterate on every video moment."
+    ],
+    "guidesEyebrow": "Creator guides",
+    "guidesTitle": "Make the production process legible.",
+    "guides": [
+      {
+        "slug": "novel-to-video",
+        "title": "How to turn a novel into video",
+        "body": "A complete adaptation path from source text and script to reusable assets and generated shots."
+      },
+      {
+        "slug": "ai-storyboard-generator",
+        "title": "How to storyboard with AI",
+        "body": "Give every storyboard frame a clear narrative purpose and production context."
+      }
+    ],
+    "featureList": [
+      "Novel and document import",
+      "Script and storyboard generation",
+      "Character, scene, and prop asset management",
+      "AI image and video generation",
+      "Version history and cost tracking"
+    ],
+    "noscript": "oioi.bio is an AI narrative filmmaking studio that helps creators turn ideas, scripts, and storyboards into video. Enable JavaScript for the full interactive experience."
+  },
+  "zh": {
+    "path": "/zh",
+    "locale": "zh",
+    "alternatePath": "/",
+    "dateModified": "2026-07-31",
+    "title": "oioi.bio — AI 叙事影像创作工作台",
+    "description": "oioi.bio 是面向创作者的 AI 叙事影像工作台：从灵感、剧本和分镜，到角色、场景与视频生成，一处完成。",
+    "eyebrow": "AI 叙事影像工作台",
+    "titleBefore": "把故事变成",
+    "titleEmphasis": "会动的画面",
+    "titleAfter": "",
+    "lede": "oioi.bio 将灵感或小说串成一条清晰的创作路径：从剧本、世界观到分镜与视频生成，都在同一个工作台完成。",
+    "start": "开始创作",
+    "learnMore": "了解创作流程",
+    "featuresLabel": "oioi.bio 能帮你完成什么",
+    "features": [
+      {
+        "title": "找到故事",
+        "body": "导入小说或从一个想法开始，与 AI 协作整理成可制作的剧本。"
+      },
+      {
+        "title": "构建世界",
+        "body": "在项目资产库中统一管理角色、场景、道具和视觉参考，让画面始终一致。"
+      },
+      {
+        "title": "让画面动起来",
+        "body": "将剧情节拍转为镜头、分镜图和生成视频，并随时保留每一次创作版本。"
+      }
+    ],
+    "workflowEyebrow": "一条连续的创作路径",
+    "workflowTitle": "从第一行文字，到最后一帧画面。",
+    "workflowSteps": [
+      "导入素材，定义你要讲述的故事。",
+      "创建角色、场景和整部作品的视觉语言。",
+      "将场景变成结构化的分镜与镜头。",
+      "生成、审阅并迭代每一个视频瞬间。"
+    ],
+    "guidesEyebrow": "创作指南",
+    "guidesTitle": "把复杂的制作过程，讲清楚。",
+    "guides": [
+      {
+        "slug": "novel-to-video",
+        "title": "小说如何变成视频",
+        "body": "从原始文本、剧本和资产，到逐镜头生成的完整改编路径。"
+      },
+      {
+        "slug": "ai-storyboard-generator",
+        "title": "如何用 AI 设计分镜",
+        "body": "让每一格分镜都带着明确的叙事目的与制作信息。"
+      }
+    ],
+    "featureList": [
+      "小说与文档导入",
+      "剧本与分镜生成",
+      "角色、场景和道具资产管理",
+      "AI 图片与视频生成",
+      "生成版本与费用管理"
+    ],
+    "noscript": "oioi.bio 是一个 AI 叙事影像创作工作台，可帮助创作者将灵感、剧本和分镜发展为视频作品。请启用 JavaScript 以使用完整功能。"
+  }
+}
