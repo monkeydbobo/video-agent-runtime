@@ -60,7 +60,7 @@ function track(promise: Promise<void>): Promise<void> {
   return promise;
 }
 
-export function loadGisScript(locale = "zh_CN"): Promise<void> {
+export function loadGisScript(locale = "en"): Promise<void> {
   if (typeof window === "undefined") {
     return Promise.reject(new Error("no window"));
   }

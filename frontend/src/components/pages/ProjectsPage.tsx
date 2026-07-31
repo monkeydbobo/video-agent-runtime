@@ -930,7 +930,7 @@ function HeroStrip({ totals, t }: HeroStripProps) {
   const { i18n } = useTranslation();
   const greetingKey = useMemo<GreetingKey>(() => getGreetingKey(), []);
   const dateLine = useMemo(
-    () => formatDate(new Date(), i18n.language || "zh", KICKER_DATE_OPTS, new Date().toISOString().slice(0, 10)),
+    () => formatDate(new Date(), i18n.language || "en", KICKER_DATE_OPTS, new Date().toISOString().slice(0, 10)),
     [i18n.language],
   );
 

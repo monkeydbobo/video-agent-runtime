@@ -149,10 +149,10 @@ function replaceMeta(html: string, page: SeoPage): string {
 
 const SITE_ORIGIN = "https://oioi.bio";
 
-// 同一语言组（zh/en 互为 alternate）的 x-default 统一指向中文版（站点主语言），
+// 同一语言组（zh/en 互为 alternate）的 x-default 统一指向英文版（站点主语言），
 // 保证 sitemap 与页面内 hreflang 信号一致。
 function xDefaultPath(page: SeoPage): string {
-    return page.locale === "zh" ? page.path : page.alternatePath;
+    return page.locale === "en" ? page.path : page.alternatePath;
 }
 
 function renderSitemap(buildDate: string): string {
