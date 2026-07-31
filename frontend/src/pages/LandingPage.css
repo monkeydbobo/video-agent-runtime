@@ -181,7 +181,7 @@
     linear-gradient(0deg, rgb(3 9 18 / .46), transparent 42%);
 }
 .landing-hero__video-controls {
-  position: absolute; z-index: 3; top: 82px; right: max(24px, calc((100vw - 1200px) / 2));
+  position: absolute; z-index: 3; top: 82px; right: 32px;
   display: flex; align-items: center; gap: 8px;
 }
 .landing-hero__video-control {
