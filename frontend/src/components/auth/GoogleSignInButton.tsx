@@ -15,7 +15,7 @@ const GIS_LOCALES: Record<string, string> = {
 };
 
 function gisLocale(language: string): string {
-  return GIS_LOCALES[language.split("-", 1)[0]] ?? "zh_CN";
+  return GIS_LOCALES[language.split("-", 1)[0]] ?? "en";
 }
 
 interface GoogleSignInButtonProps {
@@ -51,7 +51,7 @@ export function GoogleSignInButton({ disabled = false, onSuccess, onError }: Goo
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Accept-Language": i18n.language || "zh",
+            "Accept-Language": i18n.language || "en",
           },
           body: JSON.stringify({ id_token: credential }),
         });
