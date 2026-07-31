@@ -6,6 +6,7 @@ Volume 仍是生成与 FFmpeg 的工作盘；本 module 把生成完成的媒体
 
 from __future__ import annotations
 
+import logging
 import mimetypes
 import os
 from dataclasses import dataclass
@@ -20,6 +21,12 @@ from botocore.exceptions import ClientError
 
 OBJECT_STORAGE_ENV_PREFIX = "ARCREEL_OBJECT_STORAGE_"
 DEFAULT_PRESIGN_SECONDS = 300
+
+logger = logging.getLogger(__name__)
+
+
+class ObjectStorageConfigError(RuntimeError):
+    """对象存储环境变量不完整或取值非法。"""
 
 
 @dataclass(frozen=True)
@@ -45,7 +52,7 @@ class ObjectStorageConfig:
         missing = [name for name, value in values.items() if not value]
         if missing:
             names = ", ".join(f"{OBJECT_STORAGE_ENV_PREFIX}{name.upper()}" for name in missing)
-            raise RuntimeError(f"对象存储配置不完整，缺少: {names}")
+            raise ObjectStorageConfigError(f"对象存储配置不完整，缺少: {names}")
 
         raw_seconds = os.environ.get(
             f"{OBJECT_STORAGE_ENV_PREFIX}PRESIGN_SECONDS",
@@ -54,9 +61,9 @@ class ObjectStorageConfig:
         try:
             presign_seconds = int(raw_seconds)
         except ValueError as exc:
-            raise RuntimeError(f"{OBJECT_STORAGE_ENV_PREFIX}PRESIGN_SECONDS 必须是整数") from exc
+            raise ObjectStorageConfigError(f"{OBJECT_STORAGE_ENV_PREFIX}PRESIGN_SECONDS 必须是整数") from exc
         if not 60 <= presign_seconds <= 604800:
-            raise RuntimeError(f"{OBJECT_STORAGE_ENV_PREFIX}PRESIGN_SECONDS 必须在 60 到 604800 秒之间")
+            raise ObjectStorageConfigError(f"{OBJECT_STORAGE_ENV_PREFIX}PRESIGN_SECONDS 必须在 60 到 604800 秒之间")
 
         return cls(
             **values,
@@ -231,6 +238,30 @@ def _store_for_config(config: ObjectStorageConfig) -> ProjectObjectStorage:
     return ProjectObjectStorage(config)
 
 
+_reported_config_errors: set[str] = set()
+
+
+def object_storage_config_error() -> str | None:
+    """返回对象存储配置的错误说明；配置完整或完全未配置时返回 ``None``。"""
+    try:
+        ObjectStorageConfig.from_env()
+    except ObjectStorageConfigError as exc:
+        return str(exc)
+    return None
+
+
 def get_project_object_storage() -> ProjectObjectStorage | None:
-    config = ObjectStorageConfig.from_env()
+    """返回对象存储句柄；未配置或配置不完整时返回 ``None``。
+
+    配置不完整只让对象存储这一路能力不可用，不应连带打断 Volume 上仍然可用的读写：
+    此处降级为 Volume-only 并按错误内容去重记日志，启动期另有一次显式告警。
+    """
+    try:
+        config = ObjectStorageConfig.from_env()
+    except ObjectStorageConfigError as exc:
+        message = str(exc)
+        if message not in _reported_config_errors:
+            _reported_config_errors.add(message)
+            logger.error("对象存储配置无效，降级为 Volume-only：%s", message)
+        return None
     return None if config is None else _store_for_config(config)

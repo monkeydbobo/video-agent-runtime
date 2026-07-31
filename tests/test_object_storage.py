@@ -1,9 +1,17 @@
+import logging
 from pathlib import Path
 
 import pytest
 from botocore.exceptions import ClientError
 
-from lib.object_storage import ObjectStorageConfig, ProjectObjectStorage
+from lib import object_storage
+from lib.object_storage import (
+    ObjectStorageConfig,
+    ObjectStorageConfigError,
+    ProjectObjectStorage,
+    get_project_object_storage,
+    object_storage_config_error,
+)
 
 
 class FakeS3Client:
@@ -94,11 +102,35 @@ def test_rejects_paths_outside_project(storage, relative: str) -> None:
         store.object_key(user_id="alice", project_name="demo", relative_path=relative)
 
 
-def test_partial_environment_configuration_fails_loudly(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.fixture
+def partial_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ARCREEL_OBJECT_STORAGE_ENDPOINT", "https://storage.example")
     monkeypatch.delenv("ARCREEL_OBJECT_STORAGE_BUCKET", raising=False)
     monkeypatch.delenv("ARCREEL_OBJECT_STORAGE_ACCESS_KEY_ID", raising=False)
     monkeypatch.delenv("ARCREEL_OBJECT_STORAGE_SECRET_ACCESS_KEY", raising=False)
+    object_storage._reported_config_errors.clear()
 
-    with pytest.raises(RuntimeError, match="配置不完整"):
+
+def test_partial_environment_configuration_fails_loudly(partial_env) -> None:
+    with pytest.raises(ObjectStorageConfigError, match="配置不完整"):
         ObjectStorageConfig.from_env()
+
+    assert "ARCREEL_OBJECT_STORAGE_BUCKET" in (object_storage_config_error() or "")
+
+
+def test_partial_configuration_degrades_to_volume_only(partial_env, caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level(logging.ERROR, logger="lib.object_storage"):
+        assert get_project_object_storage() is None
+        assert get_project_object_storage() is None
+
+    # 每个请求都会取一次 store，重复的配置错误不能刷屏日志
+    messages = [record.message for record in caplog.records if "Volume-only" in record.getMessage()]
+    assert len(messages) == 1
+
+
+def test_unconfigured_environment_returns_no_store(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in ("ENDPOINT", "BUCKET", "ACCESS_KEY_ID", "SECRET_ACCESS_KEY"):
+        monkeypatch.delenv(f"ARCREEL_OBJECT_STORAGE_{name}", raising=False)
+
+    assert get_project_object_storage() is None
+    assert object_storage_config_error() is None

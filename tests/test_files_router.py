@@ -188,6 +188,21 @@ class TestFilesRouter:
         assert response.status_code == 307
         assert response.headers["location"] == "https://storage.example/signed-video"
 
+    def test_partial_object_storage_config_still_lists_volume_files(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("ARCREEL_OBJECT_STORAGE_ENDPOINT", "https://storage.example")
+        for name in ("BUCKET", "ACCESS_KEY_ID", "SECRET_ACCESS_KEY"):
+            monkeypatch.delenv(f"ARCREEL_OBJECT_STORAGE_{name}", raising=False)
+        client, pm = _client(monkeypatch, tmp_path)
+        video = pm.get_project_path("demo") / "videos" / "scene_E1S01.mp4"
+        video.parent.mkdir(exist_ok=True)
+        video.write_bytes(b"video")
+
+        with client:
+            response = client.get("/api/v1/projects/demo/files")
+
+        assert response.status_code == 200
+        assert [item["name"] for item in response.json()["files"]["videos"]] == ["scene_E1S01.mp4"]
+
     def test_upload_assets_and_drafts(self, tmp_path, monkeypatch):
         client, pm = _client(monkeypatch, tmp_path)
 
