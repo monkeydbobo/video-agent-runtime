@@ -972,6 +972,15 @@ class API {
     );
   }
 
+  /** 获取 media/assets/ 中无需防盗链的稳定 CDN 地址。 */
+  static async getStaticMediaUrl(
+    path: string,
+  ): Promise<{ url: string }> {
+    return this.request(
+      `/static-media/public-url?path=${encodeURIComponent(path)}`,
+    );
+  }
+
   /** 预取项目级 media_token（进入项目时调用）。 */
   static ensureProjectMediaToken(projectName: string): Promise<string | null> {
     return fetchProjectMediaToken(projectName);

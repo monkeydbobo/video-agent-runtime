@@ -55,7 +55,7 @@ from server.auth import (
     verify_media_token,
 )
 from server.project_access import bind_owned_project_scope, ensure_project_access, require_project_access
-from server.public_media import build_project_file_url
+from server.public_media import build_project_file_url, build_static_media_url
 
 router = APIRouter()
 
@@ -95,6 +95,41 @@ ALLOWED_EXTENSIONS = {
     "product": [".png", ".jpg", ".jpeg", ".webp"],
     "product_ref": [".png", ".jpg", ".jpeg", ".webp"],
 }
+
+
+@router.get("/static-media/public-url")
+async def get_static_media_public_url(path: str, _t: Translator):
+    """返回 ``media/assets/`` 中公开静态素材的稳定媒体域名地址。"""
+    store = get_project_object_storage()
+    if store is None:
+        raise HTTPException(status_code=503, detail=_t("object_storage_unavailable"))
+    try:
+        asset = await asyncio.to_thread(store.resolve_static_asset, path)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=_t("invalid_static_media_path"))
+    if asset is None:
+        raise HTTPException(status_code=404, detail=_t("file_not_found", path=path))
+    return {"url": build_static_media_url(asset.relative_path)}
+
+
+@router.get("/static-media/{path:path}")
+async def serve_static_media(path: str, _t: Translator):
+    """公开调度 ``media/assets/`` 中的静态素材，不要求登录或 media_token。"""
+    store = get_project_object_storage()
+    if store is None:
+        raise HTTPException(status_code=503, detail=_t("object_storage_unavailable"))
+    try:
+        asset = await asyncio.to_thread(store.resolve_static_asset, path)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=_t("invalid_static_media_path"))
+    if asset is None:
+        raise HTTPException(status_code=404, detail=_t("file_not_found", path=path))
+    max_age = max(1, store.config.presign_seconds - 60)
+    return RedirectResponse(
+        asset.url,
+        status_code=307,
+        headers={"Cache-Control": f"public, max-age={max_age}"},
+    )
 
 
 @router.get("/files/{project_name}/{path:path}")

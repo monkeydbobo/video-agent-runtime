@@ -18,8 +18,12 @@ Railway Volume，FFmpeg 成片也写在同一目录，但 Volume 与单个服务
 本地副本缺失时，同一路由验证对象存在后 307 跳转到 Bucket 的预签名 URL，避免视频字节继续经过应用服务。
 Web 端每次点击成片时调用鉴权接口重新签发 URL，历史成片不再因签名过期而要求重新合成。
 
-对象存储 module 的 interface 只有四项能力：发布项目文件、判断项目文件是否存在、签发项目文件 URL、
-列出项目当前媒体文件。
+`media/assets/` 是明确的公开静态素材例外：它不承载项目或用户私有数据，通过稳定的
+`/api/v1/static-media/{path}` 地址公开访问，不启用防盗链。Bucket 仍保持私有，应用只允许这一固定前缀，
+并在回源时生成短时签名，避免公开凭证或扩大到其他对象路径。
+
+对象存储 module 的 interface 集中提供：发布项目文件、判断项目文件是否存在、签发项目文件 URL、
+列出项目当前媒体文件，以及解析固定公开前缀下的静态素材。
 S3 key、MIME、重试、签名参数和路径安全全部藏在 implementation 内；生成、Compose、文件路由只跨这一
 seam。现有媒体可通过 `scripts/migrate_media_to_object_storage.py` 幂等回填，迁移阶段不删除 Volume 文件。
 

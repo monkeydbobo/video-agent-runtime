@@ -75,6 +75,8 @@ MESSAGES = {
     # Files
     "file_not_found": "文件不存在: {path}",
     "forbidden_access": "禁止访问项目目录外的文件",
+    "invalid_static_media_path": "静态素材路径无效",
+    "object_storage_unavailable": "对象存储不可用",
     "invalid_upload_type": "无效的上传类型: {upload_type}",
     "missing_filename": "上传的文件缺少文件名",
     "unsupported_image_type": "不支持的文件类型 {ext}，允许的类型: {allowed}",

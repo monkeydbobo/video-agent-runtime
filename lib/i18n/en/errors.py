@@ -75,6 +75,8 @@ MESSAGES = {
     # Files
     "file_not_found": "File does not exist: {path}",
     "forbidden_access": "Access to files outside the project directory is forbidden",
+    "invalid_static_media_path": "Invalid static media path",
+    "object_storage_unavailable": "Object storage is unavailable",
     "invalid_upload_type": "Invalid upload type: {upload_type}",
     "missing_filename": "Uploaded file is missing a filename",
     "unsupported_image_type": "Unsupported file type {ext}. Allowed types: {allowed}",

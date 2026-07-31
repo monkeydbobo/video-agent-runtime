@@ -81,6 +81,14 @@ def build_project_file_url(
     )
 
 
+def build_static_media_url(relative_path: str) -> str:
+    """返回 ``media/assets/`` 公开静态素材的稳定地址，不附加防盗链令牌。"""
+    configured_base = os.environ.get(PUBLIC_MEDIA_BASE_URL_ENV, "").strip()
+    base = _public_media_base_url() if configured_base else ""
+    encoded_path = quote(relative_path, safe="/")
+    return f"{base}/api/v1/static-media/{encoded_path}"
+
+
 def build_streamlake_first_frame_url(
     image_path: Path,
     *,
