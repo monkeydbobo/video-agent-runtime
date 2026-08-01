@@ -9,6 +9,13 @@ from lib.script_generator import ScriptGenerator
 from lib.script_structure_validator import ScriptStructureValidationError
 from lib.text_backends.base import TextTaskType
 
+_LONG_GENERATED_ACTION = (
+    "起初主体保持稳定，随后动作缓慢启动，手臂和视线沿同一方向连续移动，接触物随受力轻微偏移；"
+    "中段动作维持平滑速度，衣摆、尘埃和表面反射随运动产生连续变化，前景遮挡形成轻微视差；"
+    "末段主体逐步减速并收束到清晰姿态，呼吸恢复平稳，环境反馈随之平息；"
+    "主体轴线、比例、外形、空间关系和画面连续性始终保持稳定，最终停留姿态清楚可辨。"
+)
+
 
 def _write(path: Path, text: str):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -100,7 +107,11 @@ def _drama_visual_response() -> dict:
                     "scene": "场景",
                     "composition": {"shot_type": "Medium Shot", "lighting": "暖光", "ambiance": "薄雾"},
                 },
-                "video_prompt": {"action": "转身", "camera_motion": "Static", "ambiance_audio": "风声"},
+                "video_prompt": {
+                    "action": _LONG_GENERATED_ACTION,
+                    "camera_motion": "Static",
+                    "ambiance_audio": "风声",
+                },
             }
         ],
     }
@@ -998,7 +1009,7 @@ def _step1_seg(
     }
 
 
-def _visual_seg(segment_id: str, *, scene: str = "画面", action: str = "动作") -> dict:
+def _visual_seg(segment_id: str, *, scene: str = "画面", action: str = _LONG_GENERATED_ACTION) -> dict:
     return {
         "segment_id": segment_id,
         "image_prompt": {
@@ -1043,7 +1054,7 @@ class TestMergeNarrationVisual:
         assert merged["segments"][1]["novel_text"] == "原文乙！"
         # 视觉层取自 LLM
         assert merged["segments"][0]["image_prompt"]["scene"] == "画面"
-        assert merged["segments"][0]["video_prompt"]["action"] == "动作"
+        assert merged["segments"][0]["video_prompt"]["action"] == _LONG_GENERATED_ACTION
 
     def test_merge_aligns_by_id_not_order(self, tmp_path):
         """LLM 视觉层乱序也按 segment_id 对齐，合并顺序随 step1。"""

@@ -38,6 +38,8 @@ from lib.prompt_builders_script import (
 )
 from lib.script_models import (
     AD_TARGET_DURATION_DRIFT_THRESHOLD,
+    GENERATED_REFERENCE_SHOT_TEXT_MIN_LENGTH,
+    GENERATED_VIDEO_ACTION_MIN_LENGTH,
     AdEpisodeScript,
     DramaEpisodeScript,
     DramaVisualScript,
@@ -64,10 +66,10 @@ logger = logging.getLogger(__name__)
 # 保留后缀（如 `E1S03_2` → `E2S03_2`）。设计契约见 lib/script_models.py。
 _EID_PREFIX_RE = re.compile(r"^E\d+(?=[SU])")
 
-# 质量探针阈值：仅捕极端短样本，正常完整描述应远超这些值。
+# 质量探针阈值：与生成 schema 的防退化底线保持一致，便于降级保存路径仍能留下可观测日志。
 _QUALITY_PROBE_SCENE_MIN_LEN = 40
-_QUALITY_PROBE_ACTION_MIN_LEN = 25
-_QUALITY_PROBE_SHOT_TEXT_MIN_LEN = 15
+_QUALITY_PROBE_ACTION_MIN_LEN = GENERATED_VIDEO_ACTION_MIN_LENGTH
+_QUALITY_PROBE_SHOT_TEXT_MIN_LEN = GENERATED_REFERENCE_SHOT_TEXT_MIN_LENGTH
 
 # 骨架种类 → 响应校验模型。模型类属上层依赖、不进 SKELETONS 窄表，映射留本地。
 # 键与 SKELETONS 逐一对应；新增第五种骨架时穷尽性断言逐个报红。

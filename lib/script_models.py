@@ -149,6 +149,14 @@ class _VideoPromptCore(BaseModel):
     ambiance_audio: str = Field(description="环境音效（画内音）")
 
 
+# LLM 视觉层生成专用的长描述底线。静态 VideoPrompt / DramaVideoPrompt 保持宽松，继续兼容
+# 已落盘的短 prompt 与人工编辑；只有 response_schema 实际使用的 Generated* 变体收紧，避免
+# 升级后旧项目因 min_length 读不进来。篇幅目标仍由 prompt 按镜头时长分档引导，这里只负责
+# 拒绝几十字的退化输出，不把所有时长机械卡成同一目标长度。
+GENERATED_VIDEO_ACTION_MIN_LENGTH = 120
+GENERATED_REFERENCE_SHOT_TEXT_MIN_LENGTH = 180
+
+
 class VideoPrompt(_VideoPromptCore):
     """narration / ad 视频生成 Prompt：含角色对话 dialogue。
 
@@ -166,6 +174,24 @@ class DramaVideoPrompt(_VideoPromptCore):
 
     ``extra="forbid"`` 下任何残留的 ``dialogue`` 键会被 ``DramaScene`` 读时迁移先行剥离。
     """
+
+
+class GeneratedVideoPrompt(VideoPrompt):
+    """LLM 生成专用的 narration / ad 长视频提示词；存储读取仍使用宽松 ``VideoPrompt``。"""
+
+    action: str = Field(
+        min_length=GENERATED_VIDEO_ACTION_MIN_LENGTH,
+        description="该镜头时长内的高密度动作演变描述；须覆盖时间过程、微观变化、环境联动与末帧收束",
+    )
+
+
+class GeneratedDramaVideoPrompt(DramaVideoPrompt):
+    """LLM 生成专用的 drama 长视频提示词；存储读取仍使用宽松 ``DramaVideoPrompt``。"""
+
+    action: str = Field(
+        min_length=GENERATED_VIDEO_ACTION_MIN_LENGTH,
+        description="该镜头时长内的高密度动作演变描述；须覆盖时间过程、微观变化、环境联动与末帧收束",
+    )
 
 
 class GeneratedAssets(BaseModel):
@@ -331,7 +357,7 @@ class NarrationVisualSegment(BaseModel):
 
     segment_id: str = Field(min_length=1, description="对齐锚：必须取自 step1 片段表，逐一对应、不增不减")
     image_prompt: ImagePrompt = Field(description="分镜图生成提示词")
-    video_prompt: VideoPrompt = Field(description="视频生成提示词")
+    video_prompt: GeneratedVideoPrompt = Field(description="视频生成提示词（长动作描述）")
 
 
 class NarrationVisualEpisodeScript(BaseModel):
@@ -564,7 +590,9 @@ class DramaSceneVisual(BaseModel):
 
     scene_id: str = Field(min_length=1, description="对齐锚：必须等于 step1 已定场景的 scene_id")
     image_prompt: ImagePrompt = Field(description="分镜图生成提示词")
-    video_prompt: DramaVideoPrompt = Field(description="视频生成提示词（无 dialogue，口播在 step1 utterances）")
+    video_prompt: GeneratedDramaVideoPrompt = Field(
+        description="视频生成提示词（长动作描述；无 dialogue，口播在 step1 utterances）"
+    )
 
 
 class DramaVisualScript(BaseModel):
@@ -952,12 +980,25 @@ def _duration_literal(supported_durations: list[int]) -> object:
     return Annotated[Literal[values], BeforeValidator(_coerce_digit_string)]
 
 
-def _constrained_duration_item(item_base: type[BaseModel], duration_type: object, description: str) -> type[BaseModel]:
-    """在 ``item_base`` 上把 ``duration_seconds`` 收紧为 ``duration_type``（三工厂共用的字段约束骨架）。"""
+def _constrained_duration_item(
+    item_base: type[BaseModel],
+    duration_type: object,
+    description: str,
+    *,
+    video_prompt_type: type[BaseModel] | None = None,
+) -> type[BaseModel]:
+    """收紧生成条目的时长，并可把宽松存储 prompt 替换为长描述生成 prompt。"""
+    if video_prompt_type is None:
+        return create_model(
+            item_base.__name__,
+            __base__=item_base,
+            duration_seconds=(duration_type, Field(description=description)),
+        )
     return create_model(
         item_base.__name__,
         __base__=item_base,
         duration_seconds=(duration_type, Field(description=description)),
+        video_prompt=(video_prompt_type, Field(description="视频生成提示词（长动作描述）")),
     )
 
 
@@ -982,7 +1023,10 @@ def build_episode_script_model(content_mode: str, supported_durations: list[int]
     kind = resolve_declared_kind(content_mode, None)
     if kind == "segments":
         segment = _constrained_duration_item(
-            NarrationSegment, duration_type, "片段时长（秒），必须取 supported_durations 中的值"
+            NarrationSegment,
+            duration_type,
+            "片段时长（秒），必须取 supported_durations 中的值",
+            video_prompt_type=GeneratedVideoPrompt,
         )
         return create_model(
             "NarrationEpisodeScript",
@@ -991,7 +1035,12 @@ def build_episode_script_model(content_mode: str, supported_durations: list[int]
         )
     if kind == "shots":
         return _ad_episode_model(duration_type, "镜头时长（秒），必须取 supported_durations 中的值")
-    scene = _constrained_duration_item(DramaScene, duration_type, "场景时长（秒），必须取 supported_durations 中的值")
+    scene = _constrained_duration_item(
+        DramaScene,
+        duration_type,
+        "场景时长（秒），必须取 supported_durations 中的值",
+        video_prompt_type=GeneratedDramaVideoPrompt,
+    )
     return create_model(
         "DramaEpisodeScript",
         __base__=DramaEpisodeScript,
@@ -1020,7 +1069,12 @@ def build_drama_normalized_script_model(supported_durations: list[int]) -> type[
 
 def _ad_episode_model(duration_type: object, description: str) -> type[BaseModel]:
     """ad 剧集脚本的动态包装骨架：两条生成路径共用，仅 ``duration_seconds`` 约束类型不同。"""
-    shot = _constrained_duration_item(AdShot, duration_type, description)
+    shot = _constrained_duration_item(
+        AdShot,
+        duration_type,
+        description,
+        video_prompt_type=GeneratedVideoPrompt,
+    )
     return create_model(
         "AdEpisodeScript",
         __base__=AdEpisodeScript,
@@ -1086,8 +1140,24 @@ def build_reference_video_script_model(supported_durations: list[int]) -> type[B
     叠加 ``ReferenceVideoUnit`` 既有的 ``duration_seconds == sum(shots)`` 一致性校验器，等价于强制
     「各 shot 之和 ∈ supported_durations」。``Shot.duration`` 仍保留 1-15 的合理性上限、不要求单 shot 成员。
     """
+    generated_shot = create_model(
+        "GeneratedReferenceShot",
+        __base__=Shot,
+        text=(
+            str,
+            Field(
+                min_length=GENERATED_REFERENCE_SHOT_TEXT_MIN_LENGTH,
+                description="可直接驱动参考视频生成的高密度镜头描述，含景别、构图、运镜与分阶段画面变化",
+            ),
+        ),
+    )
+    unit_with_long_shots = create_model(
+        "GeneratedReferenceVideoUnit",
+        __base__=ReferenceVideoUnit,
+        shots=(list[generated_shot], Field(min_length=1, max_length=4, description="1-4 个长描述 shot")),
+    )
     unit = _constrained_duration_item(
-        ReferenceVideoUnit,
+        unit_with_long_shots,
         _duration_literal(supported_durations),
         "所有 shot 时长之和，必须取 supported_durations 中的值",
     )
