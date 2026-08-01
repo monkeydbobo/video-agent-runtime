@@ -948,6 +948,17 @@ if (frontend_dist_dir / "index.html").is_file():
     async def spa_app_root() -> FileResponse:
         return FileResponse(spa_shell_path)
 
+    # Keep the conventional /favicon.png URL available for crawlers and tools
+    # that probe that path directly. The canonical favicon assets remain the
+    # files emitted from frontend/public and linked by the HTML shells.
+    favicon_png_file = frontend_dist_dir / "favicon-48x48.png"
+    if favicon_png_file.is_file():
+
+        async def favicon_png_alias() -> FileResponse:
+            return FileResponse(favicon_png_file, media_type="image/png")
+
+        app.add_api_route("/favicon.png", favicon_png_alias, methods=["GET", "HEAD"], include_in_schema=False)
+
     # 未知公开路径 → 真实 404；真实存在的静态文件（assets、favicon 等）仍由 frontend 挂载提供。
     app.frontend("/", directory=frontend_dist_dir, fallback=None)
 else:
