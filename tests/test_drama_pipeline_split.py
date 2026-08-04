@@ -25,6 +25,14 @@ from lib.script_models import (
     merge_drama_visual_into_scenes,
 )
 
+_LONG_GENERATED_ACTION = (
+    "起初林清保持低头坐姿，呼吸带动肩部轻微起伏，右手指尖停在信纸边缘；"
+    "随后他缓缓抬起头，视线由纸面平滑移向窗外，手指沿纸边连续摩挲，纸张受力产生细小弯曲；"
+    "中段窗外雨势逐渐增强，衣袖和发梢被穿堂风轻轻带动，桌面水痕反光缓慢移动；"
+    "末段抬头动作逐步减速，手指放松并停在信纸一角，呼吸恢复平稳；"
+    "人物轴线、面部结构、肢体比例和与桌面的接触关系始终保持稳定，最终姿态清楚可辨。"
+)
+
 
 def _content_scene(scene_id: str = "E1S01", **overrides) -> dict:
     base = {
@@ -53,7 +61,7 @@ def _visual_scene(scene_id: str = "E1S01", **overrides) -> dict:
             "composition": {"shot_type": "Medium Shot", "lighting": "逆光蓝灰", "ambiance": "雨丝拍窗"},
         },
         "video_prompt": {
-            "action": "林清缓缓抬起头，手指摩挲信纸边缘。",
+            "action": _LONG_GENERATED_ACTION,
             "camera_motion": "Static",
             "ambiance_audio": "雨声渐大",
         },
@@ -155,7 +163,7 @@ class TestDramaSceneVisual:
             DramaSceneVisual.model_validate(
                 _visual_scene(
                     video_prompt={
-                        "action": "x",
+                        "action": _LONG_GENERATED_ACTION,
                         "camera_motion": "Static",
                         "ambiance_audio": "y",
                         "dialogue": [],

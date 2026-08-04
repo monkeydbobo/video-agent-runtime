@@ -85,7 +85,7 @@ def test_build_reference_video_prompt_emphasizes_no_appearance_description():
 
 
 def test_build_reference_video_prompt_structures_shot_text_by_four_elements():
-    """shot text 指导按景别 / 构图 / 运镜 / 画面内容四要素组织（对抗生成过短的镜头描述）。"""
+    """shot text 按四要素和时间过程扩写，并针对 6 秒镜头给足细节量。"""
     prompt = build_reference_video_prompt(
         project_overview={"synopsis": "s", "genre": "g", "theme": "t", "world_setting": "w"},
         style="s",
@@ -100,6 +100,11 @@ def test_build_reference_video_prompt_structures_shot_text_by_four_elements():
     )
     for element in ("景别", "构图", "运镜", "画面内容"):
         assert element in prompt
+    assert "不得少于 180 个字符" in prompt
+    assert "4–6 秒约 240–360 字" in prompt
+    assert "起初状态" in prompt
+    assert "末段收束" in prompt
+    assert "人物比例与肢体结构保持稳定" in prompt
 
 
 def test_build_reference_video_prompt_injects_max_duration():

@@ -8,9 +8,28 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from lib.script_models import (
+    GENERATED_REFERENCE_SHOT_TEXT_MIN_LENGTH,
+    GENERATED_VIDEO_ACTION_MIN_LENGTH,
+    DramaScene,
+    DramaVisualScript,
     build_ad_reference_episode_script_model,
     build_episode_script_model,
     build_reference_video_script_model,
+)
+
+_LONG_ACTION = (
+    "起初主体保持稳定，随后动作缓慢启动，肢体幅度逐渐增加，接触物随受力轻微偏移；"
+    "中段动作维持平滑速度，衣摆、尘埃和反射随运动连续变化，视线与呼吸自然过渡；"
+    "前景轻微遮挡随主体移动产生连续视差，背景光斑沿运动方向缓慢滑动，接触位置没有跳变；"
+    "末段动作逐步减速并收束到清晰姿态，手指放松幅度逐渐减小，环境反馈随之平息；"
+    "主体轴线、比例、外形、空间关系和画面连续性始终保持稳定，最终停留姿态清楚可辨。"
+)
+_LONG_REFERENCE_TEXT = (
+    "景别采用中景平视，主体位于画面中央偏右，前景形成自然遮挡，背景引导线延伸至主体。"
+    "运镜从固定机位开始缓慢推近，焦点由手部平滑转移到双眼，末段推进速度逐渐降低。"
+    "起初主体保持短暂停顿，随后抬手接触物件并持续发力，手指逐节收紧，呼吸与视线同步变化；"
+    "中段衣摆和发丝受气流带动，细尘穿过光束，反射沿物件表面连续滑动，背景元素产生轻微视差；"
+    "末段所有动作平滑减速，主体停留在明确姿态，视线方向、人物比例、肢体结构和空间关系保持稳定。"
 )
 
 
@@ -31,6 +50,15 @@ def _duration_field_schema(model: type[BaseModel]) -> dict:
         if "duration_seconds" in props:
             return props["duration_seconds"]
     raise AssertionError("未在 $defs 中找到 duration_seconds 字段")
+
+
+def _min_length_for_property(model: type[BaseModel], property_name: str) -> int | None:
+    """从动态模型 $defs 中读取指定字符串字段的 minLength。"""
+    for definition in model.model_json_schema().get("$defs", {}).values():
+        field = definition.get("properties", {}).get(property_name, {})
+        if "minLength" in field:
+            return field["minLength"]
+    return None
 
 
 class TestBuildEpisodeScriptModel:
@@ -82,7 +110,7 @@ class TestConstrainedValidation:
                         "composition": {"shot_type": "Medium Shot", "lighting": "暖光", "ambiance": "薄雾"},
                     },
                     "video_prompt": {
-                        "action": "转身",
+                        "action": _LONG_ACTION,
                         "camera_motion": "Static",
                         "ambiance_audio": "风声",
                         "dialogue": [],
@@ -126,6 +154,58 @@ class TestConstrainedValidation:
         with pytest.raises(ValidationError):
             model.model_validate(payload)
 
+    def test_generated_action_schema_has_long_description_floor(self):
+        assert _min_length_for_property(DramaVisualScript, "action") == GENERATED_VIDEO_ACTION_MIN_LENGTH
+        assert (
+            _min_length_for_property(build_episode_script_model("narration", [4, 6, 8]), "action")
+            == GENERATED_VIDEO_ACTION_MIN_LENGTH
+        )
+
+    def test_visual_generation_rejects_short_action_and_accepts_detailed_action(self):
+        payload = {
+            "title": "第一集",
+            "scenes": [
+                {
+                    "scene_id": "E1S01",
+                    "image_prompt": {
+                        "scene": "场景",
+                        "composition": {"shot_type": "Medium Shot", "lighting": "暖光", "ambiance": "薄雾"},
+                    },
+                    "video_prompt": {
+                        "action": "转身",
+                        "camera_motion": "Static",
+                        "ambiance_audio": "风声",
+                    },
+                }
+            ],
+        }
+        with pytest.raises(ValidationError):
+            DramaVisualScript.model_validate(payload)
+
+        payload["scenes"][0]["video_prompt"]["action"] = _LONG_ACTION
+        validated = DramaVisualScript.model_validate(payload)
+        assert validated.scenes[0].video_prompt.action == _LONG_ACTION
+
+    def test_static_scene_still_accepts_legacy_short_action(self):
+        """生成 schema 收紧不能让存量短 prompt 无法读取。"""
+        scene = DramaScene.model_validate(
+            {
+                "scene_id": "E1S01",
+                "duration_seconds": 6,
+                "characters_in_scene": [],
+                "image_prompt": {
+                    "scene": "场景",
+                    "composition": {"shot_type": "Medium Shot", "lighting": "暖光", "ambiance": "薄雾"},
+                },
+                "video_prompt": {
+                    "action": "转身",
+                    "camera_motion": "Static",
+                    "ambiance_audio": "风声",
+                },
+            }
+        )
+        assert scene.video_prompt.action == "转身"
+
     def test_drama_out_of_set_duration_rejected(self):
         model = build_episode_script_model("drama", [4, 6, 8])
         payload = {
@@ -141,7 +221,7 @@ class TestConstrainedValidation:
                         "composition": {"shot_type": "Medium Shot", "lighting": "暖光", "ambiance": "薄雾"},
                     },
                     "video_prompt": {
-                        "action": "转身",
+                        "action": _LONG_ACTION,
                         "camera_motion": "Static",
                         "ambiance_audio": "风声",
                         "dialogue": [],
@@ -168,7 +248,7 @@ class TestConstrainedValidation:
                         "composition": {"shot_type": "Medium Shot", "lighting": "暖光", "ambiance": "薄雾"},
                     },
                     "video_prompt": {
-                        "action": "转身",
+                        "action": _LONG_ACTION,
                         "camera_motion": "Static",
                         "ambiance_audio": "风声",
                         "dialogue": [],
@@ -192,7 +272,9 @@ class TestReferenceVideoModel:
             "video_units": [
                 {
                     "unit_id": "E1U01",
-                    "shots": [{"duration": d, "text": f"@甲 动作 {i}"} for i, d in enumerate(shots)],
+                    "shots": [
+                        {"duration": d, "text": f"{_LONG_REFERENCE_TEXT} 镜头序号 {i}"} for i, d in enumerate(shots)
+                    ],
                     "references": [{"type": "character", "name": "甲"}],
                     "duration_seconds": total,
                 }
@@ -204,6 +286,15 @@ class TestReferenceVideoModel:
         schema = model.model_json_schema()
         unit_def = next(d for d in schema["$defs"].values() if "shots" in d.get("properties", {}))
         assert unit_def["properties"]["duration_seconds"].get("enum") == [4, 6, 8]
+
+    def test_generated_shot_text_has_long_description_floor(self):
+        model = build_reference_video_script_model([4, 6, 8])
+        assert _min_length_for_property(model, "text") == GENERATED_REFERENCE_SHOT_TEXT_MIN_LENGTH
+
+        payload = self._unit_payload(shots=[4], total=4)
+        payload["video_units"][0]["shots"][0]["text"] = "@[甲] 转身"
+        with pytest.raises(ValidationError):
+            model.model_validate(payload)
 
     def test_sum_in_set_accepted(self):
         model = build_reference_video_script_model([4, 6, 8])
@@ -244,7 +335,7 @@ class TestAdReferenceModel:
                         "composition": {"shot_type": "Medium Shot", "lighting": "暖光", "ambiance": "薄雾"},
                     },
                     "video_prompt": {
-                        "action": "转身",
+                        "action": _LONG_ACTION,
                         "camera_motion": "Static",
                         "ambiance_audio": "风声",
                         "dialogue": [],

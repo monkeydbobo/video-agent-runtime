@@ -15,7 +15,7 @@ useAuthStore.getState().initialize();
 
 const root = document.getElementById("app-root");
 
-async function boot(): Promise<void> {
+function boot(): void {
   if (!root) return;
 
   // 预渲染专题页不应挂载 React（构建期已剥离 script；此处仅为防御）。
@@ -32,4 +32,4 @@ async function boot(): Promise<void> {
   });
 }
 
-void boot();
+boot();

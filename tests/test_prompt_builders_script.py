@@ -477,7 +477,7 @@ class TestDramaDurationSpeechLowerBound:
 
 class TestStep2PromptGuards:
     """step2（视觉层）prompt 骨架守卫：节奏建议始终注入、schema 枚举不重复列举、
-    无字数硬限制、episode 约束在场且 scene_id 对齐要求不施加固定格式。"""
+    视频动作有防退化长度与按时长分档、episode 约束在场且 scene_id 对齐要求不施加固定格式。"""
 
     @staticmethod
     def _squash(text: str) -> str:
@@ -519,11 +519,15 @@ class TestStep2PromptGuards:
         assert "Tracking Shot" not in text
         assert "Pan Left, Pan Right" not in text
 
-    def test_drama_no_hard_char_limit(self):
-        """LLM 无法精确数字数，prompt 不写硬性字数上限。"""
-        text = self._drama_prompt()
-        assert "200 字以内" not in text
-        assert "150 字以内" not in text
+    def test_video_action_requires_long_duration_aware_description(self):
+        """视频 action 设防退化下限，并把 6 秒镜头引导到远高于原 64 字的细节量。"""
+        for text in (self._drama_prompt(), self._narration_prompt()):
+            assert "不得少于 120 个字符" in text
+            assert "5–6 秒约 180–260 字" in text
+            assert "起初状态" in text
+            assert "中段发展" in text
+            assert "末段收束" in text
+            assert "不存在限制细节的硬上限" in text
 
     def test_drama_injects_episode_constraints(self):
         """drama prompt 必须明确告知 LLM 当前 episode，避免 ID 跨集污染。"""
