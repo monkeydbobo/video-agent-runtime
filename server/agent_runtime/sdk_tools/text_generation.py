@@ -41,7 +41,7 @@ from lib.script_models import (
     build_drama_normalized_script_model,
     build_reference_units_step1_model,
 )
-from lib.text_backends.base import DEFAULT_MAX_OUTPUT_TOKENS, TextGenerationRequest, TextTaskType
+from lib.text_backends.base import TextGenerationRequest, TextTaskType
 from lib.text_generator import TextGenerator
 from lib.text_utils import strip_json_code_fences
 from server.agent_runtime.sdk_tools._context import ToolContext, fetch_video_caps, tool_error
@@ -422,7 +422,6 @@ def normalize_drama_script_tool(ctx: ToolContext):
                 TextGenerationRequest(
                     prompt=prompt,
                     response_schema=schema,
-                    max_output_tokens=DEFAULT_MAX_OUTPUT_TOKENS,
                 ),
                 project_name=ctx.project_name,
             )
@@ -612,7 +611,6 @@ def split_reference_video_units_tool(ctx: ToolContext):
                 TextGenerationRequest(
                     prompt=prompt,
                     response_schema=schema,
-                    max_output_tokens=DEFAULT_MAX_OUTPUT_TOKENS,
                 ),
                 project_name=ctx.project_name,
             )
@@ -802,7 +800,6 @@ def split_narration_segments_tool(ctx: ToolContext):
                 TextGenerationRequest(
                     prompt=prompt,
                     response_schema=NarrationStep1Draft,
-                    max_output_tokens=DEFAULT_MAX_OUTPUT_TOKENS,
                 ),
                 project_name=ctx.project_name,
             )

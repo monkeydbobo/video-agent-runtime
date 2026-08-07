@@ -36,7 +36,6 @@ from lib.episode_paths import episode_script_relpath
 from lib.project_manager import ProjectManager, resolve_source_kind
 from lib.project_paths import project_user_scope
 from lib.text_backends.base import (
-    DEFAULT_MAX_OUTPUT_TOKENS,
     TextGenerationRequest,
     TextOutputTruncatedError,
     TextTaskType,
@@ -855,7 +854,6 @@ class EpisodePlanner:
                     TextGenerationRequest(
                         prompt=prompt_builder(failure),
                         response_schema=draft_model,
-                        max_output_tokens=DEFAULT_MAX_OUTPUT_TOKENS,
                     ),
                     project_name=self.project_name,
                 )

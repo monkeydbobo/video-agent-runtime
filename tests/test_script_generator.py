@@ -604,10 +604,9 @@ class TestScriptGenerator:
         assert "source_text" not in props
         assert "duration_seconds" not in props
 
-    async def test_generate_sets_script_max_output_tokens(self, tmp_path):
-        """drama step2 generate 应在 TextGenerationRequest 上设置共享输出上限（DEFAULT_MAX_OUTPUT_TOKENS）。"""
+    async def test_generate_omits_script_max_output_tokens(self, tmp_path):
+        """drama step2 generate 默认不传 max_output_tokens，交给供应商/模型自身上限。"""
         from lib.script_models import DramaVisualMergeError
-        from lib.text_backends.base import DEFAULT_MAX_OUTPUT_TOKENS
 
         project_path = tmp_path / "demo"
         _write_drama_ledger_project(
@@ -623,8 +622,7 @@ class TestScriptGenerator:
         with pytest.raises(DramaVisualMergeError):
             await generator.generate(1)
 
-        assert fake.backend.last_request.max_output_tokens == DEFAULT_MAX_OUTPUT_TOKENS
-        assert DEFAULT_MAX_OUTPUT_TOKENS >= 16000
+        assert fake.backend.last_request.max_output_tokens is None
 
     async def test_generate_without_backend_raises(self, tmp_path):
         """未注入 backend 时调用 generate() 应抛 RuntimeError。"""
